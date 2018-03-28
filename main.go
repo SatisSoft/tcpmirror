@@ -83,7 +83,7 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 	}
 }
 
-func connect(origin net.Conn, forwarder net.Conn, mirrors []mirror, useZeroCopy bool, errChServer errChMirrors, errChClient chan error) {
+func connect(origin net.Conn, forwarder net.Conn, mirrors []mirror, errChServer, errChMirrors, errChClient chan error) {
 
 	for i := 0; i < len(mirrors); i++ {
 		go readAndDiscard(mirrors[i], errChMirrors)
@@ -168,7 +168,7 @@ func main() {
 			errChMirrors := make(chan error)
 			errChClient := make(chan error)
 			
-			connect(c, cF, mirrors, useZeroCopy, errChServer, errChMirrors, errChClient)
+			connect(c, cF, mirrors, errChServer, errChMirrors, errChClient)
 
 			FORLOOP:
 			for {
