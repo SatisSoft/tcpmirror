@@ -5,10 +5,7 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"os"
 	"strings"
-
-	"golang.org/x/sys/unix"
 )
 
 const (
