@@ -79,7 +79,7 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 						c, err := net.Dial("tcp", (*m).addr)
 						if err != nil {
 							log.Printf("error reconnect to mirror")
-							time.Sleep(60 * time.Second).
+							time.Sleep(60 * time.Second)
 						} else {
 							(*m).conn = c
 							(*m).closed = false
