@@ -85,7 +85,7 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 							(*m).closed = false
 						}
 						(*m).recon = false
-					}(&(mirrors[i])
+					}(&(mirrors[i]))
 				}
 				continue
 			}
