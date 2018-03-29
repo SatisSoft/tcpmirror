@@ -2,6 +2,7 @@ package main
 
 import (
 	"flag"
+	"time"
 	"fmt"
 	"log"
 	"net"
@@ -16,16 +17,20 @@ type mirror struct {
 	addr   string
 	conn   net.Conn
 	closed bool
+	recon  bool
 }
 
 func mirror2null(m *mirror, errChMirrors chan error) {
 	for {
 		var b [defaultBufferSize]byte
 		_, err := (*m).conn.Read(b[:])
-		if err != nil {
+		if (err != nil && !(*m).closed) {
 			(*m).conn.Close()
 			(*m).closed = true
 			errChMirrors <- err
+			return
+		}
+		if (*m).closed {
 			return
 		}
 	}
@@ -68,6 +73,20 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 		for i := 0; i < len(mirrors); i++ {
 			if mirrors[i].closed {
 				log.Printf("don't send message to closed mirror conn")
+				if !mirrors[i].recon {
+					mirrors[i].recon = true
+					go func(m *mirror) {
+						c, err := net.Dial("tcp", (*m).addr)
+						if err != nil {
+							log.Printf("error reconnect to mirror")
+							time.Sleep(60 * time.Second).
+						} else {
+							(*m).conn = c
+							(*m).closed = false
+						}
+						(*m).recon = false
+					}(&(mirrors[i])
+				}
 				continue
 			}
 			_, err = mirrors[i].conn.Write(b[:n])
@@ -157,6 +176,7 @@ func main() {
 						addr:   addr,
 						conn:   c,
 						closed: false,
+						recon:  false,
 					})
 				}
 			}
