@@ -75,7 +75,7 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 				log.Printf("don't send message to closed mirror conn")
 				if !mirrors[i].recon {
 					mirrors[i].recon = true
-					go func(m *mirror) {
+					go func(m *mirror, errChMirrors chan error) {
 						c, err := net.Dial("tcp", (*m).addr)
 						if err != nil {
 							log.Printf("error reconnect to mirror")
@@ -83,9 +83,10 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 						} else {
 							(*m).conn = c
 							(*m).closed = false
+							go mirror2null(m, errChMirrors)
 						}
 						(*m).recon = false
-					}(&(mirrors[i]))
+					}(&(mirrors[i]), errChMirrors)
 				}
 				continue
 			}
