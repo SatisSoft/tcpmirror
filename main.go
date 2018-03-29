@@ -21,10 +21,10 @@ type mirror struct {
 func readAndDiscard(m *mirror, errChMirrors chan error) {
 	for {
 		var b [defaultBufferSize]byte
-		_, err := *m.conn.Read(b[:])
+		_, err := (*m).conn.Read(b[:])
 		if err != nil {
-			*m.conn.Close()
-			*m.closed = true
+			(*m).conn.Close()
+			(*m).closed = true
 			errChMirrors <- err
 			return
 		}
