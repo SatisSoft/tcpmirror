@@ -18,13 +18,13 @@ type mirror struct {
 	closed bool
 }
 
-func readAndDiscard(m mirror, errChMirrors chan error) {
+func readAndDiscard(m *mirror, errChMirrors chan error) {
 	for {
 		var b [defaultBufferSize]byte
-		_, err := m.conn.Read(b[:])
+		_, err := *m.conn.Read(b[:])
 		if err != nil {
-			m.conn.Close()
-			m.closed = true
+			*m.conn.Close()
+			*m.closed = true
 			errChMirrors <- err
 			return
 		}
@@ -83,7 +83,7 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 func connect(origin net.Conn, forwarder net.Conn, mirrors []mirror, errChServer, errChMirrors, errChClient chan error) {
 
 	for i := 0; i < len(mirrors); i++ {
-		go readAndDiscard(mirrors[i], errChMirrors)
+		go readAndDiscard(&(mirrors[i]), errChMirrors)
 	}
 
 	go server2client(forwarder, origin, errChServer, errChClient)
