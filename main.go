@@ -83,7 +83,7 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 func connect(origin net.Conn, forwarder net.Conn, mirrors []mirror, errChServer, errChMirrors, errChClient chan error) {
 
 	for i := 0; i < len(mirrors); i++ {
-    go mirror2null(&(mirrors[i]), errChMirrors)
+		go mirror2null(&(mirrors[i]), errChMirrors)
 	}
 
 	go server2client(forwarder, origin, errChServer, errChClient)
@@ -170,14 +170,14 @@ func main() {
 			FORLOOP:
 			for {
 				select {
-				case err := <-errChMirrors:
-					log.Printf("error from mirror: %s", err)
-				case err := <-errChClient:
-					log.Printf("error from client: %s", err)
-					break FORLOOP
-				case err := <-errChServer:
-					log.Printf("error from server: %s", err)
-					break FORLOOP
+					case err := <-errChMirrors:
+						log.Printf("error from mirror: %s", err)
+					case err := <-errChClient:
+						log.Printf("error from client: %s", err)
+						break FORLOOP
+					case err := <-errChServer:
+						log.Printf("error from server: %s", err)
+						break FORLOOP
 				}
 			}
 
