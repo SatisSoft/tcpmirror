@@ -287,16 +287,8 @@ func main() {
 func change_address(data []byte, ip net.IP){
 	start := []byte{0x7E, 0x7E}
 	index1 := bytes.Index(data, start)
-	for i,j := index1+31,0 ; i<35; i,j = i+1, j+1{
+	for i,j := index1+9,0 ; i<index1+13; i,j = i+1, j+1{
 		data[i] = ip[j]
-	}
-	lenData1 := binary.LittleEndian.Uint16(data[index1+2:index1+4])
-	newCrc := crc16(data[index1+headerSize:index1+headerSize+int(lenData1)])
-	nn := make([]byte, 2)
-	binary.BigEndian.PutUint16(nn,newCrc)
-	log.Printf("%T %x\n", nn, nn)
-	for i,j := index1+6,0 ; i<8; i,j = i+1, j+1{
-		data[i] = nn[j]
 	}
 }
 
