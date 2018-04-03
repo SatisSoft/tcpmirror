@@ -87,19 +87,23 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 							(*m).conn = c
 							(*m).closed = false
 							firstLen := len(firstMesMir)
-							_, err = mirrors[i].conn.Write(firstMesMir[:firstLen])
+							_, err = (*m).conn.Write(firstMesMir[:firstLen])
 							if err != nil {
-								mirrors[i].conn.Close()
-								mirrors[i].closed = true
+								(*m).conn.Close()
+								(*m).closed = true
 								errChMirrors <- err
+							} else {
+								log.Printf("send firstMesMir success")
+								_, err = (*m).conn.Write(b[:n])
+								if err != nil {
+									(*m).conn.Close()
+									(*m).closed = true
+									errChMirrors <- err
+								} else {
+									log.Printf("send rest of buffer success")
+									go mirror2null(m, errChMirrors)
+									}
 							}
-							_, err = mirrors[i].conn.Write(b[:n])
-							if err != nil {
-								mirrors[i].conn.Close()
-								mirrors[i].closed = true
-								errChMirrors <- err
-							}
-							go mirror2null(m, errChMirrors)
 						}
 						(*m).recon = false
 					}(&(mirrors[i]), errChMirrors)
@@ -202,7 +206,7 @@ func main() {
 			}
 			log.Printf("%d got first message from client %s", connNo, c.RemoteAddr())
 			firstMessage := b[:n]
-			log.Printf("%d receive message %x ", connNo, firstMessage)
+			//log.Printf("%d receive message %x ", connNo, firstMessage)
 			//parse first message
 			if !verificate_message(firstMessage, n){
 				log.Printf("error: first message is incorrect")
@@ -214,10 +218,10 @@ func main() {
 			ip := get_ip(c)
 			log.Printf("conn %d: ip: %s\n", connNo, ip)
 			//TODO remove from prod after testing
-			log.Printf("before change %x ", firstMessage)
+			//log.Printf("before change %x ", firstMessage)
 			change_address(firstMessage, ip)
 			//TODO remove from prod after testing
-			log.Printf("after change %x ", firstMessage)
+			//log.Printf("after change %x ", firstMessage)
 
 			cF, err := net.Dial("tcp", forwardAddress)
 			if err != nil {
@@ -263,12 +267,12 @@ func main() {
 				for {
 					select {
 						case err := <-errChMirrors:
-							log.Printf("error from mirror: %s", err)
+							log.Printf("%d error from mirror: %s", connNo, err)
 						case err := <-errChClient:
-							log.Printf("error from client: %s", err)
+							log.Printf("%d error from client: %s", connNo, err)
 							break FORLOOP
 						case err := <-errChServer:
-							log.Printf("error from server: %s", err)
+							log.Printf("%d error from server: %s", connNo, err)
 							break FORLOOP
 					}
 				}
