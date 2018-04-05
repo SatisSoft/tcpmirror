@@ -14,6 +14,7 @@ import (
 const (
 	defaultBufferSize = 1024
 	headerSize = 15
+	writeTimeout = 10*time.Second
 )
 
 type mirror struct {
@@ -48,7 +49,7 @@ func server2client(from net.Conn, to net.Conn, errChServer, errChClient chan err
 			errChServer <- err
 			return
 		}
-
+		to.SetWriteDeadline(time.Now().Add(writeTimeout))
 		_, err = to.Write(b[:n])
 		if err != nil {
 			errChClient <- err
@@ -57,21 +58,24 @@ func server2client(from net.Conn, to net.Conn, errChServer, errChClient chan err
 	}
 }
 
-func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, errChMirrors, errChClient chan error, firstMesMir []byte) {
+func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, errChMirrors, errChClient chan error, firstMesMir []byte, connNo uint64) {
 	for {
 		var b [defaultBufferSize]byte
-
 		n, err := from.Read(b[:])
 		if err != nil {
 			errChClient <- err
 			return
 		}
+		//TODO remove after testing
+		log.Printf("connNo %d: read %d bytes from client", connNo, n)
 
+		to.SetWriteDeadline(time.Now().Add(writeTimeout))
 		_, err = to.Write(b[:n])
 		if err != nil {
 			errChServer <- err
 			return
 		}
+		log.Printf("connNo %d: write %d bytes to server", connNo, n)
 
 		for i := 0; i < len(mirrors); i++ {
 			if mirrors[i].closed {
@@ -87,6 +91,7 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 							(*m).conn = c
 							(*m).closed = false
 							firstLen := len(firstMesMir)
+							(*m).conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 							_, err = (*m).conn.Write(firstMesMir[:firstLen])
 							if err != nil {
 								(*m).conn.Close()
@@ -94,6 +99,7 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 								errChMirrors <- err
 							} else {
 								log.Printf("send firstMesMir success")
+								(*m).conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 								_, err = (*m).conn.Write(b[:n])
 								if err != nil {
 									(*m).conn.Close()
@@ -109,12 +115,14 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 					}(&(mirrors[i]), errChMirrors)
 				}
 				continue
-			}
-			_, err = mirrors[i].conn.Write(b[:n])
-			if err != nil {
-				mirrors[i].conn.Close()
-				mirrors[i].closed = true
-				errChMirrors <- err
+			} else {
+				mirrors[i].conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+				_, err = mirrors[i].conn.Write(b[:n])
+				if err != nil {
+					mirrors[i].conn.Close()
+					mirrors[i].closed = true
+					errChMirrors <- err
+				}
 			}
 		}
 	}
@@ -122,12 +130,14 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 
 func send_first_message(from net.Conn, to net.Conn, mirrors []mirror, firstMessage, firstMesMir []byte) bool {
 	n := len(firstMessage)
+	to.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err := to.Write(firstMessage[:n])
 	if err != nil {
 		return false
 	}
 
 	for i := 0; i < len(mirrors); i++ {
+		mirrors[i].conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 		_, err = mirrors[i].conn.Write(firstMesMir[:n])
 		if err != nil {
 			mirrors[i].conn.Close()
@@ -139,12 +149,12 @@ func send_first_message(from net.Conn, to net.Conn, mirrors []mirror, firstMessa
 
 
 
-func connect(origin net.Conn, forwarder net.Conn, mirrors []mirror, errChServer, errChMirrors, errChClient chan error, firstMesMir []byte) {
+func connect(origin net.Conn, forwarder net.Conn, mirrors []mirror, errChServer, errChMirrors, errChClient chan error, firstMesMir []byte, connNo uint64) {
 		for i := 0; i < len(mirrors); i++ {
 			go mirror2null(&(mirrors[i]), errChMirrors)
 		}
 		go server2client(forwarder, origin, errChServer, errChClient)
-		go client2server(origin, forwarder, mirrors, errChServer, errChMirrors, errChClient, firstMesMir)
+		go client2server(origin, forwarder, mirrors, errChServer, errChMirrors, errChClient, firstMesMir, connNo)
 }
 
 type mirrorList []string
@@ -243,7 +253,8 @@ func main() {
 						closed: false,
 						recon:  false,
 					})
-				}
+					}
+
 			}
 
 			errChServer := make(chan error)
@@ -261,7 +272,7 @@ func main() {
 			} else{
 				log.Printf("%d sended first message %s", connNo, ip)
 
-				connect(c, cF, mirrors, errChServer, errChMirrors, errChClient, firstMesMir)
+				connect(c, cF, mirrors, errChServer, errChMirrors, errChClient, firstMesMir, connNo)
 
 				FORLOOP:
 				for {
