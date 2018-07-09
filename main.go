@@ -1,20 +1,20 @@
 package main
 
 import (
+	"bytes"
+	"encoding/binary"
 	"flag"
-	"time"
 	"fmt"
 	"log"
 	"net"
 	"strings"
-	"bytes"
-	"encoding/binary"
+	"time"
 )
 
 const (
 	defaultBufferSize = 1024
-	headerSize = 15
-	writeTimeout = 10*time.Second
+	headerSize        = 15
+	writeTimeout      = 10 * time.Second
 )
 
 type mirror struct {
@@ -28,7 +28,7 @@ func mirror2null(m *mirror, errChMirrors chan error) {
 	for {
 		var b [defaultBufferSize]byte
 		_, err := (*m).conn.Read(b[:])
-		if (err != nil && !(*m).closed) {
+		if err != nil && !(*m).closed {
 			(*m).conn.Close()
 			(*m).closed = true
 			errChMirrors <- err
@@ -108,7 +108,7 @@ func client2server(from net.Conn, to net.Conn, mirrors []mirror, errChServer, er
 								} else {
 									log.Printf("send rest of buffer success")
 									go mirror2null(m, errChMirrors)
-									}
+								}
 							}
 						}
 						(*m).recon = false
@@ -147,14 +147,12 @@ func send_first_message(from net.Conn, to net.Conn, mirrors []mirror, firstMessa
 	return true
 }
 
-
-
 func connect(origin net.Conn, forwarder net.Conn, mirrors []mirror, errChServer, errChMirrors, errChClient chan error, firstMesMir []byte, connNo uint64) {
-		for i := 0; i < len(mirrors); i++ {
-			go mirror2null(&(mirrors[i]), errChMirrors)
-		}
-		go server2client(forwarder, origin, errChServer, errChClient)
-		go client2server(origin, forwarder, mirrors, errChServer, errChMirrors, errChClient, firstMesMir, connNo)
+	for i := 0; i < len(mirrors); i++ {
+		go mirror2null(&(mirrors[i]), errChMirrors)
+	}
+	go server2client(forwarder, origin, errChServer, errChClient)
+	go client2server(origin, forwarder, mirrors, errChServer, errChMirrors, errChClient, firstMesMir, connNo)
 }
 
 type mirrorList []string
@@ -204,7 +202,6 @@ func main() {
 
 		log.Printf("accepted connection %d (%s <-> %s)", connNo, c.RemoteAddr(), c.LocalAddr())
 
-
 		go func(c net.Conn, connNo uint64) {
 			//get first message
 			var b [defaultBufferSize]byte
@@ -218,7 +215,7 @@ func main() {
 			firstMessage := b[:n]
 			//log.Printf("%d receive message %x ", connNo, firstMessage)
 			//parse first message
-			if !verificate_message(firstMessage, n){
+			if !verificate_message(firstMessage, n) {
 				log.Printf("error: first message is incorrect")
 				c.Close()
 				return
@@ -253,7 +250,7 @@ func main() {
 						closed: false,
 						recon:  false,
 					})
-					}
+				}
 
 			}
 
@@ -261,30 +258,29 @@ func main() {
 			errChMirrors := make(chan error)
 			errChClient := make(chan error)
 
-
-			if !send_first_message(c, cF, mirrors, firstMessage, firstMesMir){
+			if !send_first_message(c, cF, mirrors, firstMessage, firstMesMir) {
 				log.Printf("%d error while sending first message %s", connNo, ip)
 				c.Close()
 				cF.Close()
 				for _, m := range mirrors {
 					m.conn.Close()
 				}
-			} else{
+			} else {
 				log.Printf("%d sended first message %s", connNo, ip)
 
 				connect(c, cF, mirrors, errChServer, errChMirrors, errChClient, firstMesMir, connNo)
 
-				FORLOOP:
+			FORLOOP:
 				for {
 					select {
-						case err := <-errChMirrors:
-							log.Printf("%d error from mirror: %s", connNo, err)
-						case err := <-errChClient:
-							log.Printf("%d error from client: %s", connNo, err)
-							break FORLOOP
-						case err := <-errChServer:
-							log.Printf("%d error from server: %s", connNo, err)
-							break FORLOOP
+					case err := <-errChMirrors:
+						log.Printf("%d error from mirror: %s", connNo, err)
+					case err := <-errChClient:
+						log.Printf("%d error from client: %s", connNo, err)
+						break FORLOOP
+					case err := <-errChServer:
+						log.Printf("%d error from server: %s", connNo, err)
+						break FORLOOP
 					}
 				}
 				c.Close()
@@ -299,47 +295,47 @@ func main() {
 	}
 }
 
-func change_address(data []byte, ip net.IP){
+func change_address(data []byte, ip net.IP) {
 	start := []byte{0x7E, 0x7E}
 	index1 := bytes.Index(data, start)
-	for i,j := index1+9,0 ; i<index1+13; i,j = i+1, j+1{
+	for i, j := index1+9, 0; i < index1+13; i, j = i+1, j+1 {
 		data[i] = ip[j]
 	}
 }
 
-func get_ip(c net.Conn) net.IP{
+func get_ip(c net.Conn) net.IP {
 	ipPort := strings.Split(c.RemoteAddr().String(), ":")
 	ip := ipPort[0]
 	ip1 := net.ParseIP(ip)
 	return ip1.To4()
 }
 
-func verificate_message(data []byte, lenData int) bool{
+func verificate_message(data []byte, lenData int) bool {
 	//check start symbols
 	start := []byte{0x7E, 0x7E}
 	index1 := bytes.Index(data, start)
 	//TODO remove from prod after testing
 	log.Printf("index1: %d\n", index1)
-	if index1 == -1{
+	if index1 == -1 {
 		log.Println("error: start symbols not found")
 		return false
 	}
 	//check packet size > header size
-	if lenData <= headerSize{
+	if lenData <= headerSize {
 		log.Println("error: packet length is smaller then header size")
 		return false
 	}
 	//check packet size > data field size
-	lenData1 := binary.LittleEndian.Uint16(data[index1+2:index1+4])
-	if lenData1 >= uint16(lenData){
+	lenData1 := binary.LittleEndian.Uint16(data[index1+2 : index1+4])
+	if lenData1 >= uint16(lenData) {
 		log.Println("error: packet length is smaller then data field size")
 		return false
 	}
 	//check crc if crc_flag == true
-	if binary.LittleEndian.Uint16(data[index1+4:index1+6]) & 2 != 0{
+	if binary.LittleEndian.Uint16(data[index1+4:index1+6])&2 != 0 {
 		log.Println("need to check crc")
-		crcHead := binary.BigEndian.Uint16(data[index1+6:index1+8])
-		crcCalc := crc16(data[index1+headerSize:index1+headerSize+int(lenData1)])
+		crcHead := binary.BigEndian.Uint16(data[index1+6 : index1+8])
+		crcCalc := crc16(data[index1+headerSize : index1+headerSize+int(lenData1)])
 		//TODO remove from prod after testing
 		log.Printf("Crc header: %x; Crc calc: %x\n", crcHead, crcCalc)
 		if crcHead != crcCalc {
@@ -350,7 +346,7 @@ func verificate_message(data []byte, lenData int) bool{
 		log.Println("don't need to check crc")
 	}
 	//check service_id == NPH_SRV_GENERIC_CONTROLS and type == NPH_SGC_CONN_REQUEST
-	if binary.LittleEndian.Uint16(data[index1+15:index1+17]) != 0 || binary.LittleEndian.Uint16(data[index1+17:index1+19]) != 100{
+	if binary.LittleEndian.Uint16(data[index1+15:index1+17]) != 0 || binary.LittleEndian.Uint16(data[index1+17:index1+19]) != 100 {
 		log.Println("error: this is not CONN_REQUEST packet")
 		return false
 	}
