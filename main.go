@@ -28,26 +28,26 @@ func main() {
 				val := strconv.Itoa(num) + ":" + strconv.FormatInt(millisecs, 10)
 				_, err = c.Do("ZADD", num, millisecs, val)
 				if err != nil  {
-					fmt.Printf("error in request for %d connection: %s", num, err)
+					fmt.Printf("error in request for %d connection: %s\n", num, err)
 					return
 				}
 
 			}
 			res1, err := c.Do("ZRANGE", num, 0, 0)
 			if err != nil  {
-				fmt.Printf("error in request for %d connection: %s", num, err)
+				fmt.Printf("error in request for %d connection: %s\n", num, err)
 				return
 			}
 			fmt.Printf("%d connection result 1: %v", num, res1)
 			res2, err := c.Do("ZRANGE", num, 0, 2)
 			if err != nil  {
-				fmt.Printf("error in request for %d connection: %s", num, err)
+				fmt.Printf("error in request for %d connection: %s\n", num, err)
 				return
 			}
 			fmt.Printf("%d connection result 2: %v", num, res2)
 			res3, err := c.Do("ZRANGEBYSCORE", num, 0, getMill())
 			if err != nil  {
-				fmt.Printf("error in request for %d connection: %s", num, err)
+				fmt.Printf("error in request for %d connection: %s\n", num, err)
 				return
 			}
 			fmt.Printf("%d connection result 3: %v", num, res3)
@@ -56,7 +56,7 @@ func main() {
 				fmt.Printf("error in request for %d connection: %s", num, err)
 				return
 			}
-			fmt.Printf("%d connection result 4: %v", num, res4)
+			fmt.Printf("%d connection result 4: %v\n", num, res4)
 		}(num)
 	}
 	wg.Wait()
