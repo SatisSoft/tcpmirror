@@ -5,13 +5,17 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"strconv"
 	"time"
+	"sync"
 )
 
 func main() {
 	fmt.Println("start execution")
+	var wg sync.WaitGroup
 	for num := 0; num < 1; num++ {
+		wg.Add(1)
 		go func(num int) {
-			fmt.Println("start execution")
+			defer wg.Done()
+			fmt.Println("start execution goroutine")
 			c, err := redis.Dial("tcp", ":6379")
 			if err != nil {
 				fmt.Printf("error in %d connection: %s\n", num, err)
@@ -53,10 +57,9 @@ func main() {
 				return
 			}
 			fmt.Printf("%d connection result 4: %v", num, res4)
-
 		}(num)
-
 	}
+	wg.Wait()
 }
 
 func getMill() int64 {
