@@ -46,15 +46,13 @@ func main() {
 				return
 			}
 			defer c.Close()
-			for{
-				res, err := c.Do("BZPOPMIN", num)
-				if err != nil {
-					fmt.Printf("error in bzpopmin for %d key: %s\n", num, err)
-					return
-				}
-				fmt.Printf("result of type %[1]T: %[1]v\n", res)
-
+			time.Sleep(5)
+			res, err := c.Do("ZRANGE", 0, 0)
+			if err != nil {
+				fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
+				return
 			}
+			fmt.Printf("result of type %[1]T: %[1]v\n", res)
 
 		}(num)
 	}
