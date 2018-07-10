@@ -23,7 +23,7 @@ func test_throughput() {
 	fmt.Println("start test throughput")
 	con := metrics.NewCounter()
 	metrics.Register("throughput", con)
-	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.52:2003")
+	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
 	if err != nil{
 		fmt.Printf("error while connection to graphite: %s\n", err)
 	}
