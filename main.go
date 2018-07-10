@@ -51,7 +51,7 @@ func main() {
 				return
 			}
 			fmt.Printf("%d connection result 3: %v\n", num, res3)
-			res4, err := c.Do("ZRANGEBYSCORE", num, 0, getMill())
+			res4, err := c.Do("ZRANGEBYSCORE", num, 0, getMill()-1000)
 			if err != nil  {
 				fmt.Printf("error in request for %d connection: %s\n", num, err)
 				return
