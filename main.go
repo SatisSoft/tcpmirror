@@ -47,12 +47,13 @@ func main() {
 			}
 			defer c.Close()
 			time.Sleep(5)
-			res, err := c.Do("ZRANGE", num, 0, 0)
+			//res, err := c.Do("ZRANGE", num, 0, 0)
+			res, err := redis.Int64(c.Do("ZRANGE", num, 0, 0))
 			if err != nil {
 				fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
 				return
 			}
-			fmt.Printf("result of type %[1]T: %[1]v\n", res)
+			fmt.Printf("result of type %[1]T: %[1]v\n", res),
 
 		}(num)
 	}
