@@ -3,14 +3,20 @@ package main
 import (
 	"fmt"
 	"github.com/gomodule/redigo/redis"
+	"math/rand"
 	"strconv"
 	"sync"
 	"time"
 )
 
 const max = 1
+const vallen = 200
 
 func main() {
+	test2()
+}
+
+func test2() {
 	fmt.Println("start execution")
 	var wg sync.WaitGroup
 	for num := 0; num < max; num++ {
@@ -24,7 +30,58 @@ func main() {
 				return
 			}
 			defer c.Close()
-			for i := 0; i <10; i++ {
+			for i := 0; i < 10; i++ {
+				millisecs := getMill()
+				val := make([]byte, vallen)
+				rand.Read(val)
+				_, err = c.Do("ZADD", num, millisecs, val)
+				if err != nil {
+					fmt.Printf("error in request for %d connection: %s\n", num, err)
+					return
+				}
+				time.Sleep(1 * time.Second)
+			}
+		}(num)
+	}
+	for num := 0; num < max; num++ {
+		wg.Add(1)
+		go func(num int) {
+			defer wg.Done()
+			c, err := redis.Dial("tcp", ":6379")
+			if err != nil {
+				fmt.Printf("error in %d connection: %s\n", num, err)
+				return
+			}
+			defer c.Close()
+			time.Sleep(1 * time.Second)
+			res, err := redis.ByteSlices(c.Do("ZRANGE", num, 0, 0))
+			if err != nil {
+				fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
+				return
+			}
+			fmt.Printf("result of type %[1]T: %[1]v\n", res)
+			fmt.Printf("res[0] of type %[1]T: %[1]v\n", res[0])
+
+		}(num)
+	}
+	wg.Wait()
+}
+
+func test1() {
+	fmt.Println("start execution")
+	var wg sync.WaitGroup
+	for num := 0; num < max; num++ {
+		wg.Add(1)
+		go func(num int) {
+			defer wg.Done()
+			//fmt.Println("start execution goroutine")
+			c, err := redis.Dial("tcp", ":6379")
+			if err != nil {
+				fmt.Printf("error in %d connection: %s\n", num, err)
+				return
+			}
+			defer c.Close()
+			for i := 0; i < 10; i++ {
 				millisecs := getMill()
 				val := strconv.FormatInt(time.Now().UnixNano(), 10)
 				_, err = c.Do("ZADD", num, millisecs, val)
@@ -47,7 +104,6 @@ func main() {
 			}
 			defer c.Close()
 			time.Sleep(5 * time.Second)
-			//res, err := c.Do("ZRANGE", num, 0, 0)
 			res, err := redis.Int64s(c.Do("ZRANGE", num, 0, 0))
 			if err != nil {
 				fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
