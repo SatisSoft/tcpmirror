@@ -12,7 +12,7 @@ import (
 	"net"
 )
 
-const max = 10000
+const max = 5000
 const testlen = 10000
 const vallen = 200
 
@@ -31,9 +31,12 @@ func test_throughput() {
 	go graphite.Graphite(metrics.DefaultRegistry, 10e9, "tcpmirror.metrics", addr)
 	var wg sync.WaitGroup
 	for num := 0; num < max; num++ {
+		randval := rand.Int63n(1000)
+		fmt.Println(randval)
 		wg.Add(1)
-		go func(num int) {
+		go func(num int, randval int64) {
 			defer wg.Done()
+			time.Sleep(time.Duration(randval) * time.Millisecond)
 			c, err := redis.Dial("tcp", ":6379")
 			if err != nil {
 				fmt.Printf("error in %d connection: %s\n", num, err)
@@ -49,9 +52,9 @@ func test_throughput() {
 					fmt.Printf("error in request for %d connection: %s\n", num, err)
 					return
 				}
-				time.Sleep(100 * time.Millisecond)
+				time.Sleep(1 * time.Second)
 			}
-		}(num)
+		}(num, randval)
 	}
 	for num := 0; num < max; num++ {
 		wg.Add(1)
