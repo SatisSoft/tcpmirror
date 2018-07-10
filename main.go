@@ -74,6 +74,7 @@ func test_throughput() {
 					fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
 					return
 				}
+				time.Sleep(1 * time.Second)
 				conn.Inc(int64(len(res)))
 			}
 
