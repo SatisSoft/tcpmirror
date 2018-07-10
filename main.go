@@ -26,7 +26,7 @@ func main() {
 			defer c.Close()
 			for i := 0; i <10; i++ {
 				millisecs := getMill()
-				val := strconv.FormatInt(time.Now().UnixNano(), 10) + ":" + strconv.Itoa(i)
+				val := strconv.FormatInt(time.Now().UnixNano(), 10)
 				_, err = c.Do("ZADD", num, millisecs, val)
 				if err != nil {
 					fmt.Printf("error in request for %d connection: %s\n", num, err)
