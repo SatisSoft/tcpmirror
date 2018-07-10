@@ -12,7 +12,7 @@ import (
 	"net"
 )
 
-const max = 10000
+const max = 15000
 const testlen = 100
 const vallen = 200
 
