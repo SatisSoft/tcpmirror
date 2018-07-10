@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-const max = 10
+const max = 1
 
 func main() {
 	fmt.Println("start execution")
@@ -17,17 +17,16 @@ func main() {
 		wg.Add(1)
 		go func(num int) {
 			defer wg.Done()
-			fmt.Println("start execution goroutine")
+			//fmt.Println("start execution goroutine")
 			c, err := redis.Dial("tcp", ":6379")
 			if err != nil {
 				fmt.Printf("error in %d connection: %s\n", num, err)
 				return
 			}
 			defer c.Close()
-			fmt.Printf("%d connection established\n", num)
-			for {
+			for i := 0; i <10; i++ {
 				millisecs := getMill()
-				val := strconv.FormatInt(time.Now().UnixNano(), 10)
+				val := strconv.FormatInt(time.Now().UnixNano(), 10) + ":" + strconv.Itoa(i)
 				_, err = c.Do("ZADD", num, millisecs, val)
 				if err != nil {
 					fmt.Printf("error in request for %d connection: %s\n", num, err)
@@ -35,6 +34,28 @@ func main() {
 				}
 				time.Sleep(1 * time.Second)
 			}
+		}(num)
+	}
+	for num := 0; num < max; num++ {
+		wg.Add(1)
+		go func(num int) {
+			defer wg.Done()
+			c, err := redis.Dial("tcp", ":6379")
+			if err != nil {
+				fmt.Printf("error in %d connection: %s\n", num, err)
+				return
+			}
+			defer c.Close()
+			for{
+				res, err := c.Do("BZPOPMIN", num)
+				if err != nil {
+					fmt.Printf("error in bzpopmin for %d key: %s\n", num, err)
+					return
+				}
+				fmt.Printf("result of type %[1]T: %[1]v\n", res)
+
+			}
+
 		}(num)
 	}
 	wg.Wait()
