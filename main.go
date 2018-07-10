@@ -46,7 +46,7 @@ func main() {
 				return
 			}
 			defer c.Close()
-			time.Sleep(5)
+			time.Sleep(5 * time.Second)
 			//res, err := c.Do("ZRANGE", num, 0, 0)
 			res, err := redis.Int64s(c.Do("ZRANGE", num, 0, 0))
 			if err != nil {
