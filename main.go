@@ -21,8 +21,8 @@ func main() {
 
 func test_throughput() {
 	fmt.Println("start test throughput")
-	con := metrics.NewCounter()
-	metrics.Register("throughput", con)
+	conn := metrics.NewCounter()
+	metrics.Register("throughput", conn)
 	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
 	if err != nil{
 		fmt.Printf("error while connection to graphite: %s\n", err)
@@ -54,7 +54,7 @@ func test_throughput() {
 	}
 	for num := 0; num < max; num++ {
 		wg.Add(1)
-		go func(num int) {
+		go func(num int, conn metrics.Counter) {
 			defer wg.Done()
 			c, err := redis.Dial("tcp", ":6379")
 			if err != nil {
@@ -71,12 +71,10 @@ func test_throughput() {
 					fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
 					return
 				}
-				if res != nil {
-
-				}
+				conn.Inc(int64(len(res)))
 			}
 
-		}(num)
+		}(num, conn)
 	}
 	wg.Wait()
 }
