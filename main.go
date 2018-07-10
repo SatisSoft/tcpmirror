@@ -32,7 +32,6 @@ func test_throughput() {
 	var wg sync.WaitGroup
 	for num := 0; num < max; num++ {
 		randval := rand.Int63n(1000)
-		fmt.Println(randval)
 		wg.Add(1)
 		go func(num int, randval int64) {
 			defer wg.Done()
@@ -67,8 +66,7 @@ func test_throughput() {
 			}
 			defer c.Close()
 			time.Sleep(1 * time.Second)
-			testlen1 := testlen/10
-			for i := 0; i < testlen1; i++ {
+			for i := 0; i < testlen; i++ {
 				to := getMill()
 				from := to - 1000
 				res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", num, from, to))
@@ -135,5 +133,5 @@ func test1() {
 }
 
 func getMill() int64 {
-	return time.Now().UnixNano() / 100000
+	return time.Now().UnixNano() / 1000000
 }
