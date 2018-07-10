@@ -25,7 +25,7 @@ func main() {
 			fmt.Printf("%d connection established\n", num)
 			millisecs := getMill()
 			for i := 0; i < 10; i++ {
-				val := strconv.Itoa(num) + ":" + strconv.FormatInt(millisecs, 10)
+				val := strconv.Itoa(num) + ":" + strconv.FormatInt(millisecs, 10) + ":" + strconv.Itoa(i)
 				_, err = c.Do("ZADD", num, millisecs, val)
 				if err != nil  {
 					fmt.Printf("error in request for %d connection: %s\n", num, err)
