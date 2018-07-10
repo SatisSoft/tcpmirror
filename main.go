@@ -12,7 +12,8 @@ import (
 	"net"
 )
 
-const max = 1
+const max = 10000
+const testlen = 100
 const vallen = 200
 
 func main() {
@@ -39,7 +40,7 @@ func test_throughput() {
 				return
 			}
 			defer c.Close()
-			for i := 0; i < 100; i++ {
+			for i := 0; i < testlen; i++ {
 				millisecs := getMill()
 				val := make([]byte, vallen)
 				rand.Read(val)
@@ -48,7 +49,7 @@ func test_throughput() {
 					fmt.Printf("error in request for %d connection: %s\n", num, err)
 					return
 				}
-				time.Sleep(1 * time.Second)
+				time.Sleep(10 * time.Millisecond)
 			}
 		}(num)
 	}
@@ -63,7 +64,7 @@ func test_throughput() {
 			}
 			defer c.Close()
 			time.Sleep(1 * time.Second)
-			for i := 0; i < 100; i++ {
+			for i := 0; i < testlen; i++ {
 				to := getMill()
 				from := to - 1000
 				res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", num, from, to))
