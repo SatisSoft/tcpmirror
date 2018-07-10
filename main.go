@@ -47,7 +47,7 @@ func main() {
 			}
 			defer c.Close()
 			time.Sleep(5)
-			res, err := c.Do("ZRANGE", 0, 0)
+			res, err := c.Do("ZRANGE", num, 0, 0)
 			if err != nil {
 				fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
 				return
