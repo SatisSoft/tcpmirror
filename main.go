@@ -11,15 +11,88 @@ import (
 	"time"
 )
 
-const max = 500
-const testlen = 1800
+const max = 10
+const testlen = 10
 const vallen = 200
 
 func main() {
-	testLatAndTh()
+	testLatAndTh_rnis()
 }
 
-func testLatAndTh() {
+func testLatAndTh_rnis() {
+	fmt.Println("start test latency (rnis)")
+	gauge := metrics.NewGauge()
+	counter := metrics.NewCustomCounter()
+	queue := metrics.NewGauge()
+	total := metrics.NewCounter()
+	metrics.Register("throughput", counter)
+	metrics.Register("exec_time", gauge)
+	metrics.Register("total", total)
+	metrics.Register("queue_length", queue)
+	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
+	if err != nil {
+		fmt.Printf("error while connection to graphite: %s\n", err)
+	}
+	go graphite.Graphite(metrics.DefaultRegistry, 5*10e8, "tcpmirror.metrics", addr)
+	var wg sync.WaitGroup
+	wg.Add(1)
+	go periodicalLatencyCheck_rnis(&wg, gauge, queue)
+	for num := 0; num < max; num++ {
+		randval := rand.Int63n(1000)
+		wg.Add(1)
+		go periodicalWrite_rnis(&wg, num, randval, counter, total)
+	}
+	wg.Wait()
+}
+
+func periodicalWrite_rnis(wg *sync.WaitGroup, num int, randval int64, counter, total metrics.Counter) {
+	defer wg.Done()
+	time.Sleep(time.Duration(randval) * time.Millisecond)
+	c, err := redis.Dial("tcp", ":6379")
+	if err != nil {
+		fmt.Printf("error in %d connection: %s\n", num, err)
+		return
+	}
+	defer c.Close()
+	for i := 0; i < testlen; i++ {
+		mil := getMill()
+		val := make([]byte, vallen)
+		rand.Read(val)
+		_, err = c.Do("ZADD", "rnis", mil, val)
+		if err != nil {
+			fmt.Printf("error in request for %d connection: %s\n", num, err)
+			return
+		}
+		counter.Inc(1)
+		total.Inc(1)
+		time.Sleep(1 * time.Second)
+	}
+}
+
+func periodicalLatencyCheck_rnis(wg *sync.WaitGroup, gauge, queue metrics.Gauge) {
+	defer wg.Done()
+	c, err := redis.Dial("tcp", ":6379")
+	if err != nil {
+		fmt.Printf("error in read connection: %s\n", err)
+		return
+	}
+	defer c.Close()
+	len1 := testlen/5 +1
+	for i := 0; i < len1; i++ {
+		time0 := getMill()
+		res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, getMill()))
+		if err != nil {
+			fmt.Printf("error in ZRANGE: %s\n", err)
+			return
+		}
+		latency := getMill() - time0
+		gauge.Update(latency)
+		queue.Update(int64(len(res)))
+		time.Sleep(5 * time.Second)
+	}
+}
+
+func testLatAndTh_mgt() {
 	fmt.Println("start test latency")
 	sample := metrics.NewUniformSample(2500)
 	histogram := metrics.NewHistogram(sample)
@@ -37,12 +110,12 @@ func testLatAndTh() {
 	for num := 0; num < max; num++ {
 		randval := rand.Int63n(1000)
 		wg.Add(1)
-		go periodicalWrite(&wg, num, randval, counter, total, histogram)
+		go periodicalWrite_mgt(&wg, num, randval, counter, total, histogram)
 	}
 	wg.Wait()
 }
 
-func periodicalWrite(wg *sync.WaitGroup, num int, randval int64, counter, total metrics.Counter, histogram metrics.Histogram) {
+func periodicalWrite_mgt(wg *sync.WaitGroup, num int, randval int64, counter, total metrics.Counter, histogram metrics.Histogram) {
 	defer wg.Done()
 	time.Sleep(time.Duration(randval) * time.Millisecond)
 	c, err := redis.Dial("tcp", ":6379")
@@ -52,7 +125,7 @@ func periodicalWrite(wg *sync.WaitGroup, num int, randval int64, counter, total 
 	}
 	defer c.Close()
 	ch := make(chan int64, 60)
-	go periodicalLatencyCheck(num, ch, histogram)
+	go periodicalLatencyCheck_mgt(num, ch, histogram)
 	for i := 0; i < testlen; i++ {
 		mil := getMill()
 		val := make([]byte, vallen)
@@ -69,7 +142,7 @@ func periodicalWrite(wg *sync.WaitGroup, num int, randval int64, counter, total 
 	}
 }
 
-func periodicalLatencyCheck(num int, ch chan int64, histogram metrics.Histogram) {
+func periodicalLatencyCheck_mgt(num int, ch chan int64, histogram metrics.Histogram) {
 	c, err := redis.Dial("tcp", ":6379")
 	if err != nil {
 		fmt.Printf("error in %d connection: %s\n", num, err)
