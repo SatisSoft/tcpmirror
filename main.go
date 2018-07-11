@@ -35,7 +35,7 @@ func testLatAndTh() {
 	go graphite.Graphite(metrics.DefaultRegistry, 5*10e8, "tcpmirror.metrics", addr)
 	var wg sync.WaitGroup
 	for num := 0; num < max; num++ {
-		randval := rand.Int63n(10000)
+		randval := rand.Int63n(1000)
 		wg.Add(1)
 		go periodicalWrite(&wg, num, randval, counter, total, histogram)
 	}
