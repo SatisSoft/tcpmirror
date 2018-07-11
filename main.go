@@ -13,7 +13,7 @@ import (
 )
 
 const max = 10000
-const testlen = 10000
+const testlen = 3600
 const vallen = 200
 
 func main() {
@@ -22,8 +22,10 @@ func main() {
 
 func test_throughput() {
 	fmt.Println("start test throughput")
-	conn := metrics.NewCustomCounter()
-	metrics.Register("throughput", conn)
+	counter := metrics.NewCustomCounter()
+	metrics.Register("throughput", counter)
+	total := metrics.NewCounter()
+	metrics.Register("total", total)
 	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
 	if err != nil{
 		fmt.Printf("error while connection to graphite: %s\n", err)
@@ -33,7 +35,7 @@ func test_throughput() {
 	for num := 0; num < max; num++ {
 		randval := rand.Int63n(10000)
 		wg.Add(1)
-		go func(num int, randval int64) {
+		go func(num int, randval int64, total metrics.Counter) {
 			defer wg.Done()
 			time.Sleep(time.Duration(randval) * time.Millisecond)
 			c, err := redis.Dial("tcp", ":6379")
@@ -51,13 +53,14 @@ func test_throughput() {
 					fmt.Printf("error in request for %d connection: %s\n", num, err)
 					return
 				}
+				total.Inc(1)
 				time.Sleep(1 * time.Second)
 			}
-		}(num, randval)
+		}(num, randval, total)
 	}
 	for num := 0; num < max; num++ {
 		wg.Add(1)
-		go func(num int, conn metrics.Counter) {
+		go func(num int, counter metrics.Counter) {
 			defer wg.Done()
 			c, err := redis.Dial("tcp", ":6379")
 			if err != nil {
@@ -75,10 +78,10 @@ func test_throughput() {
 					return
 				}
 				time.Sleep(1 * time.Second)
-				conn.Inc(int64(len(res)))
+				counter.Inc(int64(len(res)))
 			}
 
-		}(num, conn)
+		}(num, counter)
 	}
 	wg.Wait()
 }
