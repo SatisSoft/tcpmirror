@@ -7,12 +7,12 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	"github.com/rcrowley/go-metrics"
-	"github.com/cyberdelia/go-metrics-graphite"
+	"github.com/ashirko/go-metrics"
+	"github.com/ashirko/go-metrics-graphite"
 	"net"
 )
 
-const max = 5000
+const max = 10000
 const testlen = 10000
 const vallen = 200
 
@@ -22,7 +22,7 @@ func main() {
 
 func test_throughput() {
 	fmt.Println("start test throughput")
-	conn := metrics.NewCounter()
+	conn := metrics.NewCustomCounter()
 	metrics.Register("throughput", conn)
 	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
 	if err != nil{
@@ -31,7 +31,7 @@ func test_throughput() {
 	go graphite.Graphite(metrics.DefaultRegistry, 10e9, "tcpmirror.metrics", addr)
 	var wg sync.WaitGroup
 	for num := 0; num < max; num++ {
-		randval := rand.Int63n(1000)
+		randval := rand.Int63n(10000)
 		wg.Add(1)
 		go func(num int, randval int64) {
 			defer wg.Done()
