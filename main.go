@@ -62,6 +62,7 @@ func periodicalWrite(wg sync.WaitGroup, num int, randval int64, counter, total m
 			fmt.Printf("error in request for %d connection: %s\n", num, err)
 			return
 		}
+		ch <- nano
 		counter.Inc(1)
 		total.Inc(1)
 		time.Sleep(1 * time.Second)
