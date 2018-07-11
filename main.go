@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const max = 10000
+const max = 500
 const testlen = 1800
 const vallen = 200
 
@@ -21,7 +21,7 @@ func main() {
 
 func testLatAndTh() {
 	fmt.Println("start test latency")
-	sample := metrics.NewUniformSample(50000)
+	sample := metrics.NewUniformSample(2500)
 	histogram := metrics.NewHistogram(sample)
 	counter := metrics.NewCustomCounter()
 	total := metrics.NewCounter()
