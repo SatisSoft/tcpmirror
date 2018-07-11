@@ -82,7 +82,7 @@ func test_throughput() {
 	counter := metrics.NewCustomCounter()
 	metrics.Register("throughput", counter)
 	counter1 := metrics.NewCustomCounter()
-	metrics.Register("throughput", counter1)
+	metrics.Register("throughput1", counter1)
 	total := metrics.NewCounter()
 	metrics.Register("total", total)
 	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
