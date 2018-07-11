@@ -11,8 +11,8 @@ import (
 	"net"
 )
 
-const max = 10
-const testlen = 100
+const max = 10000
+const testlen = 1800
 const vallen = 200
 
 func main() {
