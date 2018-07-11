@@ -32,7 +32,7 @@ func testLatAndTh() {
 	if err != nil {
 		fmt.Printf("error while connection to graphite: %s\n", err)
 	}
-	go graphite.Graphite(metrics.DefaultRegistry, 5*10e5, "tcpmirror.metrics", addr)
+	go graphite.Graphite(metrics.DefaultRegistry, 5*10e8, "tcpmirror.metrics", addr)
 	var wg sync.WaitGroup
 	for num := 0; num < max; num++ {
 		randval := rand.Int63n(10000)
