@@ -78,7 +78,7 @@ func periodicalLatencyCheck_rnis(wg *sync.WaitGroup, gauge metrics.Gauge) {
 	len1 := testlen/5 +1
 	for i := 0; i < len1; i++ {
 		time0 := getMill()
-		_, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, 50))
+		_, err := redis.ByteSlices(c.Do("ZRANGE", "rnis", 0, 50))
 		if err != nil {
 			fmt.Printf("error in ZRANGE: %s\n", err)
 			return
