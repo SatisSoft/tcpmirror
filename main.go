@@ -16,10 +16,10 @@ const testlen = 100
 const vallen = 200
 
 func main() {
-	test_latency()
+	testLatAndTh()
 }
 
-func test_latency() {
+func testLatAndTh() {
 	fmt.Println("start test latency")
 	sample := metrics.NewUniformSample(10000)
 	histogram := metrics.NewHistogram(sample)
@@ -54,15 +54,15 @@ func periodicalWrite(wg sync.WaitGroup, num int, randval int64, counter, total m
 	ch := make(chan int64, 60)
 	go periodicalLatencyCheck(num, ch, histogram)
 	for i := 0; i < testlen; i++ {
-		nano := time.Now().UnixNano()
+		mil := getMill()
 		val := make([]byte, vallen)
 		rand.Read(val)
-		_, err = c.Do("ZADD", num, nano, val)
+		_, err = c.Do("ZADD", num, mil, val)
 		if err != nil {
 			fmt.Printf("error in request for %d connection: %s\n", num, err)
 			return
 		}
-		ch <- nano
+		ch <- mil
 		counter.Inc(1)
 		total.Inc(1)
 		time.Sleep(1 * time.Second)
@@ -78,18 +78,17 @@ func periodicalLatencyCheck(num int, ch chan int64, histogram metrics.Histogram)
 	defer c.Close()
 	for i := 0; i < testlen; i++ {
 		score := <-ch
-		res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", num, score, score))
+		_, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", num, score, score))
 		if err != nil {
 			fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
 			return
 		}
-		latency := time.Now().UnixNano() - score
+		latency := getMill() - score
 		histogram.Update(latency)
-		fmt.Printf("get result of type %[1]T: %[1]v\n", res)
-		fmt.Printf("latency: %d\n", latency)
 	}
 }
 
+//depricated, use function testLatAndTh
 func test_throughput() {
 	fmt.Println("start test throughput")
 	counter := metrics.NewCustomCounter()
