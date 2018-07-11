@@ -2,13 +2,13 @@ package main
 
 import (
 	"fmt"
-	"github.com/gomodule/redigo/redis"
-	"math/rand"
-	"sync"
-	"time"
 	"github.com/ashirko/go-metrics"
 	"github.com/ashirko/go-metrics-graphite"
+	"github.com/gomodule/redigo/redis"
+	"math/rand"
 	"net"
+	"sync"
+	"time"
 )
 
 const max = 10000
@@ -21,7 +21,7 @@ func main() {
 
 func testLatAndTh() {
 	fmt.Println("start test latency")
-	sample := metrics.NewUniformSample(10000)
+	sample := metrics.NewUniformSample(50000)
 	histogram := metrics.NewHistogram(sample)
 	counter := metrics.NewCustomCounter()
 	total := metrics.NewCounter()
@@ -29,10 +29,10 @@ func testLatAndTh() {
 	metrics.Register("latency", histogram)
 	metrics.Register("total", total)
 	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
-	if err != nil{
+	if err != nil {
 		fmt.Printf("error while connection to graphite: %s\n", err)
 	}
-	go graphite.Graphite(metrics.DefaultRegistry, 10e9, "tcpmirror.metrics", addr)
+	go graphite.Graphite(metrics.DefaultRegistry, 5*10e5, "tcpmirror.metrics", addr)
 	var wg sync.WaitGroup
 	for num := 0; num < max; num++ {
 		randval := rand.Int63n(10000)
@@ -42,7 +42,7 @@ func testLatAndTh() {
 	wg.Wait()
 }
 
-func periodicalWrite(wg *sync.WaitGroup, num int, randval int64, counter, total metrics.Counter, histogram metrics.Histogram){
+func periodicalWrite(wg *sync.WaitGroup, num int, randval int64, counter, total metrics.Counter, histogram metrics.Histogram) {
 	defer wg.Done()
 	time.Sleep(time.Duration(randval) * time.Millisecond)
 	c, err := redis.Dial("tcp", ":6379")
@@ -69,7 +69,7 @@ func periodicalWrite(wg *sync.WaitGroup, num int, randval int64, counter, total 
 	}
 }
 
-func periodicalLatencyCheck(num int, ch chan int64, histogram metrics.Histogram){
+func periodicalLatencyCheck(num int, ch chan int64, histogram metrics.Histogram) {
 	c, err := redis.Dial("tcp", ":6379")
 	if err != nil {
 		fmt.Printf("error in %d connection: %s\n", num, err)
@@ -98,7 +98,7 @@ func test_throughput() {
 	total := metrics.NewCounter()
 	metrics.Register("total", total)
 	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
-	if err != nil{
+	if err != nil {
 		fmt.Printf("error while connection to graphite: %s\n", err)
 	}
 	go graphite.Graphite(metrics.DefaultRegistry, 10e9, "tcpmirror.metrics", addr)
