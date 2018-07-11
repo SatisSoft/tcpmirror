@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"math/rand"
-	"strconv"
 	"sync"
 	"time"
 	"github.com/ashirko/go-metrics"
@@ -12,18 +11,19 @@ import (
 	"net"
 )
 
-const max = 10000
-const testlen = 3600
+const max = 10
+const testlen = 100
 const vallen = 200
 
 func main() {
+	//test_latency()
 	test_throughput()
 }
 
-func test_throughput() {
-	fmt.Println("start test throughput")
-	counter := metrics.NewCustomCounter()
-	metrics.Register("throughput", counter)
+func test_latency() {
+	fmt.Println("start test latency")
+	sample := metrics.NewUniformSample(10000)
+	histogram := metrics.NewHistogram(sample)
 	total := metrics.NewCounter()
 	metrics.Register("total", total)
 	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
@@ -35,7 +35,66 @@ func test_throughput() {
 	for num := 0; num < max; num++ {
 		randval := rand.Int63n(10000)
 		wg.Add(1)
-		go func(num int, randval int64, total metrics.Counter) {
+		go func(num int, randval int64, total metrics.Counter, histogram metrics.Histogram) {
+			defer wg.Done()
+			time.Sleep(time.Duration(randval) * time.Millisecond)
+			c, err := redis.Dial("tcp", ":6379")
+			if err != nil {
+				fmt.Printf("error in %d connection: %s\n", num, err)
+				return
+			}
+			defer c.Close()
+			ch := make(chan int64, 60)
+			go func(num int, ch chan int64){
+				var score int64
+				score =  <- ch
+				res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", num, score, score))
+				if err != nil {
+					fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
+					return
+				}
+				latency := time.Now().UnixNano() - score
+				fmt.Printf("get result of type %[1]T: %[1]v\n", res)
+				fmt.Printf("latency: %d\n", latency)
+
+
+			}(num, ch)
+			for i := 0; i < testlen; i++ {
+				nano := time.Now().UnixNano()
+				val := make([]byte, vallen)
+				rand.Read(val)
+				_, err = c.Do("ZADD", num, nano, val)
+				if err != nil {
+					fmt.Printf("error in request for %d connection: %s\n", num, err)
+					return
+				}
+				total.Inc(1)
+				time.Sleep(1 * time.Second)
+			}
+		}(num, randval, total, histogram)
+	}
+	wg.Wait()
+}
+
+
+func test_throughput() {
+	fmt.Println("start test throughput")
+	counter := metrics.NewCustomCounter()
+	metrics.Register("throughput", counter)
+	counter1 := metrics.NewCustomCounter()
+	metrics.Register("throughput", counter1)
+	total := metrics.NewCounter()
+	metrics.Register("total", total)
+	addr, err := net.ResolveTCPAddr("tcp", "10.1.116.51:2003")
+	if err != nil{
+		fmt.Printf("error while connection to graphite: %s\n", err)
+	}
+	go graphite.Graphite(metrics.DefaultRegistry, 10e9, "tcpmirror.metrics", addr)
+	var wg sync.WaitGroup
+	for num := 0; num < max; num++ {
+		randval := rand.Int63n(10000)
+		wg.Add(1)
+		go func(num int, randval int64, total, counter1 metrics.Counter) {
 			defer wg.Done()
 			time.Sleep(time.Duration(randval) * time.Millisecond)
 			c, err := redis.Dial("tcp", ":6379")
@@ -54,9 +113,10 @@ func test_throughput() {
 					return
 				}
 				total.Inc(1)
+				counter1.Inc(1)
 				time.Sleep(1 * time.Second)
 			}
-		}(num, randval, total)
+		}(num, randval, total, counter1)
 	}
 	for num := 0; num < max; num++ {
 		wg.Add(1)
@@ -82,56 +142,6 @@ func test_throughput() {
 			}
 
 		}(num, counter)
-	}
-	wg.Wait()
-}
-
-func test1() {
-	fmt.Println("start execution")
-	var wg sync.WaitGroup
-	for num := 0; num < max; num++ {
-		wg.Add(1)
-		go func(num int) {
-			defer wg.Done()
-			//fmt.Println("start execution goroutine")
-			c, err := redis.Dial("tcp", ":6379")
-			if err != nil {
-				fmt.Printf("error in %d connection: %s\n", num, err)
-				return
-			}
-			defer c.Close()
-			for i := 0; i < 10; i++ {
-				millisecs := getMill()
-				val := strconv.FormatInt(time.Now().UnixNano(), 10)
-				_, err = c.Do("ZADD", num, millisecs, val)
-				if err != nil {
-					fmt.Printf("error in request for %d connection: %s\n", num, err)
-					return
-				}
-				time.Sleep(1 * time.Second)
-			}
-		}(num)
-	}
-	for num := 0; num < max; num++ {
-		wg.Add(1)
-		go func(num int) {
-			defer wg.Done()
-			c, err := redis.Dial("tcp", ":6379")
-			if err != nil {
-				fmt.Printf("error in %d connection: %s\n", num, err)
-				return
-			}
-			defer c.Close()
-			time.Sleep(5 * time.Second)
-			res, err := redis.Int64s(c.Do("ZRANGE", num, 0, 0))
-			if err != nil {
-				fmt.Printf("error in ZRANGE for %d key: %s\n", num, err)
-				return
-			}
-			fmt.Printf("result of type %[1]T: %[1]v\n", res)
-			fmt.Printf("res[0] of type %[1]T: %[1]v\n", res[0])
-
-		}(num)
 	}
 	wg.Wait()
 }
