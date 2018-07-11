@@ -37,12 +37,12 @@ func testLatAndTh() {
 	for num := 0; num < max; num++ {
 		randval := rand.Int63n(10000)
 		wg.Add(1)
-		go periodicalWrite(wg, num, randval, counter, total, histogram)
+		go periodicalWrite(&wg, num, randval, counter, total, histogram)
 	}
 	wg.Wait()
 }
 
-func periodicalWrite(wg sync.WaitGroup, num int, randval int64, counter, total metrics.Counter, histogram metrics.Histogram){
+func periodicalWrite(wg *sync.WaitGroup, num int, randval int64, counter, total metrics.Counter, histogram metrics.Histogram){
 	defer wg.Done()
 	time.Sleep(time.Duration(randval) * time.Millisecond)
 	c, err := redis.Dial("tcp", ":6379")
