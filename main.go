@@ -11,7 +11,7 @@ import (
 	"time"
 )
 
-const max = 10000
+const max = 1000
 const testlen = 1800
 const vallen = 200
 
