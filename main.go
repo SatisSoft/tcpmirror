@@ -16,7 +16,7 @@ const testlen = 1800
 const vallen = 200
 
 func main() {
-	testLatAndTh_rnis()
+	testLatAndTh_mgt()
 }
 
 func testLatAndTh_rnis() {
