@@ -5,18 +5,20 @@ import (
 )
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
-	_, err := c.Do("ZADD", "conn", id, message)
-	if err != nil {
-		//fmt.Printf("error in request write CONN_AUTH message %d: %s\n", id, err)
-		return err
-	}
-	return nil
+	key := "conn:" + string(id)
+	_, err := c.Do("SET", key, message)
+	return err
 }
+
+func readConnDB(c redis.Conn, id uint32) (res []byte,err error) {
+	key := "conn:" + string(id)
+	res, err = redis.Bytes(c.Do("GET", key))
+	return
+}
+
+func
 
 func writeToDB(Data []byte) error {
 	return nil
 }
 
-func loadFirstMessage(id int) []byte {
-	return []byte{}
-}

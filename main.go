@@ -272,7 +272,7 @@ func reconnectNDTP(ndtpConn *connection, ErrNDTPCh chan error) {
 			log.Printf("error while connecting to server: %s", err)
 		} else {
 			//TODO pass id to function
-			firstMessage := loadFirstMessage(0)
+			firstMessage := readConnDB(0)
 			ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 			_, err := ndtpConn.conn.Write(firstMessage)
 			if err == nil {
