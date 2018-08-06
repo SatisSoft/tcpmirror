@@ -25,7 +25,7 @@ var (
 	egtsConn      connection
 	egtsCh        = make(chan rnisData, 200)
 	egtsErrCh     chan error
-	egtsMu        = sync.Mutex
+	egtsMu        sync.Mutex
 )
 
 type connection struct {
@@ -350,7 +350,7 @@ func reconnectEGTS() {
 		egtsConn.conn.Close()
 		egtsConn.closed = true
 	}
-	mu.Unlock()
+	egtsMu.Unlock()
 	for{
 		for i := 0; i < 3; i++ {
 	        cE, err := net.Dial("tcp", EGTSAddress)
@@ -412,10 +412,10 @@ func checkOldData() (data []rnisData) {
 	return 
 }
 
-func writeID(egtsMessageID uint32, MessageID string) {
+func writeID(egtsMessageID uint16, MessageID string) {
 	return
 }
 
-func deleteID(egtsMessageID uint32) {
+func deleteID(egtsMessageID uint16) {
 	return
 }
