@@ -33,6 +33,7 @@ type rnisData struct {
 	Speed   uint16
 	Sos     bool
 	ID      uint32
+	MessageID string
 }
 
 func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte, err error) {

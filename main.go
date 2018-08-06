@@ -25,6 +25,7 @@ var (
 	egtsConn      connection
 	egtsCh        = make(chan rnisData, 200)
 	egtsErrCh     chan error
+	egtsMu        = sync.Mutex
 )
 
 type connection struct {
@@ -57,6 +58,8 @@ func main() {
 		egtsConn.closed = false
 	}
 	go egtsSession()
+	go waitReplyEGTS()
+	go egtsRemoveExpired()
 	connNo := uint64(1)
 	for {
 		c, err := l.Accept()
@@ -133,18 +136,69 @@ FORLOOP:
 }
 
 func egtsSession() {
+	var buf []byte
+	count:=0
 EGTSLOOP:
 	for {
 		select {
-		case _ := <-egtsErrCh:
+		case <-egtsErrCh:
 			break EGTSLOOP
 		case message := <-egtsCh:
-			packet := formEGTS(message)
-			egtsConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			_, err := egtsConn.conn.Write(packet)
-			if err != nil {
-				reconnectEGTS()
+			packet, egtsMessageID := formEGTS(message)
+			count+=1
+			buf = append(buf, packet...)
+			writeID(egtsMessageID, message.MessageID)
+			if count == 10 {
+				send2egts(buf)
+				count = 0
+				buf = nil
 			}
+		case <-time.After(100 * time.Millisecond):
+			if count < 10 {
+				send2egts(buf)
+				count = 0
+				buf = nil
+			}
+		case <-time.After(1 * time.Second):	 
+			var bufOld []byte
+			oldData := checkOldData()
+			for _, message := range oldData {
+				packet, egtsMessageID := formEGTS(message)
+				bufOld = append(bufOld, packet...)
+				writeID(egtsMessageID, message.MessageID)
+			}
+			send2egts(bufOld)
+		}
+	}
+}
+
+func waitReplyEGTS() {
+	for {
+		var b []byte
+		if !egtsConn.closed {
+			n, err := egtsConn.conn.Read(b)
+			if err != nil {
+				log.Printf("error while getting reply from client %s",err)
+				go reconnectEGTS()
+			}
+			if n!=0 {
+				egtsMessageID,err := parseEGTS(b)
+				if err != nil {
+					log.Printf("error while parsing reply from EGTS %s",err)
+				} else {
+					deleteID(egtsMessageID)
+				}			
+			}
+		}
+	}	
+}
+
+func send2egts(buf []byte){
+	if !egtsConn.closed {
+		egtsConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+		_, err := egtsConn.conn.Write(buf)
+		if err != nil {
+			go reconnectEGTS()
 		}
 	}
 }
@@ -288,14 +342,26 @@ func reconnectNDTP(ndtpConn *connection, ErrNDTPCh chan error) {
 }
 
 func reconnectEGTS() {
-	egtsConn.conn.Close()
-	egtsConn.closed = true
-	cE, err := net.Dial("tcp", EGTSAddress)
-	if err != nil {
-		log.Printf("error while connecting to server: %s", err)
+	egtsMu.Lock()
+	if egtsConn.closed || egtsConn.recon {
+		return
 	} else {
-		egtsConn.conn = cE
-		egtsConn.closed = false
+		egtsConn.recon = true
+		egtsConn.conn.Close()
+		egtsConn.closed = true
+	}
+	mu.Unlock()
+	for{
+		for i := 0; i < 3; i++ {
+	        cE, err := net.Dial("tcp", EGTSAddress)
+	        if err == nil {
+	        	egtsConn.conn = cE
+	        	egtsConn.closed = false
+	            return
+	        }
+	        log.Printf("error while connecting to server: %s", err)
+		}
+	    time.Sleep(10 * time.Second)
 	}
 }
 
@@ -329,4 +395,27 @@ func getIP(c net.Conn) net.IP {
 	ip := ipPort[0]
 	ip1 := net.ParseIP(ip)
 	return ip1.To4()
+}
+
+func egtsRemoveExpired() {
+	for{
+		removeExpiredData()
+		time.Sleep(1 * time.Hour)
+	}	
+}
+
+func removeExpiredData() {
+	return
+}
+
+func checkOldData() (data []rnisData) {
+	return 
+}
+
+func writeID(egtsMessageID uint32, MessageID string) {
+	return
+}
+
+func deleteID(egtsMessageID uint32) {
+	return
 }
