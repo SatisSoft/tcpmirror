@@ -27,8 +27,8 @@ type nphData struct {
 
 type rnisData struct {
 	Time    uint32
-	Lon     uint32
-	Lat     uint32
+	Lon     float64
+	Lat     float64
 	Bearing uint16
 	Speed   uint16
 	Sos     bool

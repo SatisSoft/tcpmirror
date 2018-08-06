@@ -4,11 +4,12 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"math"
 )
 
 const (
 	EGTS_PACKET_HEADER_LEN = 11
-	EGTS_RECORD_HEADER_LEN = 15
+	EGTS_RECORD_HEADER_LEN = 11
 	EGTS_SUBREC_DATA_LEN   = 21
 
 	EGTS_PT_APPDATA  = 1
@@ -33,13 +34,13 @@ func formEGTS(data rnisData) (packet []byte, egtsMessageID uint16) {
 	record := formRecord(data)
 	lenRec := len(record)
 	crcRec := make([]byte, 2)
-	binary.LittleEndian.PutUint16(crcRec[:], crc16(record))
+	binary.LittleEndian.PutUint16(crcRec[:], crc16EGTS(record))
 	record = append(record, crcRec...)
 
-	header := []byte{0x01, 0x00, 0x03, byte(EGTS_PACKET_HEADER_LEN), 0x00, 0x00, 0x00, 0x00, 0x00, byte(EGTS_PT_APPDATA)}
+	header := []byte{0x01, 0x00, 0x00, byte(EGTS_PACKET_HEADER_LEN), 0x00, 0x00, 0x00, 0x00, 0x00, byte(EGTS_PT_APPDATA)}
 	binary.LittleEndian.PutUint16(header[5:7], uint16(lenRec))
 	binary.LittleEndian.PutUint16(header[7:9], egtsMessageID)
-	crcPacket := crc8(header)
+	crcPacket := crc8EGTS(header)
 	header = append(header, byte(crcPacket))
 
 	packet = append(header, record...)
@@ -55,12 +56,10 @@ func formRecord(data rnisData) (record []byte) {
 	headerRec := make([]byte, EGTS_RECORD_HEADER_LEN)
 	binary.LittleEndian.PutUint16(headerRec[0:2], subRecLen)
 	binary.LittleEndian.PutUint16(headerRec[2:4], numRec)
-	headerRec[4] = 0x05
+	headerRec[4] = 0x01
 	binary.LittleEndian.PutUint32(headerRec[5:9], data.ID)
-	binary.LittleEndian.PutUint32(headerRec[9:13], data.Time)
-	headerRec[13] = byte(EGTS_TELEDATA_SERVICE)
-	headerRec[14] = 0x00
-
+	headerRec=append(headerRec[:9],byte(EGTS_TELEDATA_SERVICE),byte(EGTS_TELEDATA_SERVICE))
+	
 	record = append(headerRec, subrec...)
 	return
 }
@@ -73,24 +72,24 @@ func formSubrec(data rnisData) (subrec []byte) {
 	
 	binary.LittleEndian.PutUint32(subrec[3:7], data.Time-TIMESTAMP_20100101_000000_UTC)
 	
-	lat:=uint32(float64(data.Lat)/10000000/90*0xffffffff)
-	lon:=uint32(float64(data.Lon)/10000000/180*0xffffffff)
+	lat:=uint32(math.Abs(data.Lat)/90*0xffffffff)
+	lon:=uint32(math.Abs(data.Lon)/180*0xffffffff)
 	binary.LittleEndian.PutUint32(subrec[7:11], lat)
 	binary.LittleEndian.PutUint32(subrec[11:15], lon)
 
-	lahs := 0
-	lohs := 0
-	//	if data.Lahs == 1{
-	//		lahs=32//00x00000
-	//	}else{
-	//		lahs=0
-	//	}
-	//	if data.Lohs == 1{
-	//		lahs=64//0x000000
-	//	}else{
-	//		lahs=0
-	//	}
-	flags := lahs | lohs | 0x01
+	var lahs uint
+	var lohs uint
+	if data.Lat < 0{
+		lahs=32//00x00000
+		}else{
+			lahs=0
+		}
+	if data.Lon <0{
+			lahs=64//0x000000
+		}else{
+			lahs=0
+		}
+	flags := lahs | lohs | 0x03
 
 	spdHi := data.Speed * 10 / 256
 	spdLo := data.Speed * 10 % 256
@@ -121,7 +120,7 @@ func parseEGTS(message []byte) (egtsMessageID uint16, err error) {
 	}
 	header := message[startHeader : startHeader+(EGTS_PACKET_HEADER_LEN-1)]
 	headerCrc := (message[startHeader+EGTS_PACKET_HEADER_LEN-1])
-	headerCrcCalc := crc8(header)
+	headerCrcCalc := crc8EGTS(header)
 	if uint(headerCrc) != headerCrcCalc {
 		err = errors.New("incorrect header crc")
 		return
@@ -146,7 +145,7 @@ func parseEGTS(message []byte) (egtsMessageID uint16, err error) {
 
 func parseResp(body []byte, bodyLen uint16) (egtsMessageID uint16, procRes uint, err error) {
 	bodyCrc := binary.LittleEndian.Uint16(body[bodyLen : bodyLen+2])
-	bodyCrcCalc := crc16(body[:bodyLen])
+	bodyCrcCalc := crc16EGTS(body[:bodyLen])
 	if bodyCrc != bodyCrcCalc {
 		err = errors.New("incorrect body crc")
 		return
@@ -156,25 +155,25 @@ func parseResp(body []byte, bodyLen uint16) (egtsMessageID uint16, procRes uint,
 	return
 }
 
-func crc8(bs []byte) (crc uint) {
+func crc8EGTS(bs []byte) (crc uint) {
 	l := len(bs)
 	crc = 0xFF
 	for i := 0; i < l; i++ {
-		crc = crc8tab[crc^uint(bs[i])]
+		crc = crc8tabEGTS[crc^uint(bs[i])]
 	}
 	return
 }
 
-func crc16(bs []byte) (crc uint16) {
+func crc16EGTS(bs []byte) (crc uint16) {
 	l := len(bs)
 	crc = 0xFFFF
 	for i := 0; i < l; i++ {
-		crc = uint16((uint32(crc) << uint32(8)) ^ uint32(crc16tab[(crc>>8)^uint16(bs[i])]))
+		crc = uint16((uint32(crc) << uint32(8)) ^ uint32(crc16tabEGTS[(crc>>8)^uint16(bs[i])]))
 	}
 	return
 }
 
-var crc8tab = [256]uint{
+var crc8tabEGTS = [256]uint{
 	0x00, 0x31, 0x62, 0x53, 0xC4, 0xF5, 0xA6, 0x97,
 	0xB9, 0x88, 0xDB, 0xEA, 0x7D, 0x4C, 0x1F, 0x2E,
 	0x43, 0x72, 0x21, 0x10, 0x87, 0xB6, 0xE5, 0xD4,
@@ -208,7 +207,7 @@ var crc8tab = [256]uint{
 	0x82, 0xB3, 0xE0, 0xD1, 0x46, 0x77, 0x24, 0x15,
 	0x3B, 0x0A, 0x59, 0x68, 0xFF, 0xCE, 0x9D, 0xAC}
 
-var crc16tab = [256]uint16{
+var crc16tabEGTS = [256]uint16{
 	0x0000, 0x1021, 0x2042, 0x3063, 0x4084, 0x50A5, 0x60C6, 0x70E7,
 	0x8108, 0x9129, 0xA14A, 0xB16B, 0xC18C, 0xD1AD, 0xE1CE, 0xF1EF,
 	0x1231, 0x0210, 0x3273, 0x2252, 0x52B5, 0x4294, 0x72F7, 0x62D6,
