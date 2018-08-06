@@ -104,11 +104,7 @@ func formSubrec(data rnisData) (subrec []byte) {
 	} else {
 		source = 0
 	}
-	subrec[15] = byte(flags)
-	subrec[16] = byte(spdLo)
-	subrec[17] = byte(flags2)
-	subrec[18] = byte(bearLo)
-	subrec[23] = byte(source)
+	subrec=append(subrec[:15],byte(flags),byte(spdLo),byte(flags2),byte(bearLo),0,0,0,0,byte(source))
 	return
 }
 
@@ -175,7 +171,7 @@ func crc16(bs []byte) (crc uint16) {
 	for i := 0; i < l; i++ {
 		crc = uint16((uint32(crc) << uint32(8)) ^ uint32(crc16tab[(crc>>8)^uint16(bs[i])]))
 	}
-	return crc
+	return
 }
 
 var crc8tab = [256]uint{
