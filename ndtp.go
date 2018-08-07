@@ -1,5 +1,10 @@
 package main
 
+import (
+	"bytes"
+	"encoding/binary"
+)
+
 //NPL constants
 
 var (
@@ -189,6 +194,16 @@ var navDataLength = map[uint8]int{
 	23: 16,
 	24: 4,
 	25: 41,
+}
+
+var okResult = make([]byte, 4)
+var errResult = make([]byte, 4)
+var nphResultType = make([]byte, 2)
+
+func init() {
+	body := new(bytes.Buffer)
+	binary.Write(body, binary.LittleEndian, uint32(NPH_RESULT_SERVICE_BUSY))
+	errResult = body.Bytes()
 }
 
 type servType struct {

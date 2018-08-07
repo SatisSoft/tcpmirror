@@ -30,7 +30,7 @@ var (
 func formEGTS(data rnisData) (packet []byte, egtsMessageID uint16) {
 	egtsMessageID = packetID
 	packetID += 1
-	
+
 	record := formRecord(data)
 	lenRec := len(record)
 	crcRec := make([]byte, 2)
@@ -58,8 +58,8 @@ func formRecord(data rnisData) (record []byte) {
 	binary.LittleEndian.PutUint16(headerRec[2:4], numRec)
 	headerRec[4] = 0x01
 	binary.LittleEndian.PutUint32(headerRec[5:9], data.ID)
-	headerRec=append(headerRec[:9],byte(EGTS_TELEDATA_SERVICE),byte(EGTS_TELEDATA_SERVICE))
-	
+	headerRec = append(headerRec[:9], byte(EGTS_TELEDATA_SERVICE), byte(EGTS_TELEDATA_SERVICE))
+
 	record = append(headerRec, subrec...)
 	return
 }
@@ -69,26 +69,26 @@ func formSubrec(data rnisData) (subrec []byte) {
 
 	subrec[0] = byte(EGTS_SR_POS_DATA)
 	binary.LittleEndian.PutUint16(subrec[1:3], uint16(EGTS_SUBREC_DATA_LEN))
-	
+
 	binary.LittleEndian.PutUint32(subrec[3:7], data.Time-TIMESTAMP_20100101_000000_UTC)
-	
-	lat:=uint32(math.Abs(data.Lat)/90*0xffffffff)
-	lon:=uint32(math.Abs(data.Lon)/180*0xffffffff)
+
+	lat := uint32(math.Abs(data.Lat) / 90 * 0xffffffff)
+	lon := uint32(math.Abs(data.Lon) / 180 * 0xffffffff)
 	binary.LittleEndian.PutUint32(subrec[7:11], lat)
 	binary.LittleEndian.PutUint32(subrec[11:15], lon)
 
 	var lahs uint
 	var lohs uint
-	if data.Lat < 0{
-		lahs=32//00x00000
-		}else{
-			lahs=0
-		}
-	if data.Lon <0{
-			lahs=64//0x000000
-		}else{
-			lahs=0
-		}
+	if data.Lat < 0 {
+		lahs = 32 //00x00000
+	} else {
+		lahs = 0
+	}
+	if data.Lon < 0 {
+		lahs = 64 //0x000000
+	} else {
+		lahs = 0
+	}
 	flags := lahs | lohs | 0x03
 
 	spdHi := data.Speed * 10 / 256
@@ -103,7 +103,7 @@ func formSubrec(data rnisData) (subrec []byte) {
 	} else {
 		source = 0
 	}
-	subrec=append(subrec[:15],byte(flags),byte(spdLo),byte(flags2),byte(bearLo),0,0,0,0,byte(source))
+	subrec = append(subrec[:15], byte(flags), byte(spdLo), byte(flags2), byte(bearLo), 0, 0, 0, 0, byte(source))
 	return
 }
 
@@ -133,7 +133,7 @@ func parseEGTS(message []byte) (egtsMessageID uint16, err error) {
 	startBody := startHeader + EGTS_PACKET_HEADER_LEN
 	bodyLen := binary.LittleEndian.Uint16(message[startHeader+5 : startHeader+7])
 	body := message[startBody:]
-	egtsMessageID, procRes,err := parseResp(body, bodyLen)
+	egtsMessageID, procRes, err := parseResp(body, bodyLen)
 	if err != nil {
 		return
 	}
