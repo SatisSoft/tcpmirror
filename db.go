@@ -2,6 +2,8 @@ package main
 
 import (
 	"github.com/gomodule/redigo/redis"
+	"bytes"
+	"encoding/binary"
 )
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
@@ -18,7 +20,7 @@ func readConnDB(c redis.Conn, id int) ([]byte, error) {
 
 func writeNDTPid(c redis.Conn, id, nphID uint32, mill int64) error {
 	key := "ntn:" + string(id) + ":" + string(nphID)
-	_, err := c.Do("SET", key, string(mill), "ex", 120)
+	_, err := c.Do("SET", key, string(mill), "ex", 50)
 	return err
 }
 
@@ -45,8 +47,10 @@ func write2NDTP(c redis.Conn, id int, time int64, packet []byte) error {
 }
 
 func write2EGTS(c redis.Conn, id int, time int64, packet []byte) error {
-	key := string(time) + ":" + string(id)
-	_, err := c.Do("ZADD", "rnis", key, packet)
+	idB := new(bytes.Buffer)
+	binary.Write(idB, binary.LittleEndian, uint32(id))
+	packet = append(idB.Bytes(), packet...)
+	_, err := c.Do("ZADD", "rnis", time, packet)
 	return err
 }
 
