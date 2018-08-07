@@ -138,6 +138,10 @@ FORLOOP:
 func egtsSession() {
 	var buf []byte
 	count:=0
+	sendTicker := time.NewTicker(100 * time.Millisecond)
+	checkTicker := time.NewTicker(1 * time.Second)
+	defer sendTicker.Stop()
+	defer checkTicker.Stop()
 EGTSLOOP:
 	for {
 		select {
@@ -153,13 +157,13 @@ EGTSLOOP:
 				count = 0
 				buf = nil
 			}
-		case <-time.After(100 * time.Millisecond):
+		case <-sendTicker.C:
 			if count < 10 {
 				send2egts(buf)
 				count = 0
 				buf = nil
 			}
-		case <-time.After(1 * time.Second):	 
+		case <-checkTicker.C:	 
 			var bufOld []byte
 			oldData := checkOldData()
 			for _, message := range oldData {
