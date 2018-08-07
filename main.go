@@ -2,8 +2,7 @@ package main
 
 import (
 	"flag"
-	"fmt"
-	"github.com/gomodule/redigo/redis"
+		"github.com/gomodule/redigo/redis"
 	"log"
 	"net"
 	"sync"
@@ -188,7 +187,7 @@ func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				var packetLen uint16
 				data, packetLen, restBuf, err = parseNDTP(restBuf)
 				if err != nil {
-					fmt.Println(err)
+					log.Println(err)
 					break
 				}
 				if !data.valid {
@@ -236,7 +235,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 					if len(restBuf) > defaultBufferSize {
 						restBuf = []byte{}
 					}
-					fmt.Println(err)
+					log.Println(err)
 					break
 				}
 				mill := getMill()
