@@ -5,11 +5,15 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"net"
+	"strings"
+	"time"
 )
 
 type ndtpData struct {
 	NPLType  byte
 	NPLReqID uint16
+	valid    bool
 	NPH      nphData
 	ToRnis   rnisData
 }
@@ -22,6 +26,7 @@ type nphData struct {
 	NPHData   []byte
 	//optional
 	NPHResult uint32
+	isResult  bool
 	ID        uint32
 }
 
@@ -70,6 +75,8 @@ func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte,
 		packetLen = dataLen + NPL_HEADER_LEN
 		restBuf = make([]byte, len(message[NPL_HEADER_LEN+dataLen:]))
 		copy(restBuf, message[NPL_HEADER_LEN+dataLen:])
+	} else {
+		data.valid = true
 	}
 	return
 }
@@ -91,11 +98,10 @@ func parseNPH(message []byte, data *ndtpData) (err error) {
 	} else {
 		if nph.ServiceID == NPH_SRV_GENERIC_CONTROLS && nph.NPHType == NPH_SGC_CONN_REQUEST {
 			nph.ID = binary.LittleEndian.Uint32(message[index+NPH_HEADER_LEN+6 : index+NPH_HEADER_LEN+10])
+		} else if nph.NPHType == NPH_RESULT {
+			nph.isResult = true
+			nph.NPHResult = binary.LittleEndian.Uint32(message[index+NPH_HEADER_LEN : index+NPH_HEADER_LEN+4])
 		}
-		//if !stExist[servType{nph.ServiceID, nph.NPHType}] {
-		//	err = fmt.Errorf("service %d Type %d doesn't exist", nph.ServiceID, nph.NPHType)
-		//	return
-		//}
 	}
 	data.NPH = nph
 	return
@@ -151,4 +157,93 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 		}
 	}
 	return
+}
+
+func changePacket(b []byte, data ndtpData, s *session) (uint32, []byte) {
+	NPLReqID, NPHReqID := serverID(s)
+	NPLReqID1 := new(bytes.Buffer)
+	binary.Write(NPLReqID1, binary.LittleEndian, NPLReqID)
+	copy(b[13:], NPLReqID1.Bytes())
+	NPHReqID1 := new(bytes.Buffer)
+	binary.Write(NPHReqID1, binary.LittleEndian, NPHReqID)
+	copy(b[NPL_HEADER_LEN+6:], NPHReqID1.Bytes())
+	if data.NPH.ServiceID == NPH_SRV_NAVDATA && data.NPH.NPHType == NPH_SND_REALTIME {
+		Now := getMill()
+		if (Now - int64(data.ToRnis.Time)) > 60000 {
+			NPHType1 := new(bytes.Buffer)
+			binary.Write(NPHType1, binary.LittleEndian, uint16(NPH_SND_HISTORY))
+			copy(b[NPL_HEADER_LEN+2:], NPHType1.Bytes())
+		}
+	}
+	crc := crc16(b[NPL_HEADER_LEN:])
+	crc1 := new(bytes.Buffer)
+	binary.Write(crc1, binary.LittleEndian, crc)
+	copy(b[6:], crc1.Bytes())
+	return NPHReqID, b
+}
+
+func changePacketFromServ(b []byte, s *session) []byte {
+	NPLReqID, NPHReqID := clientID(s)
+	NPLReqID1 := new(bytes.Buffer)
+	binary.Write(NPLReqID1, binary.LittleEndian, NPLReqID)
+	copy(b[13:], NPLReqID1.Bytes())
+	NPHReqID1 := new(bytes.Buffer)
+	binary.Write(NPHReqID1, binary.LittleEndian, NPHReqID)
+	copy(b[NPL_HEADER_LEN+6:], NPHReqID1.Bytes())
+	crc := crc16(b[NPL_HEADER_LEN:])
+	crc1 := new(bytes.Buffer)
+	binary.Write(crc1, binary.LittleEndian, crc)
+	copy(b[6:], crc1.Bytes())
+	return b
+}
+
+func errorAnswer(packet []byte) []byte {
+	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], errResult...)
+	copy(nph[2:], nphResultType)
+	crc := crc16(nph)
+	// ServiceID:16 + 0:16 + 0:16 + RequestID:32 + Result:32
+	ans := packet[:NPL_HEADER_LEN]
+	//var dataSize = make([]byte, 2)
+	dataSize := new(bytes.Buffer)
+	binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
+	copy(ans[2:], dataSize.Bytes())
+	crc1 := new(bytes.Buffer)
+	binary.Write(crc1, binary.LittleEndian, crc)
+	copy(ans[6:], crc1.Bytes())
+	return ans
+}
+
+func changeAddress(data []byte, ip net.IP) {
+	start := []byte{0x7E, 0x7E}
+	index1 := bytes.Index(data, start)
+	for i, j := index1+9, 0; i < index1+13; i, j = i+1, j+1 {
+		data[i] = ip[j]
+	}
+}
+
+func getIP(c net.Conn) net.IP {
+	ipPort := strings.Split(c.RemoteAddr().String(), ":")
+	ip := ipPort[0]
+	ip1 := net.ParseIP(ip)
+	return ip1.To4()
+}
+
+func answer(packet []byte) []byte {
+	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], okResult...)
+	copy(nph[2:], nphResultType)
+	crc := crc16(nph)
+	// ServiceID:16 + 0:16 + 0:16 + RequestID:32 + Result:32
+	ans := packet[:NPL_HEADER_LEN]
+	//var dataSize = make([]byte, 2)
+	dataSize := new(bytes.Buffer)
+	binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
+	copy(ans[2:], dataSize.Bytes())
+	crc1 := new(bytes.Buffer)
+	binary.Write(crc1, binary.LittleEndian, crc)
+	copy(ans[6:], crc1.Bytes())
+	return ans
+}
+
+func getMill() int64 {
+	return time.Now().UnixNano() / 1000000
 }

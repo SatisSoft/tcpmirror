@@ -1,13 +1,11 @@
 package main
 
 import (
-	"bytes"
 	"flag"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"net"
-	"strings"
 	"sync"
 	"time"
 )
@@ -32,6 +30,16 @@ type connection struct {
 	conn   net.Conn
 	closed bool
 	recon  bool
+}
+
+type session struct {
+	clientNPLReqID uint16
+	clientNPHReqID uint32
+	serverNPLReqID uint16
+	serverNPHReqID uint32
+	muC            sync.Mutex
+	muS            sync.Mutex
+	id             int
 }
 
 func main() {
@@ -99,25 +107,25 @@ func handleConnection(c net.Conn, connNo uint64) {
 	changeAddress(firstMessage, ip)
 	err = writeConnDB(cR, data.NPH.ID, firstMessage[:dataLen])
 	if err != nil {
-		//TODO write errorRequest function
-		errorRequest(c)
+		errorReply(c, firstMessage[:dataLen])
 		return
 	}
 
 	errClientCh := make(chan error)
 	ErrNDTPCh := make(chan error)
 	cN, err := net.Dial("tcp", NDTPAddress)
+	var s session
+	s.id = int(data.NPH.ID)
 	var mu sync.Mutex
 	if err != nil {
 		log.Printf("error while connecting to server: %s", err)
 	} else {
 		ndtpConn.conn = cN
 		ndtpConn.closed = false
-		send_first_message(&ndtpConn, firstMessage[:dataLen], ErrNDTPCh, &mu)
+		send_first_message(cR, &ndtpConn, &s, firstMessage[:dataLen], ErrNDTPCh, &mu)
 	}
 
-	connect(c, &ndtpConn, ErrNDTPCh, errClientCh, connNo, &mu)
-
+	connect(cR, c, &ndtpConn, ErrNDTPCh, errClientCh, &s, &mu)
 FORLOOP:
 	for {
 		select {
@@ -136,7 +144,7 @@ func egtsSession() {
 EGTSLOOP:
 	for {
 		select {
-		case _ := <-egtsErrCh:
+		case _ = <-egtsErrCh:
 			break EGTSLOOP
 		case message := <-egtsCh:
 			packet := formEGTS(message)
@@ -149,26 +157,29 @@ EGTSLOOP:
 	}
 }
 
-func send_first_message(ndtpConn *connection, firstMessage []byte, ErrNDTPCh chan error, mu *sync.Mutex) {
+func send_first_message(cR redis.Conn, ndtpConn *connection, s *session, firstMessage []byte, ErrNDTPCh chan error, mu *sync.Mutex) {
 	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err := ndtpConn.conn.Write(firstMessage)
 	if err != nil {
-		ndtpConStatus(ndtpConn, mu, ErrNDTPCh)
+		ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 	}
 }
 
-func connect(origin net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, connNo uint64, mu *sync.Mutex) {
-	go client2servers(origin, ndtpConn, ErrNDTPCh, errClientCh, connNo, mu)
-	go server2client(origin, ndtpConn, ErrNDTPCh, errClientCh, mu)
+func connect(cR redis.Conn, origin net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
+	go clientSession(cR, origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
+	go serverSession(cR, origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
 }
 
-func server2client(to net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, mu *sync.Mutex) {
+func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
 	for {
+		if conClosed(ErrNDTPCh) {
+			return
+		}
 		if !ndtpConn.closed {
 			var b []byte
 			_, err := ndtpConn.conn.Read(b)
 			if err != nil {
-				ndtpConStatus(ndtpConn, mu, ErrNDTPCh)
+				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 				continue
 			}
 			var restBuf []byte
@@ -180,15 +191,20 @@ func server2client(to net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh cha
 					fmt.Println(err)
 					break
 				}
-				if data.NPH.NPHReqID == 0 {
+				if !data.valid {
 					restBuf = restBuf[packetLen:]
 					continue
 				}
-				to.SetWriteDeadline(time.Now().Add(writeTimeout))
-				_, err = to.Write(b[:packetLen])
-				if err != nil {
-					errClientCh <- err
-					return
+				if data.NPH.isResult {
+					removeFromNDTP(cR, s.id, data.NPH.NPHReqID)
+				} else {
+					client.SetWriteDeadline(time.Now().Add(writeTimeout))
+					message := changePacketFromServ(b[:packetLen], s)
+					_, err = client.Write(message)
+					if err != nil {
+						errClientCh <- err
+						return
+					}
 				}
 			}
 		} else {
@@ -197,47 +213,65 @@ func server2client(to net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh cha
 	}
 }
 
-func client2servers(from net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, connNo uint64, mu *sync.Mutex) {
+func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
 	var restBuf []byte
+	checkTicker := time.NewTicker(60 * time.Second)
 	for {
-		var b []byte
-		n, err := from.Read(b)
-		if err != nil {
-			errClientCh <- err
-			return
-		}
-		restBuf = append(restBuf, b[:n]...)
-		for {
-			var data ndtpData
-			var packetLen uint16
-			data, packetLen, restBuf, err = parseNDTP(restBuf)
+		select {
+		case <-checkTicker.C:
+			checkOldDataNDTP(cR, s, ndtpConn, mu, s.id, ErrNDTPCh)
+		default:
+			var b []byte
+			n, err := client.Read(b)
 			if err != nil {
-				if len(restBuf) > defaultBufferSize {
-					restBuf = []byte{}
-				}
-				fmt.Println(err)
-				break
+				errClientCh <- err
+				return
 			}
-			err = writeToDB(restBuf[:packetLen])
-			if err != nil {
-				errorRequest(from)
-				restBuf = []byte{}
-				break
-			}
-			if ndtpConn.closed != true {
-				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-				_, err = ndtpConn.conn.Write(restBuf[:packetLen])
+			restBuf = append(restBuf, b[:n]...)
+			for {
+				var data ndtpData
+				var packetLen uint16
+				data, packetLen, restBuf, err = parseNDTP(restBuf)
 				if err != nil {
-					ndtpConStatus(ndtpConn, mu, ErrNDTPCh)
+					if len(restBuf) > defaultBufferSize {
+						restBuf = []byte{}
+					}
+					fmt.Println(err)
+					break
 				}
-			}
-			if egtsConn.closed != true {
-				if toEGTS(data) {
-					egtsCh <- data.ToRnis
+				mill := getMill()
+				err = write2DB(cR, data, s, restBuf[:packetLen], mill)
+				if err != nil {
+					errorReply(client, restBuf[:packetLen])
+					restBuf = []byte{}
+					break
 				}
+				if ndtpConn.closed != true {
+					NPHReqID, message := changePacket(restBuf[:packetLen], data, s)
+					err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
+					if err != nil {
+						log.Println(err)
+					} else {
+						ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						_, err = ndtpConn.conn.Write(message)
+						if err != nil {
+							ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+						}
+					}
+				}
+				if egtsConn.closed != true {
+					if toEGTS(data) {
+						egtsCh <- data.ToRnis
+					}
+				}
+				err = reply(client, data.NPH, restBuf[:packetLen])
+				if err != nil {
+					errClientCh <- err
+					return
+				}
+				restBuf = restBuf[packetLen:]
+				time.Sleep(1 * time.Millisecond)
 			}
-			reply(from, restBuf[:packetLen])
-			restBuf = restBuf[packetLen:]
 		}
 	}
 }
@@ -249,7 +283,7 @@ func toEGTS(data ndtpData) bool {
 	return false
 }
 
-func ndtpConStatus(ndtpConn *connection, mu *sync.Mutex, ErrNDTPCh chan error) {
+func ndtpConStatus(cR redis.Conn, ndtpConn *connection, s *session, mu *sync.Mutex, ErrNDTPCh chan error) {
 	mu.Lock()
 	if ndtpConn.closed || ndtpConn.recon {
 		return
@@ -257,12 +291,12 @@ func ndtpConStatus(ndtpConn *connection, mu *sync.Mutex, ErrNDTPCh chan error) {
 		ndtpConn.recon = true
 		ndtpConn.conn.Close()
 		ndtpConn.closed = true
-		go reconnectNDTP(ndtpConn, ErrNDTPCh)
+		go reconnectNDTP(cR, ndtpConn, s, ErrNDTPCh)
 	}
 	mu.Unlock()
 }
 
-func reconnectNDTP(ndtpConn *connection, ErrNDTPCh chan error) {
+func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
 	for {
 		if conClosed(ErrNDTPCh) {
 			return
@@ -271,10 +305,13 @@ func reconnectNDTP(ndtpConn *connection, ErrNDTPCh chan error) {
 		if err != nil {
 			log.Printf("error while connecting to server: %s", err)
 		} else {
-			//TODO pass id to function
-			firstMessage := readConnDB(0)
+			firstMessage, err := readConnDB(cR, s.id)
+			if err != nil {
+				log.Println("reconnecting error")
+				return
+			}
 			ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			_, err := ndtpConn.conn.Write(firstMessage)
+			_, err = ndtpConn.conn.Write(firstMessage)
 			if err == nil {
 				ndtpConn.conn = cN
 				ndtpConn.closed = false
@@ -308,25 +345,66 @@ func conClosed(ErrNDTPCh chan error) bool {
 	}
 }
 
-func reply(c net.Conn, packet []byte) {
-	return
-}
-
-func errorRequest(c net.Conn) {
-	return
-}
-
-func changeAddress(data []byte, ip net.IP) {
-	start := []byte{0x7E, 0x7E}
-	index1 := bytes.Index(data, start)
-	for i, j := index1+9, 0; i < index1+13; i, j = i+1, j+1 {
-		data[i] = ip[j]
+func reply(c net.Conn, data nphData, packet []byte) error {
+	if data.isResult {
+		return nil
+	} else {
+		ans := answer(packet)
+		c.SetWriteDeadline(time.Now().Add(writeTimeout))
+		_, err := c.Write(ans)
+		return err
 	}
 }
+func errorReply(c net.Conn, packet []byte) error {
+	ans := answer(packet)
+	c.SetWriteDeadline(time.Now().Add(writeTimeout))
+	_, err := c.Write(ans)
+	return err
 
-func getIP(c net.Conn) net.IP {
-	ipPort := strings.Split(c.RemoteAddr().String(), ":")
-	ip := ipPort[0]
-	ip1 := net.ParseIP(ip)
-	return ip1.To4()
+}
+
+func serverID(s *session) (uint16, uint32) {
+	s.muS.Lock()
+	nplID := s.serverNPLReqID
+	nphID := s.serverNPHReqID
+	s.serverNPLReqID++
+	s.serverNPHReqID++
+	s.muS.Unlock()
+	return nplID, nphID
+}
+func clientID(s *session) (uint16, uint32) {
+	s.muC.Lock()
+	nplID := s.clientNPLReqID
+	nphID := s.clientNPHReqID
+	s.clientNPLReqID++
+	s.clientNPHReqID++
+	s.muC.Unlock()
+	return nplID, nphID
+}
+
+func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, id int, ErrNDTPCh chan error) {
+	res, err := getOldNDTP(cR, id)
+	if err != nil {
+		log.Println("can't get old NDTP for id: ", id)
+		return
+	}
+	for _, mes := range res {
+		var data ndtpData
+		data, _, _, err = parseNDTP(mes)
+		if ndtpConn.closed != true {
+			mill := getMill()
+			NPHReqID, message := changePacket(mes, data, s)
+			err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
+			if err != nil {
+				log.Println(err)
+			} else {
+				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+				_, err = ndtpConn.conn.Write(message)
+				if err != nil {
+					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+				}
+			}
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
 }
