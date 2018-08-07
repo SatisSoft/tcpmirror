@@ -31,13 +31,14 @@ type nphData struct {
 }
 
 type rnisData struct {
-	Time    uint32
-	Lon     uint32
-	Lat     uint32
-	Bearing uint16
-	Speed   uint16
-	Sos     bool
-	ID      uint32
+	Time      uint32
+	Lon       float64
+	Lat       float64
+	Bearing   uint16
+	Speed     uint16
+	Sos       bool
+	ID        uint32
+	MessageID string
 }
 
 func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte, err error) {
@@ -114,9 +115,18 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 		case 0:
 			DataLen := navDataLength[0]
 			if index+DataLen < MesLen {
+				var latHS, lonHS int
 				rnis.Time = binary.LittleEndian.Uint32(message[index+2 : index+6])
-				rnis.Lon = binary.LittleEndian.Uint32(message[index+6 : index+10])
-				rnis.Lat = binary.LittleEndian.Uint32(message[index+10 : index+14])
+				lon := binary.LittleEndian.Uint32(message[index+6 : index+10])
+				lat := binary.LittleEndian.Uint32(message[index+10 : index+14])
+				if message[index+15]&32 != 0 {
+					latHS = 1
+				}
+				if message[index+15]&64 != 0 {
+					lonHS = 1
+				}
+				rnis.Lon  = float64((2 * latHS - 1) * int(lat)) / 10000000.0
+				rnis.Lat = float64((2 * lonHS - 1) * int(lon)) / 10000000.0
 				if message[index+15]&4 != 0 {
 					rnis.Sos = true
 				} else {
@@ -201,9 +211,7 @@ func errorAnswer(packet []byte) []byte {
 	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], errResult...)
 	copy(nph[2:], nphResultType)
 	crc := crc16(nph)
-	// ServiceID:16 + 0:16 + 0:16 + RequestID:32 + Result:32
 	ans := packet[:NPL_HEADER_LEN]
-	//var dataSize = make([]byte, 2)
 	dataSize := new(bytes.Buffer)
 	binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
 	copy(ans[2:], dataSize.Bytes())
@@ -232,9 +240,7 @@ func answer(packet []byte) []byte {
 	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], okResult...)
 	copy(nph[2:], nphResultType)
 	crc := crc16(nph)
-	// ServiceID:16 + 0:16 + 0:16 + RequestID:32 + Result:32
 	ans := packet[:NPL_HEADER_LEN]
-	//var dataSize = make([]byte, 2)
 	dataSize := new(bytes.Buffer)
 	binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
 	copy(ans[2:], dataSize.Bytes())

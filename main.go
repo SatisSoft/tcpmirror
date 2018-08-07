@@ -2,7 +2,7 @@ package main
 
 import (
 	"flag"
-		"github.com/gomodule/redigo/redis"
+	"github.com/gomodule/redigo/redis"
 	"log"
 	"net"
 	"sync"
@@ -22,6 +22,7 @@ var (
 	egtsConn      connection
 	egtsCh        = make(chan rnisData, 200)
 	egtsErrCh     chan error
+	egtsMu        sync.Mutex
 )
 
 type connection struct {
@@ -64,6 +65,8 @@ func main() {
 		egtsConn.closed = false
 	}
 	go egtsSession()
+	go waitReplyEGTS()
+	go egtsRemoveExpired()
 	connNo := uint64(1)
 	for {
 		c, err := l.Accept()
@@ -140,18 +143,73 @@ FORLOOP:
 }
 
 func egtsSession() {
+	var buf []byte
+	count := 0
+	sendTicker := time.NewTicker(100 * time.Millisecond)
+	checkTicker := time.NewTicker(1 * time.Second)
+	defer sendTicker.Stop()
+	defer checkTicker.Stop()
 EGTSLOOP:
 	for {
 		select {
-		case _ = <-egtsErrCh:
+		case <-egtsErrCh:
 			break EGTSLOOP
 		case message := <-egtsCh:
-			packet := formEGTS(message)
-			egtsConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			_, err := egtsConn.conn.Write(packet)
-			if err != nil {
-				reconnectEGTS()
+			packet, egtsMessageID := formEGTS(message)
+			count += 1
+			buf = append(buf, packet...)
+			writeID(egtsMessageID, message.MessageID)
+			if count == 10 {
+				send2egts(buf)
+				count = 0
+				buf = nil
 			}
+		case <-sendTicker.C:
+			if count < 10 {
+				send2egts(buf)
+				count = 0
+				buf = nil
+			}
+		case <-checkTicker.C:
+			var bufOld []byte
+			oldData := checkOldData()
+			for _, message := range oldData {
+				packet, egtsMessageID := formEGTS(message)
+				bufOld = append(bufOld, packet...)
+				writeID(egtsMessageID, message.MessageID)
+			}
+			send2egts(bufOld)
+		}
+	}
+}
+
+func waitReplyEGTS() {
+	for {
+		var b []byte
+		if !egtsConn.closed {
+			n, err := egtsConn.conn.Read(b)
+			if err != nil {
+				log.Printf("error while getting reply from client %s", err)
+				go reconnectEGTS()
+			}
+			if n != 0 {
+				egtsMessageID, err := parseEGTS(b)
+				if err != nil {
+					log.Printf("error while parsing reply from EGTS %s", err)
+				} else {
+					deleteID(egtsMessageID)
+				}
+			}
+		}
+	}
+}
+
+func send2egts(buf []byte) {
+	if !egtsConn.closed {
+		egtsConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+		_, err := egtsConn.conn.Write(buf)
+		if err != nil {
+			go reconnectEGTS()
 		}
 	}
 }
@@ -324,14 +382,26 @@ func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh ch
 }
 
 func reconnectEGTS() {
-	egtsConn.conn.Close()
-	egtsConn.closed = true
-	cE, err := net.Dial("tcp", EGTSAddress)
-	if err != nil {
-		log.Printf("error while connecting to server: %s", err)
+	egtsMu.Lock()
+	if egtsConn.closed || egtsConn.recon {
+		return
 	} else {
-		egtsConn.conn = cE
-		egtsConn.closed = false
+		egtsConn.recon = true
+		egtsConn.conn.Close()
+		egtsConn.closed = true
+	}
+	egtsMu.Unlock()
+	for {
+		for i := 0; i < 3; i++ {
+			cE, err := net.Dial("tcp", EGTSAddress)
+			if err == nil {
+				egtsConn.conn = cE
+				egtsConn.closed = false
+				return
+			}
+			log.Printf("error while connecting to server: %s", err)
+		}
+		time.Sleep(10 * time.Second)
 	}
 }
 
@@ -355,7 +425,7 @@ func reply(c net.Conn, data nphData, packet []byte) error {
 	}
 }
 func errorReply(c net.Conn, packet []byte) error {
-	ans := answer(packet)
+	ans := errorAnswer(packet)
 	c.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err := c.Write(ans)
 	return err
@@ -406,4 +476,27 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 		}
 		time.Sleep(1 * time.Millisecond)
 	}
+}
+
+func egtsRemoveExpired() {
+	for {
+		removeExpiredData()
+		time.Sleep(1 * time.Hour)
+	}
+}
+
+func removeExpiredData() {
+	return
+}
+
+func checkOldData() (data []rnisData) {
+	return
+}
+
+func writeID(egtsMessageID uint16, MessageID string) {
+	return
+}
+
+func deleteID(egtsMessageID uint16) {
+	return
 }
