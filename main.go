@@ -45,8 +45,8 @@ type session struct {
 
 func main() {
 	flag.StringVar(&listenAddress, "l", "", "listen address (e.g. 'localhost:8080')")
-	flag.StringVar(&NDTPAddress, "m", "", "send NDTP to address (e.g. 'localhost:8081')")
-	flag.StringVar(&EGTSAddress, "r", "", "send EGTS to address (e.g. 'localhost:8081')")
+	flag.StringVar(&NDTPAddress, "n", "", "send NDTP to address (e.g. 'localhost:8081')")
+	flag.StringVar(&EGTSAddress, "e", "", "send EGTS to address (e.g. 'localhost:8082')")
 	flag.Parse()
 	if listenAddress == "" || NDTPAddress == "" || EGTSAddress == "" {
 		flag.Usage()
@@ -119,7 +119,6 @@ func handleConnection(c net.Conn, connNo uint64) {
 		errorReply(c, firstMessage[:dataLen])
 		return
 	}
-
 	errClientCh := make(chan error)
 	ErrNDTPCh := make(chan error)
 	cN, err := net.Dial("tcp", NDTPAddress)
