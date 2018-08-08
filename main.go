@@ -164,7 +164,7 @@ EGTSLOOP:
 			packet, egtsMessageID := formEGTS(message)
 			count += 1
 			buf = append(buf, packet...)
-			err := writeEGTSid(egtsCr, egtsMessageID, message.MessageID)
+			err := writeEGTSid(egtsMessageID, message.MessageID)
 			if err != nil{
 				log.Printf("error while write EGTS id",err)
 			} else if count == 10 {
