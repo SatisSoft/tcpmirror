@@ -506,7 +506,7 @@ func checkOldDataEGTS() (err error) {
 		if err != nil {
 			packet, egtsMessageID := formEGTS(dataNDTP.ToRnis)
 			bufOld = append(bufOld, packet...)
-			err := writeEGTSid(egtsCr, egtsMessageID, dataNDTP.ToRnis.MessageID)
+			err := writeEGTSid(egtsMessageID, dataNDTP.ToRnis.MessageID)
 			if err != nil{
 				log.Printf("error while write EGTS id",err)
 			}

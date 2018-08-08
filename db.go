@@ -114,7 +114,7 @@ func removeExpiredDataEGTS() (err error) {
 	return
 }
 
-func getOldEGTS(id int) (res [][]byte, err error) {
+func getOldEGTS() (res [][]byte, err error) {
 	max := getMill() - 60000
 	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, 0, 10))
 	return
