@@ -82,7 +82,7 @@ func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte,
 	return
 }
 
-func parseNPH(message []byte, data *ndtpData) (err error) {
+func parseNPH(message []byte, data *ndtpData) error {
 	index := 0
 	var nph nphData
 	nph.ServiceID = binary.LittleEndian.Uint16(message[index : index+2])
@@ -91,7 +91,7 @@ func parseNPH(message []byte, data *ndtpData) (err error) {
 	if nph.ServiceID == NPH_SRV_NAVDATA && (nph.NPHType == NPH_SND_HISTORY || nph.NPHType == NPH_SND_REALTIME) {
 		rnis, NPHLen, err := parseNavData(message[index+NPH_HEADER_LEN:])
 		if err != nil {
-			return
+			return err
 		} else {
 			data.ToRnis = rnis
 			index = index + +NPHLen
@@ -105,7 +105,7 @@ func parseNPH(message []byte, data *ndtpData) (err error) {
 		}
 	}
 	data.NPH = nph
-	return
+	return nil
 }
 
 func parseNavData(message []byte) (rnis rnisData, index int, err error) {
