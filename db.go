@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/gomodule/redigo/redis"
 	"bytes"
 	"encoding/binary"
+	"github.com/gomodule/redigo/redis"
 )
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
@@ -67,4 +67,49 @@ func getOldNDTP(c redis.Conn, id int) ([][]byte, error) {
 	max := getMill() - 60000
 	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", id, 0, max, 0, 10))
 	return res, err
+}
+
+func writeEGTSid(egtsMessageID uint16, MessageID string) (err error) {
+	key := "egts:" + string(egtsMessageID)
+	_, err = egtsCr.Do("SET", key, MessageID, "ex", 50)
+	return
+}
+
+func deleteEGTSid(egtsMessageID uint16) (err error) {
+	key := "egts:" + string(egtsMessageID)
+	messageID, err := redis.Bytes(egtsCr.Do("GET", key))
+	if err != nil || resEgts == nil {
+		return
+	}
+	id := resEgts[0:2]
+	time := resEgts[3:7]
+	packets, err := redis.ByteSlices(egtsCr.Do("ZRANGEBYSCORE", "rnis", time, time))
+	if err != nil {
+		return
+	}
+	numPackets := len(packets)
+	switch {
+	case numPackets > 1:
+		for pack := range resRnis {
+			if pack[0:2] == id {
+				_, err := egtsCr.Do("ZREM", "rnis", time, pack)
+				return
+			}
+		}
+	case numPackets == 1:
+		_, err := egtsCr.Do("ZREM", "rnis", time)
+	}
+	return
+}
+
+func removeExpiredDataEGTS() (err error) {
+	max := getMill() - 259200000 //3*24*60*60*1000
+	_, err = egtsCr.Do("ZREMRANGEBYSCORE", "rnis", 0, max)
+	return
+}
+
+func getOldEGTS(c redis.Conn, id int) (res [][]byte, err error) {
+	max := getMill() - 60000
+	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, 0, 10))
+	return
 }

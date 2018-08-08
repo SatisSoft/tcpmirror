@@ -23,6 +23,7 @@ var (
 	egtsCh        = make(chan rnisData, 200)
 	egtsErrCh     chan error
 	egtsMu        sync.Mutex
+	egtsCr        net.Conn
 )
 
 type connection struct {
@@ -63,6 +64,12 @@ func main() {
 	} else {
 		egtsConn.conn = cE
 		egtsConn.closed = false
+	}
+	egtsCr, err := redis.Dial("tcp", ":6379")
+	defer egtsCr.Close()
+	if err != nil {
+		log.Printf("error while connect to redis: %s\n", err)
+		return
 	}
 	go egtsSession()
 	go waitReplyEGTS()
@@ -158,7 +165,7 @@ EGTSLOOP:
 			packet, egtsMessageID := formEGTS(message)
 			count += 1
 			buf = append(buf, packet...)
-			writeID(egtsMessageID, message.MessageID)
+			writeEGTSid(egtsCr, egtsMessageID, message.MessageID)
 			if count == 10 {
 				send2egts(buf)
 				count = 0
@@ -172,13 +179,17 @@ EGTSLOOP:
 			}
 		case <-checkTicker.C:
 			var bufOld []byte
-			oldData := checkOldData()
-			for _, message := range oldData {
-				packet, egtsMessageID := formEGTS(message)
-				bufOld = append(bufOld, packet...)
-				writeID(egtsMessageID, message.MessageID)
+			oldData, err := checkOldDataEGTS()
+			if err != nil {
+				log.Printf("error while check old data egts %s", err)
+			} else {
+				for _, message := range oldData {
+					packet, egtsMessageID := formEGTS(message)
+					bufOld = append(bufOld, packet...)
+					writeEGTSid(egtsCr, egtsMessageID, message.MessageID)
+				}
+				send2egts(bufOld)
 			}
-			send2egts(bufOld)
 		}
 	}
 }
@@ -197,7 +208,10 @@ func waitReplyEGTS() {
 				if err != nil {
 					log.Printf("error while parsing reply from EGTS %s", err)
 				} else {
-					deleteID(egtsMessageID)
+					err := deleteEGTSid(egtsMessageID)
+					if err != nil {
+						log.Printf("error while delete EGTS id %s", err)
+					}
 				}
 			}
 		}
@@ -480,23 +494,21 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 
 func egtsRemoveExpired() {
 	for {
-		removeExpiredData()
+		removeExpiredDataEGTS()
 		time.Sleep(1 * time.Hour)
 	}
 }
 
-func removeExpiredData() {
-	return
-}
-
-func checkOldData() (data []rnisData) {
-	return
-}
-
-func writeID(egtsMessageID uint16, MessageID string) {
-	return
-}
-
-func deleteID(egtsMessageID uint16) {
+func checkOldDataEGTS() (dataRnis []rnisData, err error) {
+	messages, err := getOldEGTS()
+	if err != nil {
+		log.Println("can't get old EGTS")
+		return
+	}
+	for _, m := range messages {
+		var dataNDTP ndtpData
+		dataNDTP, _, _, err = parseNDTP(m)
+		dataRnis = append(dataRnis, dataNDTP.ToRnis)
+	}
 	return
 }
