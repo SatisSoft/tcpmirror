@@ -42,7 +42,7 @@ type rnisData struct {
 }
 
 func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte, err error) {
-	index1 := bytes.Index(nplSignature, message)
+	index1 := bytes.Index(message, nplSignature)
 	if index1 == -1 {
 		err = errors.New("NPL signature not found")
 		return
@@ -125,8 +125,8 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 				if message[index+15]&64 != 0 {
 					lonHS = 1
 				}
-				rnis.Lon  = float64((2 * latHS - 1) * int(lat)) / 10000000.0
-				rnis.Lat = float64((2 * lonHS - 1) * int(lon)) / 10000000.0
+				rnis.Lon = float64((2*latHS-1)*int(lat)) / 10000000.0
+				rnis.Lat = float64((2*lonHS-1)*int(lon)) / 10000000.0
 				if message[index+15]&4 != 0 {
 					rnis.Sos = true
 				} else {

@@ -1,9 +1,9 @@
 package main
 
 import (
-	"github.com/gomodule/redigo/redis"
 	"bytes"
 	"encoding/binary"
+	"github.com/gomodule/redigo/redis"
 )
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
