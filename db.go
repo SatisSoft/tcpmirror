@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"bytes"
 	"encoding/binary"
 	"github.com/gomodule/redigo/redis"
@@ -81,8 +82,13 @@ func deleteEGTSid(egtsMessageID uint16) (err error) {
 	if err != nil || resEgts == nil {
 		return
 	}
-	id := resEgts[0:2]
-	time := resEgts[3:7]
+	
+	messageIDSplit := strings.Split(messageID,":")
+	id, err := strconv.ParseUint(messageIDSplit[1], 10, 32)
+	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
+	idB := new(bytes.Buffer)
+	binary.Write(idB, binary.LittleEndian,id)
+	
 	packets, err := redis.ByteSlices(egtsCr.Do("ZRANGEBYSCORE", "rnis", time, time))
 	if err != nil {
 		return
@@ -90,14 +96,14 @@ func deleteEGTSid(egtsMessageID uint16) (err error) {
 	numPackets := len(packets)
 	switch {
 	case numPackets > 1:
-		for pack := range resRnis {
-			if pack[0:2] == id {
-				_, err := egtsCr.Do("ZREM", "rnis", time, pack)
+		for pack := range packets {
+			if pack[0:4] == idB.Bytes() {
+				_, err := egtsCr.Do("ZREM", "rnis",pack)
 				return
 			}
 		}
 	case numPackets == 1:
-		_, err := egtsCr.Do("ZREM", "rnis", time)
+		_, err := egtsCr.Do("ZREM", "rnis", packets[0])
 	}
 	return
 }
