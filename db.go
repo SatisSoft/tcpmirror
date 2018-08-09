@@ -1,6 +1,7 @@
 package main
 
 import (
+	"strconv"
 	"bytes"
 	"encoding/binary"
 	"github.com/gomodule/redigo/redis"
@@ -67,4 +68,54 @@ func getOldNDTP(c redis.Conn, id int) ([][]byte, error) {
 	max := getMill() - 60000
 	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", id, 0, max, 0, 10))
 	return res, err
+}
+
+func writeEGTSid(egtsMessageID uint16, MessageID string) (err error) {
+	key := "egts:" + string(egtsMessageID)
+	_, err = egtsCr.Do("SET", key, MessageID, "ex", 50)
+	return
+}
+
+func deleteEGTSid(egtsMessageID uint16) (err error) {
+	key := "egts:" + string(egtsMessageID)
+	messageID, err := redis.Bytes(egtsCr.Do("GET", key))
+	if err != nil || resEgts == nil {
+		return
+	}
+	
+	messageIDSplit := strings.Split(messageID,":")
+	id, err := strconv.ParseUint(messageIDSplit[1], 10, 32)
+	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
+	idB := new(bytes.Buffer)
+	binary.Write(idB, binary.LittleEndian,id)
+	
+	packets, err := redis.ByteSlices(egtsCr.Do("ZRANGEBYSCORE", "rnis", time, time))
+	if err != nil {
+		return
+	}
+	numPackets := len(packets)
+	switch {
+	case numPackets > 1:
+		for pack := range packets {
+			if pack[0:4] == idB.Bytes() {
+				_, err := egtsCr.Do("ZREM", "rnis",pack)
+				return
+			}
+		}
+	case numPackets == 1:
+		_, err := egtsCr.Do("ZREM", "rnis", packets[0])
+	}
+	return
+}
+
+func removeExpiredDataEGTS() (err error) {
+	max := getMill() - 259200000 //3*24*60*60*1000
+	_, err = egtsCr.Do("ZREMRANGEBYSCORE", "rnis", 0, max)
+	return
+}
+
+func getOldEGTS() (res [][]byte, err error) {
+	max := getMill() - 60000
+	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, 0, 10))
+	return
 }
