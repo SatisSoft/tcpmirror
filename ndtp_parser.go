@@ -72,11 +72,10 @@ func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte,
 	data.NPLType = message[index1+8]
 	data.NPLReqID = binary.LittleEndian.Uint16(message[index1+13 : index1+15])
 	err = parseNPH(message[index1+15:], &data)
-	if err != nil {
-		packetLen = dataLen + NPL_HEADER_LEN
-		restBuf = make([]byte, len(message[NPL_HEADER_LEN+dataLen:]))
-		copy(restBuf, message[NPL_HEADER_LEN+dataLen:])
-	} else {
+	packetLen = dataLen + NPL_HEADER_LEN
+	restBuf = make([]byte, NPL_HEADER_LEN+dataLen)
+	copy(restBuf, message[index1:NPL_HEADER_LEN+dataLen])
+	if err == nil {
 		data.valid = true
 	}
 	return
@@ -110,62 +109,61 @@ func parseNPH(message []byte, data *ndtpData) error {
 
 func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 	MesLen := len(message)
-	for index < MesLen-2 {
-		switch Type := message[0]; Type {
-		case 0:
-			DataLen := navDataLength[0]
-			if index+DataLen < MesLen {
-				var latHS, lonHS int
-				rnis.Time = binary.LittleEndian.Uint32(message[index+2 : index+6])
-				lon := binary.LittleEndian.Uint32(message[index+6 : index+10])
-				lat := binary.LittleEndian.Uint32(message[index+10 : index+14])
-				if message[index+15]&32 != 0 {
-					latHS = 1
-				}
-				if message[index+15]&64 != 0 {
-					lonHS = 1
-				}
-				rnis.Lon = float64((2*latHS-1)*int(lat)) / 10000000.0
-				rnis.Lat = float64((2*lonHS-1)*int(lon)) / 10000000.0
-				if message[index+15]&4 != 0 {
-					rnis.Sos = true
-				} else {
-					rnis.Sos = false
-				}
-				rnis.Speed = binary.LittleEndian.Uint16(message[index+16 : index+18])
-				rnis.Bearing = binary.LittleEndian.Uint16(message[index+22 : index+24])
-			} else {
-				err = errors.New("NavData type 0 is too short")
-				return
+	switch Type := message[0]; Type {
+	case 0:
+		DataLen := navDataLength[0]
+		if index+DataLen < MesLen {
+			var latHS, lonHS int
+			rnis.Time = binary.LittleEndian.Uint32(message[index+2 : index+6])
+			lon := binary.LittleEndian.Uint32(message[index+6 : index+10])
+			lat := binary.LittleEndian.Uint32(message[index+10 : index+14])
+			if message[index+15]&32 != 0 {
+				latHS = 1
 			}
-		case 100:
-			if index+3 < MesLen {
-				DataLen := binary.LittleEndian.Uint16(message[index+4 : index+6])
-				if index+3+int(DataLen) < MesLen {
-					index = index + 3 + int(DataLen)
-				} else {
-					err = errors.New("NavData type 100 is too short")
-					return
-				}
+			if message[index+15]&64 != 0 {
+				lonHS = 1
+			}
+			rnis.Lon = float64((2*latHS-1)*int(lat)) / 10000000.0
+			rnis.Lat = float64((2*lonHS-1)*int(lon)) / 10000000.0
+			if message[index+15]&4 != 0 {
+				rnis.Sos = true
+			} else {
+				rnis.Sos = false
+			}
+			rnis.Speed = binary.LittleEndian.Uint16(message[index+16 : index+18])
+			rnis.Bearing = binary.LittleEndian.Uint16(message[index+22 : index+24])
+		} else {
+			err = errors.New("NavData type 0 is too short")
+			return
+		}
+	case 100:
+		if index+3 < MesLen {
+			DataLen := binary.LittleEndian.Uint16(message[index+4 : index+6])
+			if index+3+int(DataLen) < MesLen {
+				index = index + 3 + int(DataLen)
 			} else {
 				err = errors.New("NavData type 100 is too short")
 				return
 			}
-		default:
-			DataLen, ok := navDataLength[Type]
-			if ok {
-				if index+DataLen > MesLen {
-					index = index + DataLen
-				} else {
-					err = fmt.Errorf("NavData type %d is too short", Type)
-					return
-				}
+		} else {
+			err = errors.New("NavData type 100 is too short")
+			return
+		}
+	default:
+		DataLen, ok := navDataLength[Type]
+		if ok {
+			if index+DataLen > MesLen {
+				index = index + DataLen
 			} else {
-				err = fmt.Errorf("Unknown type of NavData: %d", Type)
+				err = fmt.Errorf("NavData type %d is too short", Type)
 				return
 			}
+		} else {
+			err = fmt.Errorf("Unknown type of NavData: %d", Type)
+			return
 		}
 	}
+
 	return
 }
 
@@ -207,6 +205,21 @@ func changePacketFromServ(b []byte, s *session) []byte {
 	return b
 }
 
+func answer(packet []byte) []byte {
+	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], okResult...)
+	copy(nph[2:], nphResultType)
+	crc := crc16(nph)
+	ans := packet[:NPL_HEADER_LEN]
+	dataSize := new(bytes.Buffer)
+	binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
+	copy(ans[2:], dataSize.Bytes())
+	crc1 := new(bytes.Buffer)
+	binary.Write(crc1, binary.LittleEndian, crc)
+	copy(ans[6:], crc1.Bytes())
+	ans = append(ans, nph...)
+	return ans
+}
+
 func errorAnswer(packet []byte) []byte {
 	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], errResult...)
 	copy(nph[2:], nphResultType)
@@ -218,6 +231,7 @@ func errorAnswer(packet []byte) []byte {
 	crc1 := new(bytes.Buffer)
 	binary.Write(crc1, binary.LittleEndian, crc)
 	copy(ans[6:], crc1.Bytes())
+	ans = append(ans, nph...)
 	return ans
 }
 
@@ -234,20 +248,6 @@ func getIP(c net.Conn) net.IP {
 	ip := ipPort[0]
 	ip1 := net.ParseIP(ip)
 	return ip1.To4()
-}
-
-func answer(packet []byte) []byte {
-	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], okResult...)
-	copy(nph[2:], nphResultType)
-	crc := crc16(nph)
-	ans := packet[:NPL_HEADER_LEN]
-	dataSize := new(bytes.Buffer)
-	binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
-	copy(ans[2:], dataSize.Bytes())
-	crc1 := new(bytes.Buffer)
-	binary.Write(crc1, binary.LittleEndian, crc)
-	copy(ans[6:], crc1.Bytes())
-	return ans
 }
 
 func getMill() int64 {

@@ -111,6 +111,8 @@ func handleConnection(c net.Conn, connNo uint64) {
 	if err != nil {
 		errorReply(c, firstMessage[:dataLen])
 		return
+	} else {
+		reply(c, data.NPH, firstMessage[:dataLen])
 	}
 	errClientCh := make(chan error)
 	ErrNDTPCh := make(chan error)
@@ -184,15 +186,15 @@ EGTSLOOP:
 
 func waitReplyEGTS() {
 	for {
-		var b []byte
+		var b [defaultBufferSize]byte
 		if !egtsConn.closed {
-			n, err := egtsConn.conn.Read(b)
+			n, err := egtsConn.conn.Read(b[:])
 			if err != nil {
 				log.Printf("error while getting reply from client %s", err)
 				go reconnectEGTS()
 			}
 			if n != 0 {
-				egtsMessageID, err := parseEGTS(b)
+				egtsMessageID, err := parseEGTS(b[:n])
 				if err != nil {
 					log.Printf("error while parsing reply from EGTS %s", err)
 				} else {
@@ -232,13 +234,14 @@ func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 			return
 		}
 		if !ndtpConn.closed {
-			var b []byte
-			_, err := ndtpConn.conn.Read(b)
+			var b [defaultBufferSize]byte
+			n, err := ndtpConn.conn.Read(b[:])
 			if err != nil {
 				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 				continue
 			}
 			var restBuf []byte
+			restBuf = b[:n]
 			for {
 				var data ndtpData
 				var packetLen uint16
@@ -277,8 +280,8 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 		case <-checkTicker.C:
 			checkOldDataNDTP(cR, s, ndtpConn, mu, s.id, ErrNDTPCh)
 		default:
-			var b []byte
-			n, err := client.Read(b)
+			var b [defaultBufferSize]byte
+			n, err := client.Read(b[:])
 			if err != nil {
 				errClientCh <- err
 				return
