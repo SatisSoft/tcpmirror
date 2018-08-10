@@ -105,7 +105,7 @@ func deleteEGTSid(c redis.Conn, egtsMessageID uint16) (err error) {
 			}
 		}
 	case numPackets == 1:
-		_, err := c.Do("ZREM", "rnis", packets[0])
+		_, err = c.Do("ZREM", "rnis", packets[0])
 	}
 	return
 }
