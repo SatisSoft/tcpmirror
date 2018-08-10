@@ -1,10 +1,10 @@
 package main
 
 import (
-	"strconv"
 	"bytes"
 	"encoding/binary"
 	"github.com/gomodule/redigo/redis"
+	"strconv"
 )
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
@@ -82,13 +82,13 @@ func deleteEGTSid(egtsMessageID uint16) (err error) {
 	if err != nil || resEgts == nil {
 		return
 	}
-	
-	messageIDSplit := strings.Split(messageID,":")
+
+	messageIDSplit := strings.Split(messageID, ":")
 	id, err := strconv.ParseUint(messageIDSplit[1], 10, 32)
 	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
 	idB := new(bytes.Buffer)
-	binary.Write(idB, binary.LittleEndian,id)
-	
+	binary.Write(idB, binary.LittleEndian, id)
+
 	packets, err := redis.ByteSlices(egtsCr.Do("ZRANGEBYSCORE", "rnis", time, time))
 	if err != nil {
 		return
@@ -98,7 +98,7 @@ func deleteEGTSid(egtsMessageID uint16) (err error) {
 	case numPackets > 1:
 		for pack := range packets {
 			if pack[0:4] == idB.Bytes() {
-				_, err := egtsCr.Do("ZREM", "rnis",pack)
+				_, err := egtsCr.Do("ZREM", "rnis", pack)
 				return
 			}
 		}

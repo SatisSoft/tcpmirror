@@ -167,8 +167,8 @@ EGTSLOOP:
 			count += 1
 			buf = append(buf, packet...)
 			err := writeEGTSid(egtsMessageID, message.MessageID)
-			if err != nil{
-				log.Printf("error while write EGTS id",err)
+			if err != nil {
+				log.Printf("error while write EGTS id", err)
 			} else if count == 10 {
 				send2egts(buf)
 				count = 0
@@ -362,30 +362,31 @@ func ndtpConStatus(cR redis.Conn, ndtpConn *connection, s *session, mu *sync.Mut
 
 func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
 	for {
-		if conClosed(ErrNDTPCh) {
-			return
-		}
-		cN, err := net.Dial("tcp", NDTPAddress)
-		if err != nil {
-			log.Printf("error while connecting to server: %s", err)
-		} else {
-			firstMessage, err := readConnDB(cR, s.id)
-			if err != nil {
-				log.Println("reconnecting error")
+		for i := 0; i < 3; i++ {
+			if conClosed(ErrNDTPCh) {
 				return
 			}
-			ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			_, err = ndtpConn.conn.Write(firstMessage)
-			if err == nil {
-				ndtpConn.conn = cN
-				ndtpConn.closed = false
-				time.Sleep(1 * time.Minute)
-				ndtpConn.recon = false
+			cN, err := net.Dial("tcp", NDTPAddress)
+			if err != nil {
+				log.Printf("error while connecting to server: %s", err)
+			} else {
+				firstMessage, err := readConnDB(cR, s.id)
+				if err != nil {
+					log.Println("reconnecting error")
+					return
+				}
+				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+				_, err = ndtpConn.conn.Write(firstMessage)
+				if err == nil {
+					ndtpConn.conn = cN
+					ndtpConn.closed = false
+					time.Sleep(1 * time.Minute)
+					ndtpConn.recon = false
+				}
 			}
 		}
-
+		time.Sleep(1 * time.Minute)
 	}
-	return
 }
 
 func reconnectEGTS() {
@@ -489,7 +490,7 @@ func egtsRemoveExpired() {
 	for {
 		err := removeExpiredDataEGTS()
 		if err != nil {
-			log.Println("error while remove expired data EGTS %s",err)
+			log.Println("error while remove expired data EGTS %s", err)
 		}
 		time.Sleep(1 * time.Hour)
 	}
@@ -498,10 +499,10 @@ func egtsRemoveExpired() {
 func checkOldDataEGTS() (err error) {
 	messages, err := getOldEGTS()
 	if err != nil {
-		log.Println("can't get old EGTS %s",err)
+		log.Println("can't get old EGTS %s", err)
 		return
 	}
-	
+
 	var bufOld []byte
 	for _, msg := range messages {
 		var dataNDTP ndtpData
@@ -510,8 +511,8 @@ func checkOldDataEGTS() (err error) {
 			packet, egtsMessageID := formEGTS(dataNDTP.ToRnis)
 			bufOld = append(bufOld, packet...)
 			err := writeEGTSid(egtsMessageID, dataNDTP.ToRnis.MessageID)
-			if err != nil{
-				log.Printf("error while write EGTS id",err)
+			if err != nil {
+				log.Printf("error while write EGTS id", err)
 			}
 		}
 	}
