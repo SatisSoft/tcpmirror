@@ -360,6 +360,7 @@ func toEGTS(data ndtpData) bool {
 
 func ndtpConStatus(cR redis.Conn, ndtpConn *connection, s *session, mu *sync.Mutex, ErrNDTPCh chan error) {
 	mu.Lock()
+	defer mu.Unlock()
 	if ndtpConn.closed || ndtpConn.recon {
 		return
 	} else {
@@ -368,7 +369,6 @@ func ndtpConStatus(cR redis.Conn, ndtpConn *connection, s *session, mu *sync.Mut
 		ndtpConn.closed = true
 		go reconnectNDTP(cR, ndtpConn, s, ErrNDTPCh)
 	}
-	mu.Unlock()
 }
 
 func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
