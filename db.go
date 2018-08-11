@@ -67,7 +67,7 @@ func removeFromNDTP(c redis.Conn, id int, NPHReqID uint32) error {
 
 func getOldNDTP(c redis.Conn, id int) ([][]byte, error) {
 	max := getMill() - 60000
-	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", id, 0, max, 0, 10))
+	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", id, 0, max, "LIMIT", 0, 10))
 	return res, err
 }
 
@@ -118,6 +118,6 @@ func removeExpiredDataEGTS(c redis.Conn) (err error) {
 
 func getOldEGTS(c redis.Conn) (res [][]byte, err error) {
 	max := getMill() - 60000
-	res, err = redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, 0, 10))
+	res, err = redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, "LIMIT", 0, 10))
 	return
 }

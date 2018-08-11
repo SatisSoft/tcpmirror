@@ -161,7 +161,7 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 				return
 			}
 		} else {
-			err = fmt.Errorf("Unknown type of NavData: %d", Type)
+			err = fmt.Errorf("unknown type of NavData: %d", Type)
 			return
 		}
 	}
