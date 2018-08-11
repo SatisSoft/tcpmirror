@@ -321,6 +321,8 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 					restBuf = []byte{}
 					break
 				}
+				log.Println("try to send to NDTP server")
+				log.Println("closed: ", ndtpConn.closed, "; recon: ", ndtpConn.recon)
 				if ndtpConn.closed != true {
 					NPHReqID, message := changePacket(restBuf[:packetLen], data, s)
 					err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
@@ -330,6 +332,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 						ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 						_, err = ndtpConn.conn.Write(message)
 						if err != nil {
+							log.Printf("clientSession send to NDTP server error: %s", err)
 							ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 						}
 					}
