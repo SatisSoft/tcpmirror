@@ -384,14 +384,14 @@ func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh ch
 			if err != nil {
 				log.Printf("error while reconnecting to NDPT server: %s", err)
 			} else {
-				log.Println("send first message again to %d", s.id)
+				log.Printf("send first message again to %d", s.id)
 				firstMessage, err := readConnDB(cR, s.id)
 				if err != nil {
 					log.Println("reconnecting error")
 					return
 				}
-				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-				_, err = ndtpConn.conn.Write(firstMessage)
+				cN.SetWriteDeadline(time.Now().Add(writeTimeout))
+				_, err = cN.Write(firstMessage)
 				if err == nil {
 					log.Printf("id %d reconnected", s.id)
 					ndtpConn.conn = cN
