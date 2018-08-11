@@ -8,6 +8,7 @@ import (
 	"net"
 	"strings"
 	"time"
+	"log"
 )
 
 type ndtpData struct {
@@ -43,6 +44,7 @@ type rnisData struct {
 
 func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte, err error) {
 	index1 := bytes.Index(message, nplSignature)
+	log.Printf("message length: %d", len(message))
 	if index1 == -1 {
 		err = errors.New("NPL signature not found")
 		return
