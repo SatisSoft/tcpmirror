@@ -161,7 +161,7 @@ func egtsSession() {
 	}
 	defer cR.Close()
 	var buf []byte
-	var egtsMessageID uint16
+	var egtsMessageID, egtsRecID uint16
 	count := 0
 	sendTicker := time.NewTicker(100 * time.Millisecond)
 	checkTicker := time.NewTicker(60 * time.Second)
@@ -170,8 +170,9 @@ func egtsSession() {
 	for {
 		select {
 		case message := <-egtsCh:
-			packet := formEGTS(message, egtsMessageID)
+			packet := formEGTS(message, egtsMessageID, egtsRecID)
 			egtsMessageID++
+			egtsRecID++
 			count += 1
 			buf = append(buf, packet...)
 			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsMessageID, message.messageID)
@@ -190,7 +191,7 @@ func egtsSession() {
 				buf = nil
 			}
 		case <-checkTicker.C:
-			checkOldDataEGTS(cR, &egtsMessageID)
+			checkOldDataEGTS(cR, &egtsMessageID, &egtsRecID)
 		}
 	}
 }
@@ -544,7 +545,7 @@ func egtsRemoveExpired() {
 	}
 }
 
-func checkOldDataEGTS(cR redis.Conn, egtsMessageID *uint16) {
+func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 	messages, err := getOldEGTS(cR)
 	if err != nil {
 		log.Printf("can't get old EGTS %s", err)
@@ -557,10 +558,11 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID *uint16) {
 			var dataNDTP ndtpData
 			dataNDTP, _, _, err = parseNDTP(msg)
 			if err != nil {
-				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID)
+				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID, *egtsReqID)
 				*egtsMessageID++
+				*egtsReqID++
 				bufOld = append(bufOld, packet...)
-				log.Printf("writeEGTSid in egtsSession: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
+				log.Printf("writeEGTSid in checkOldDataEGTS: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
 				err := writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
 				if err != nil {
 					log.Printf("checkOldDataEGTS: error while write EGTS id %s: %s", dataNDTP.ToRnis.messageID, err)

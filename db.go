@@ -25,7 +25,7 @@ func readConnDB(c redis.Conn, id int) ([]byte, error) {
 
 func writeNDTPid(c redis.Conn, id, nphID uint32, mill int64) error {
 	key := "ntn:" + strconv.FormatUint(uint64(id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
-	log.Printf("writeNDTPid key: %s; val: %s", key, mill)
+	log.Printf("writeNDTPid key: %s; val: %d", key, mill)
 	_, err := c.Do("SET", key, mill, "ex", 50)
 	return err
 }

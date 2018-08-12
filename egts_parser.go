@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"math"
+	"log"
 )
 
 const (
@@ -24,36 +25,31 @@ const (
 )
 
 
-func formEGTS(data rnisData, egtsMessageID uint16) []byte {
-	record := formRecord(data)
+func formEGTS(data rnisData, egtsMessageID, egtsRecID uint16) []byte {
+	record := formRecord(data, egtsRecID)
 	lenRec := len(record)
 	crcRec := make([]byte, 2)
 	binary.LittleEndian.PutUint16(crcRec[:], crc16EGTS(record))
 	record = append(record, crcRec...)
-
 	header := []byte{0x01, 0x00, 0x00, byte(EGTS_PACKET_HEADER_LEN), 0x00, 0x00, 0x00, 0x00, 0x00, byte(EGTS_PT_APPDATA)}
 	binary.LittleEndian.PutUint16(header[5:7], uint16(lenRec))
 	binary.LittleEndian.PutUint16(header[7:9], egtsMessageID)
 	crcPacket := crc8EGTS(header)
 	header = append(header, byte(crcPacket))
-
 	packet := append(header, record...)
 	return packet
 }
 
-func formRecord(data rnisData) (record []byte) {
-	numRec := uint16(0)
-
+func formRecord(data rnisData, numRec uint16) (record []byte) {
 	subrec := formSubrec(data)
 	subRecLen := uint16(len(subrec))
-
 	headerRec := make([]byte, EGTS_RECORD_HEADER_LEN)
 	binary.LittleEndian.PutUint16(headerRec[0:2], subRecLen)
 	binary.LittleEndian.PutUint16(headerRec[2:4], numRec)
 	headerRec[4] = 0x01
+	log.Printf("formRecord id: %d", data.id)
 	binary.LittleEndian.PutUint32(headerRec[5:9], data.id)
 	headerRec = append(headerRec[:9], byte(EGTS_TELEDATA_SERVICE), byte(EGTS_TELEDATA_SERVICE))
-
 	record = append(headerRec, subrec...)
 	return
 }
