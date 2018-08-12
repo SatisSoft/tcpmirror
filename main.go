@@ -7,6 +7,7 @@ import (
 	"net"
 	"sync"
 	"time"
+	"strconv"
 )
 
 const (
@@ -345,7 +346,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 						}
 					}
 				}
-				data.ToRnis.messageID = string(s.id) + ":" + string(mill)
+				data.ToRnis.messageID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
 				log.Println("try to send to EGTS server")
 				log.Println("EGTS closed: ", egtsConn.closed)
 				if egtsConn.closed != true {

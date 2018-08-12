@@ -10,25 +10,25 @@ import (
 )
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
-	key := "conn:" + string(id)
+	key := "conn:" + strconv.Itoa(int(id))
 	_, err := c.Do("SET", key, message)
 	return err
 }
 
 func readConnDB(c redis.Conn, id int) ([]byte, error) {
-	key := "conn:" + string(id)
+	key := "conn:" + strconv.Itoa(id)
 	res, err := redis.Bytes(c.Do("GET", key))
 	return res, err
 }
 
 func writeNDTPid(c redis.Conn, id, nphID uint32, mill int64) error {
-	key := "ntn:" + string(id) + ":" + string(nphID)
+	key := "ntn:" + strconv.FormatUint(uint64(id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
 	_, err := c.Do("SET", key, string(mill), "ex", 50)
 	return err
 }
 
 func readNDTPid(c redis.Conn, id int, nphID uint32) (int, error) {
-	key := "ntn:" + string(id) + ":" + string(nphID)
+	key := "ntn:" + strconv.FormatUint(uint64(id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
 	res, err := redis.Int(c.Do("GET", key))
 	return res, err
 }
@@ -73,13 +73,13 @@ func getOldNDTP(c redis.Conn, id int) ([][]byte, error) {
 }
 
 func writeEGTSid(c redis.Conn, egtsMessageID uint16, MessageID string) (err error) {
-	key := "egts:" + string(egtsMessageID)
+	key := "egts:" + strconv.Itoa(int(egtsMessageID))
 	_, err = c.Do("SET", key, MessageID, "ex", 50)
 	return
 }
 
 func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
-	key := "egts:" + string(egtsMessageID)
+	key := "egts:" + strconv.Itoa(int(egtsMessageID))
 	messageID, err := redis.String(c.Do("GET", key))
 	if err != nil {
 		log.Println("error get EGTS message id from db: ", err)
