@@ -325,6 +325,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 					break
 				}
 				mill := getMill()
+				data.NPH.ID = uint32(s.id)
 				err = write2DB(cR, data, s, restBuf[:packetLen], mill)
 				if err != nil {
 					errorReply(client, restBuf[:packetLen])
@@ -352,6 +353,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				log.Println("EGTS closed: ", egtsConn.closed)
 				if egtsConn.closed != true {
 					if toEGTS(data) {
+						data.ToRnis.id = uint32(s.id)
 						egtsCh <- data.ToRnis
 					}
 				}
