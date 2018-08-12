@@ -80,7 +80,7 @@ func writeEGTSid(c redis.Conn, egtsMessageID uint16, MessageID string) (err erro
 
 func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 	key := "egts:" + string(egtsMessageID)
-	messageID, err := redis.Bytes(c.Do("GET", key))
+	messageID, err := redis.String(c.Do("GET", key))
 	if err != nil {
 		log.Println("error get EGTS message id from db: ", err)
 		return
