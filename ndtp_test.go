@@ -12,15 +12,13 @@ func TestParserNDTP(t *testing.T) {
 		20, 0, 0, 0, 0, 36, 141, 198, 90, 87, 110, 119, 22, 201, 186, 64, 33, 224, 203, 0, 0, 0, 0, 83, 1, 0,
 		0, 220, 0, 4, 0, 2, 0, 22, 0, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 167, 97, 0, 0, 31, 6, 0, 0, 8,
 		0, 2, 0, 0, 0, 0, 0}
-	dataOrig := ndtpData{0x02, 0x00,
-		nphData{1, 2, 0, []byte{0, 0, 36, 141, 198, 90, 87, 110, 119, 22, 201, 186, 64, 33, 224,
-			203, 0, 0, 0, 0, 83, 1, 0, 0, 220, 0, 4, 0, 2, 0, 22, 0, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0, 0, 0, 0, 167, 97, 0, 0, 31, 6, 0, 0, 8, 0, 2, 0, 0, 0, 0, 0}, 0, 0},
-		rnisData{1522961700, 37.692578, 55.7890249, 339, 0, false, 0, nil}}
+	rnis := rnisData{1522961700, 37.692578, 55.7890249, 339, 0, false, 0, "", 0, 0, true, true, true}
+	nph := nphData{1, 2, 0, 0, false, 0}
+	dataOrig := ndtpData{0x02, 0x00, true, nph, rnis}
 	dataForm, _, _, _ := parseNDTP(packet)
 	if !reflect.DeepEqual(dataForm, dataOrig) {
-		t.Error("For packet", packet,
-			"expected", dataOrig,
-			"got", dataForm)
+		t.Error("For packet", packet, "\n",
+			"expected: ", dataOrig, "\n",
+			"got:      ", dataForm)
 	}
 }

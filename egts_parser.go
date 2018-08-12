@@ -23,14 +23,8 @@ const (
 	TIMESTAMP_20100101_000000_UTC = 1262304000
 )
 
-var (
-	packetID = uint16(0)
-)
 
-func formEGTS(data rnisData) (packet []byte, egtsMessageID uint16) {
-	egtsMessageID = packetID
-	packetID += 1
-
+func formEGTS(data rnisData, egtsMessageID uint16) []byte {
 	record := formRecord(data)
 	lenRec := len(record)
 	crcRec := make([]byte, 2)
@@ -43,8 +37,8 @@ func formEGTS(data rnisData) (packet []byte, egtsMessageID uint16) {
 	crcPacket := crc8EGTS(header)
 	header = append(header, byte(crcPacket))
 
-	packet = append(header, record...)
-	return
+	packet := append(header, record...)
+	return packet
 }
 
 func formRecord(data rnisData) (record []byte) {
@@ -57,7 +51,7 @@ func formRecord(data rnisData) (record []byte) {
 	binary.LittleEndian.PutUint16(headerRec[0:2], subRecLen)
 	binary.LittleEndian.PutUint16(headerRec[2:4], numRec)
 	headerRec[4] = 0x01
-	binary.LittleEndian.PutUint32(headerRec[5:9], data.ID)
+	binary.LittleEndian.PutUint32(headerRec[5:9], data.id)
 	headerRec = append(headerRec[:9], byte(EGTS_TELEDATA_SERVICE), byte(EGTS_TELEDATA_SERVICE))
 
 	record = append(headerRec, subrec...)
@@ -70,35 +64,39 @@ func formSubrec(data rnisData) (subrec []byte) {
 	subrec[0] = byte(EGTS_SR_POS_DATA)
 	binary.LittleEndian.PutUint16(subrec[1:3], uint16(EGTS_SUBREC_DATA_LEN))
 
-	binary.LittleEndian.PutUint32(subrec[3:7], data.Time-TIMESTAMP_20100101_000000_UTC)
+	binary.LittleEndian.PutUint32(subrec[3:7], data.time-TIMESTAMP_20100101_000000_UTC)
 
-	lat := uint32(math.Abs(data.Lat) / 90 * 0xffffffff)
-	lon := uint32(math.Abs(data.Lon) / 180 * 0xffffffff)
+	lat := uint32(math.Abs(data.lat) / 90 * 0xffffffff)
+	lon := uint32(math.Abs(data.lon) / 180 * 0xffffffff)
 	binary.LittleEndian.PutUint32(subrec[7:11], lat)
 	binary.LittleEndian.PutUint32(subrec[11:15], lon)
 
-	var lahs uint
-	var lohs uint
-	if data.Lat < 0 {
-		lahs = 32 //00x00000
-	} else {
-		lahs = 0
-	}
-	if data.Lon < 0 {
+	var lahs, lohs, mv, bb, vld uint
+	if data.lon < 0 {
 		lahs = 64 //0x000000
-	} else {
-		lahs = 0
 	}
-	flags := lahs | lohs | 0x03
+	if data.lat < 0 {
+		lahs = 32 //00x00000
+	}
+	if data.mv {
+		mv = 16
+	}
+	if !data.realTime {
+		bb = 8
+	}
+	if data.valid {
+		vld = 1
+	}
+	flags := lahs | lohs | mv | bb | 0x02 | vld
 
-	spdHi := data.Speed * 10 / 256
-	spdLo := data.Speed * 10 % 256
-	bearHi := data.Bearing / 256
-	bearLo := data.Bearing % 256
+	spdHi := data.speed * 10 / 256
+	spdLo := data.speed * 10 % 256
+	bearHi := data.bearing / 256
+	bearLo := data.bearing % 256
 	flags2 := ((bearHi << 0x07) | (spdHi & 0x3F)) & 0xBF //bearHi:1,0:1,spdHi:6
 
 	var source uint
-	if data.Sos {
+	if data.sos {
 		source = 13
 	} else {
 		source = 0
@@ -119,7 +117,7 @@ func parseEGTS(message []byte) (egtsMessageID uint16, err error) {
 		return
 	}
 	header := message[startHeader : startHeader+(EGTS_PACKET_HEADER_LEN-1)]
-	headerCrc := (message[startHeader+EGTS_PACKET_HEADER_LEN-1])
+	headerCrc := message[startHeader+EGTS_PACKET_HEADER_LEN-1]
 	headerCrcCalc := crc8EGTS(header)
 	if uint(headerCrc) != headerCrcCalc {
 		err = errors.New("incorrect header crc")

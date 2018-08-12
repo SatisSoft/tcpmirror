@@ -6,6 +6,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"strconv"
 	"strings"
+	"log"
 )
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
@@ -37,7 +38,7 @@ func write2DB(c redis.Conn, data ndtpData, s *session, packet []byte, time int64
 	if err != nil {
 		return
 	}
-	if data.ToRnis.Time != 0 {
+	if data.ToRnis.time != 0 {
 		err = write2EGTS(c, s.id, time, packet)
 	}
 	return
@@ -77,15 +78,16 @@ func writeEGTSid(c redis.Conn, egtsMessageID uint16, MessageID string) (err erro
 	return
 }
 
-func deleteEGTSid(c redis.Conn, egtsMessageID uint16) (err error) {
+func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 	key := "egts:" + string(egtsMessageID)
 	messageID, err := redis.Bytes(c.Do("GET", key))
 	if err != nil {
-	//if err != nil || resEgts == nil {
+		log.Println("error get EGTS message id from db: ", err)
 		return
 	}
-
+	log.Println("get messageID: ", messageID)
 	messageIDSplit := strings.Split(string(messageID), ":")
+	log.Println("messageIDSplit: ", messageIDSplit)
 	id, err := strconv.ParseUint(messageIDSplit[1], 10, 32)
 	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
 	idB := new(bytes.Buffer)
@@ -93,6 +95,7 @@ func deleteEGTSid(c redis.Conn, egtsMessageID uint16) (err error) {
 
 	packets, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", time, time))
 	if err != nil {
+		log.Println("error get EGTS packets from db: ", err)
 		return
 	}
 	numPackets := len(packets)
@@ -101,11 +104,21 @@ func deleteEGTSid(c redis.Conn, egtsMessageID uint16) (err error) {
 		for _, pack := range packets {
 			if bytes.Compare(pack[0:4],idB.Bytes()) == 0 {
 				_, err = c.Do("ZREM", "rnis", pack)
+				if err!= nil{
+					log.Println("error while deleting EGTS packet from db")
+				}
 				return
+				log.Println("where is no EGTS packets for EGTSMessageID: ", egtsMessageID, "; messageID: ", messageID)
 			}
 		}
 	case numPackets == 1:
 		_, err = c.Do("ZREM", "rnis", packets[0])
+		if err!= nil{
+			log.Println("error while deleting EGTS packet from db")
+		}
+	default:
+		log.Println("where is no EGTS packets for ", egtsMessageID)
+		return
 	}
 	return
 }
@@ -118,6 +131,6 @@ func removeExpiredDataEGTS(c redis.Conn) (err error) {
 
 func getOldEGTS(c redis.Conn) (res [][]byte, err error) {
 	max := getMill() - 60000
-	res, err = redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, "LIMIT", 0, 10))
+	res, err = redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, "LIMIT", 0, 10000))
 	return
 }

@@ -20,8 +20,7 @@ var (
 	NDTPAddress   string
 	EGTSAddress   string
 	egtsConn      connection
-	egtsCh        = make(chan rnisData, 200)
-	egtsErrCh     chan error
+	egtsCh        = make(chan rnisData, 10000)
 	egtsMu        sync.Mutex
 )
 
@@ -56,7 +55,6 @@ func main() {
 		log.Fatalf("error while listening: %s", err)
 	}
 	egtsConn = connection{EGTSAddress, nil, true, false}
-	egtsErrCh = make(chan error)
 	cE, err := net.Dial("tcp", EGTSAddress)
 	if err != nil {
 		log.Printf("error while connecting to EGTS server: %s", err)
@@ -91,7 +89,7 @@ func handleConnection(c net.Conn, connNo uint64) {
 	cR, err := redis.Dial("tcp", ":6379")
 	defer cR.Close()
 	if err != nil {
-		log.Printf("error while connect to redis 2: %s\n", err)
+		log.Printf("error connecting to redis in handleConnection: %s\n", err)
 		return
 	}
 	var b [defaultBufferSize]byte
@@ -131,7 +129,7 @@ func handleConnection(c net.Conn, connNo uint64) {
 	} else {
 		ndtpConn.conn = cN
 		ndtpConn.closed = false
-		send_first_message(cR, &ndtpConn, &s, firstMessage[:dataLen], ErrNDTPCh, &mu)
+		sendFirstMessage(cR, &ndtpConn, &s, firstMessage[:dataLen], ErrNDTPCh, &mu)
 	}
 
 	connect(cR, c, &ndtpConn, ErrNDTPCh, errClientCh, &s, &mu)
@@ -150,30 +148,35 @@ FORLOOP:
 }
 
 func egtsSession() {
-	cR, err := redis.Dial("tcp", ":6379")
-	defer cR.Close()
-	if err != nil {
-		log.Printf("error while connect to redis 3: %s\n", err)
-		return
+	var cR redis.Conn
+	for{
+		var err error
+		cR, err = redis.Dial("tcp", ":6379")
+		if err != nil {
+			log.Printf("error connecting to redis in egtsSession: %s\n", err)
+		} else{
+			break
+		}
 	}
+	defer cR.Close()
 	var buf []byte
+	var egtsMessageID uint16
 	count := 0
 	sendTicker := time.NewTicker(100 * time.Millisecond)
 	checkTicker := time.NewTicker(60 * time.Second)
 	defer sendTicker.Stop()
 	defer checkTicker.Stop()
-EGTSLOOP:
 	for {
 		select {
-		case <-egtsErrCh:
-			break EGTSLOOP
 		case message := <-egtsCh:
-			packet, egtsMessageID := formEGTS(message)
+			packet := formEGTS(message, egtsMessageID)
+			egtsMessageID++
 			count += 1
 			buf = append(buf, packet...)
-			err := writeEGTSid(cR, egtsMessageID, message.MessageID)
+			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsMessageID, message.messageID)
+			err := writeEGTSid(cR, egtsMessageID, message.messageID)
 			if err != nil {
-				log.Printf("EGTSLOOP: error while write EGTS id %s: %s", message.MessageID, err)
+				log.Printf("error while write EGTS id in egtsSession %s: %s", message.messageID, err)
 			} else if count == 10 {
 				send2egts(buf)
 				count = 0
@@ -186,18 +189,23 @@ EGTSLOOP:
 				buf = nil
 			}
 		case <-checkTicker.C:
-			checkOldDataEGTS(cR)
+			checkOldDataEGTS(cR, &egtsMessageID)
 		}
 	}
 }
 
 func waitReplyEGTS() {
-	cR, err := redis.Dial("tcp", ":6379")
-	defer cR.Close()
-	if err != nil {
-		log.Printf("error while connect to redis 4: %s\n", err)
-		return
+	var cR redis.Conn
+	for{
+		var err error
+		cR, err = redis.Dial("tcp", ":6379")
+		if err != nil {
+			log.Printf("error connecting to redis in waitReplyEGTS: %s\n", err)
+		} else{
+			break
+		}
 	}
+	defer cR.Close()
 	for {
 		var b [defaultBufferSize]byte
 		if !egtsConn.closed {
@@ -209,9 +217,9 @@ func waitReplyEGTS() {
 			if n != 0 {
 				egtsMessageID, err := parseEGTS(b[:n])
 				if err != nil {
-					log.Printf("error while parsing reply from EGTS %s", err)
+					log.Printf("error while parsing reply from EGTS %v: %s", b[:n], err)
 				} else {
-					err := deleteEGTSid(cR, egtsMessageID)
+					err := deleteEGTS(cR, egtsMessageID)
 					if err != nil {
 						log.Printf("error while delete EGTS id %s", err)
 					}
@@ -231,7 +239,7 @@ func send2egts(buf []byte) {
 	}
 }
 
-func send_first_message(cR redis.Conn, ndtpConn *connection, s *session, firstMessage []byte, ErrNDTPCh chan error, mu *sync.Mutex) {
+func sendFirstMessage(cR redis.Conn, ndtpConn *connection, s *session, firstMessage []byte, ErrNDTPCh chan error, mu *sync.Mutex) {
 	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err := ndtpConn.conn.Write(firstMessage)
 	if err != nil {
@@ -322,7 +330,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 					break
 				}
 				log.Println("try to send to NDTP server")
-				log.Println("closed: ", ndtpConn.closed, "; recon: ", ndtpConn.recon)
+				log.Println("NDTP closed: ", ndtpConn.closed, "; NDTP recon: ", ndtpConn.recon)
 				if ndtpConn.closed != true {
 					NPHReqID, message := changePacket(restBuf[:packetLen], data, s)
 					err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
@@ -337,6 +345,9 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 						}
 					}
 				}
+				data.ToRnis.messageID = string(s.id) + ":" + string(mill)
+				log.Println("try to send to EGTS server")
+				log.Println("EGTS closed: ", egtsConn.closed)
 				if egtsConn.closed != true {
 					if toEGTS(data) {
 						egtsCh <- data.ToRnis
@@ -355,7 +366,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 }
 
 func toEGTS(data ndtpData) bool {
-	if data.ToRnis.Time != 0 {
+	if data.ToRnis.time != 0 {
 		return true
 	}
 	return false
@@ -512,12 +523,17 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 }
 
 func egtsRemoveExpired() {
-	cR, err := redis.Dial("tcp", ":6379")
-	defer cR.Close()
-	if err != nil {
-		log.Printf("error while connect to redis 5: %s\n", err)
-		return
+	var cR redis.Conn
+	for{
+		var err error
+		cR, err = redis.Dial("tcp", ":6379")
+		if err != nil {
+			log.Printf("error connecting to redis in egtsRemoveExpired: %s\n", err)
+		} else{
+			break
+		}
 	}
+	defer cR.Close()
 	for {
 		err := removeExpiredDataEGTS(cR)
 		if err != nil {
@@ -527,25 +543,33 @@ func egtsRemoveExpired() {
 	}
 }
 
-func checkOldDataEGTS(cR redis.Conn) {
+func checkOldDataEGTS(cR redis.Conn, egtsMessageID *uint16) {
 	messages, err := getOldEGTS(cR)
 	if err != nil {
 		log.Printf("can't get old EGTS %s", err)
 		return
 	}
-
 	var bufOld []byte
+	var i int
 	for _, msg := range messages {
-		var dataNDTP ndtpData
-		dataNDTP, _, _, err = parseNDTP(msg)
-		if err != nil {
-			packet, egtsMessageID := formEGTS(dataNDTP.ToRnis)
-			bufOld = append(bufOld, packet...)
-			err := writeEGTSid(cR, egtsMessageID, dataNDTP.ToRnis.MessageID)
+		if i < 10 {
+			var dataNDTP ndtpData
+			dataNDTP, _, _, err = parseNDTP(msg)
 			if err != nil {
-				log.Printf("checkOldDataEGTS: error while write EGTS id %s: %s", dataNDTP.ToRnis.MessageID, err)
+				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID)
+				*egtsMessageID++
+				bufOld = append(bufOld, packet...)
+				log.Printf("writeEGTSid in egtsSession: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
+				err := writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
+				if err != nil {
+					log.Printf("checkOldDataEGTS: error while write EGTS id %s: %s", dataNDTP.ToRnis.messageID, err)
+				}
 			}
+			i++
+		} else {
+			i = 0
+			send2egts(bufOld)
+			bufOld = nil
 		}
 	}
-	send2egts(bufOld)
 }

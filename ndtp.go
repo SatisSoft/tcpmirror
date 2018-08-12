@@ -206,36 +206,6 @@ func init() {
 	errResult = body.Bytes()
 }
 
-type servType struct {
-	Serv uint16
-	Type uint16
-}
-
-var stExist = map[servType]bool{
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_SGC_CONN_REQUEST}:    true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_SGC_SERVICE_REQUEST}: true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_SGC_SERVICES}:        true,
-	//servType{NPH_SRV_GENERIC_CONTROLS,NPH_PAR_PHOTO } :true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_PAR_PHOTO_SD}:   true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_PAR_PHOTO_GPRS}: true,
-	//servType{NPH_SRV_GENERIC_CONTROLS,NPH_PAR_TACHOGRAPH} :true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_PRDO}:         true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_GET_MODALARM}: true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_MODALARM}:     true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_GET_PRIA}:     true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_GET_PRIA_EXT}: true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_PRNAV}:        true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_INFO}:         true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_BALANCE}:      true,
-	//servType{NPH_SRV_GENERIC_CONTROLS,NPH_RUN_AUTOINFORMER } :true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_ROUTE_AUTOINFORMER}:   true,
-	servType{NPH_SRV_GENERIC_CONTROLS, NPH_SIM_IMSI}:             true,
-	servType{NPH_SRV_NAVDATA, NPH_SND_HISTORY}:                   true,
-	servType{NPH_SRV_NAVDATA, NPH_SND_REALTIME}:                  true,
-	servType{NPH_SRV_EXTERNAL_DEVICE, NPH_SED_DEVICE_TITLE_DATA}: true,
-	servType{NPH_SRV_EXTERNAL_DEVICE, NPH_SED_DEVICE_DATA}:       true,
-}
-
 func crc16(bs []byte) (crc uint16) {
 	l := len(bs)
 	crc = 0xFFFF

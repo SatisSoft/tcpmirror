@@ -24,7 +24,6 @@ type nphData struct {
 	ServiceID uint16
 	NPHType   uint16
 	NPHReqID  uint32
-	NPHData   []byte
 	//optional
 	NPHResult uint32
 	isResult  bool
@@ -32,14 +31,21 @@ type nphData struct {
 }
 
 type rnisData struct {
-	Time      uint32
-	Lon       float64
-	Lat       float64
-	Bearing   uint16
-	Speed     uint16
-	Sos       bool
-	ID        uint32
-	MessageID string
+	time      uint32
+	lon       float64
+	lat       float64
+	bearing   uint16
+	speed     uint16
+	sos       bool
+	id        uint32
+	messageID string
+	// 0 - W; 1 - E
+	lohs int8
+	// 0 - S; 1 - N
+	lahs int8
+	mv bool
+	realTime	bool
+	valid bool
 }
 
 func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte, err error) {
@@ -95,6 +101,9 @@ func parseNPH(message []byte, data *ndtpData) error {
 			return err
 		} else {
 			data.ToRnis = rnis
+			if nph.NPHType == NPH_SND_HISTORY{
+				data.ToRnis.realTime = true
+			}
 			index = index + +NPHLen
 		}
 	} else {
@@ -116,7 +125,7 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 		DataLen := navDataLength[0]
 		if index+DataLen < MesLen {
 			var latHS, lonHS int
-			rnis.Time = binary.LittleEndian.Uint32(message[index+2 : index+6])
+			rnis.time = binary.LittleEndian.Uint32(message[index+2 : index+6])
 			lon := binary.LittleEndian.Uint32(message[index+6 : index+10])
 			lat := binary.LittleEndian.Uint32(message[index+10 : index+14])
 			if message[index+15]&32 != 0 {
@@ -125,15 +134,26 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 			if message[index+15]&64 != 0 {
 				lonHS = 1
 			}
-			rnis.Lon = float64((2*latHS-1)*int(lat)) / 10000000.0
-			rnis.Lat = float64((2*lonHS-1)*int(lon)) / 10000000.0
+			rnis.lon = float64((2*latHS-1)*int(lat)) / 10000000.0
+			rnis.lat = float64((2*lonHS-1)*int(lon)) / 10000000.0
 			if message[index+15]&4 != 0 {
-				rnis.Sos = true
-			} else {
-				rnis.Sos = false
+				rnis.sos = true
 			}
-			rnis.Speed = binary.LittleEndian.Uint16(message[index+16 : index+18])
-			rnis.Bearing = binary.LittleEndian.Uint16(message[index+22 : index+24])
+			if message[index+15]&32 != 0{
+				rnis.lahs = 1
+			}
+			if message[index+15]&64 != 0{
+				rnis.lohs = 1
+			}
+			if message[index+15]&128 != 0{
+				rnis.valid = true
+			}
+			avgSpeed := binary.LittleEndian.Uint16(message[index+17 : index+19])
+			if avgSpeed > 0{
+				rnis.mv = true
+			}
+			rnis.speed = binary.LittleEndian.Uint16(message[index+16 : index+18])
+			rnis.bearing = binary.LittleEndian.Uint16(message[index+22 : index+24])
 		} else {
 			err = errors.New("NavData type 0 is too short")
 			return
@@ -179,7 +199,7 @@ func changePacket(b []byte, data ndtpData, s *session) (uint32, []byte) {
 	copy(b[NPL_HEADER_LEN+6:], NPHReqID1.Bytes())
 	if data.NPH.ServiceID == NPH_SRV_NAVDATA && data.NPH.NPHType == NPH_SND_REALTIME {
 		Now := getMill()
-		if (Now - int64(data.ToRnis.Time)) > 60000 {
+		if (Now - int64(data.ToRnis.time)) > 60000 {
 			NPHType1 := new(bytes.Buffer)
 			binary.Write(NPHType1, binary.LittleEndian, uint16(NPH_SND_HISTORY))
 			copy(b[NPL_HEADER_LEN+2:], NPHType1.Bytes())
