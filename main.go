@@ -224,7 +224,7 @@ func waitReplyEGTS() {
 			if err != nil {
 				log.Printf("error while parsing reply from EGTS %v: %s", b[:n], err)
 			}
-			for id := range egtsReqIDs {
+			for _, id := range egtsReqIDs {
 				err := deleteEGTS(cR, id)
 				if err != nil {
 					log.Printf("error while delete EGTS id %s", err)
