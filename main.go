@@ -101,7 +101,7 @@ func handleConnection(c net.Conn, connNo uint64) {
 	}
 	log.Printf("%d got first message from client %s", connNo, c.RemoteAddr())
 	firstMessage := b[:n]
-	data, dataLen, _, err := parseNDTP(firstMessage)
+	data, packet, _, err := parseNDTP(firstMessage)
 	if err != nil {
 		log.Printf("error: first message is incorrect: %s", err)
 		return
@@ -112,12 +112,12 @@ func handleConnection(c net.Conn, connNo uint64) {
 	ip := getIP(c)
 	log.Printf("conn %d: ip: %s\n", connNo, ip)
 	changeAddress(firstMessage, ip)
-	err = writeConnDB(cR, data.NPH.ID, firstMessage[:dataLen])
+	err = writeConnDB(cR, data.NPH.ID, packet)
 	if err != nil {
-		errorReply(c, firstMessage[:dataLen])
+		errorReply(c, packet)
 		return
 	} else {
-		reply(c, data.NPH, firstMessage[:dataLen])
+		reply(c, data.NPH, packet)
 	}
 	errClientCh := make(chan error)
 	ErrNDTPCh := make(chan error)
@@ -130,7 +130,7 @@ func handleConnection(c net.Conn, connNo uint64) {
 	} else {
 		ndtpConn.conn = cN
 		ndtpConn.closed = false
-		sendFirstMessage(cR, &ndtpConn, &s, firstMessage[:dataLen], ErrNDTPCh, &mu)
+		sendFirstMessage(cR, &ndtpConn, &s, packet, ErrNDTPCh, &mu)
 	}
 
 	connect(cR, c, &ndtpConn, ErrNDTPCh, errClientCh, &s, &mu)
@@ -270,26 +270,29 @@ func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 			restBuf = b[:n]
 			for {
 				var data ndtpData
-				var packetLen uint16
-				data, packetLen, restBuf, err = parseNDTP(restBuf)
+				var packet []byte
+				data, packet, restBuf, err = parseNDTP(restBuf)
 				if err != nil {
 					log.Println(err)
 					break
 				}
 				if !data.valid {
-					restBuf = restBuf[packetLen:]
+					restBuf = nil
 					continue
 				}
 				if data.NPH.isResult {
 					removeFromNDTP(cR, s.id, data.NPH.NPHReqID)
 				} else {
 					client.SetWriteDeadline(time.Now().Add(writeTimeout))
-					message := changePacketFromServ(b[:packetLen], s)
+					message := changePacketFromServ(packet, s)
 					_, err = client.Write(message)
 					if err != nil {
 						errClientCh <- err
 						return
 					}
+				}
+				if len(restBuf) == 0{
+					break
 				}
 			}
 		} else {
