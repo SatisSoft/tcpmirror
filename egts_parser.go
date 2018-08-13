@@ -124,12 +124,18 @@ func parseEGTS(message []byte) (egtsMessageID uint16, err error) {
 		return
 	}
 	startBody := startHeader + EGTS_PACKET_HEADER_LEN
-	bodyLen := binary.LittleEndian.Uint16(message[startHeader+5 : startHeader+7])
+	bodyLen := int(binary.LittleEndian.Uint16(message[startHeader+5 : startHeader+7]))
 	if len(message[startBody:]) < int(bodyLen) {
 		err = errors.New("EGTS: incorrect body len")
 		return
 	}
-	recID, procRes, err := parseResp(message[startBody : startBody+int(bodyLen)])
+	bodyCrc := binary.LittleEndian.Uint16(message[startBody+bodyLen:startBody+bodyLen+2])
+	bodyCrcCalc := crc16EGTS(message[startBody:startBody+bodyLen])
+	if bodyCrc != bodyCrcCalc {
+		err = errors.New("EGTS: incorrect body crc")
+		return
+	}
+	recID, procRes := parseResp(message[startBody : startBody+int(bodyLen)])
 	log.Printf("EGTS: bodyLen: %d, startBody: %d, startHeader: %d", bodyLen, startBody, startHeader)
 	log.Printf("EGTS: received recID: %d, procRes: %d, err: %s", recID, procRes, err)
 	if err != nil {
@@ -141,16 +147,10 @@ func parseEGTS(message []byte) (egtsMessageID uint16, err error) {
 	return
 }
 
-func parseResp(body []byte) (recID uint16, procRes uint, err error) {
-	bodyCrc := binary.LittleEndian.Uint16(body[:2])
-	bodyCrcCalc := crc16EGTS(body)
-	if bodyCrc != bodyCrcCalc {
-		err = errors.New("EGTS: incorrect body crc")
-		return
-	}
-	recID = binary.LittleEndian.Uint16(body[:2])
-	procRes = uint(body[2])
-	return
+func parseResp(body []byte) (uint16, uint) {
+	recID := binary.LittleEndian.Uint16(body[:2])
+	procRes := uint(body[2])
+	return recID, procRes
 }
 
 func crc8EGTS(bs []byte) (crc uint) {
