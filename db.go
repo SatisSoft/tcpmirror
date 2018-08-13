@@ -39,11 +39,14 @@ func readNDTPid(c redis.Conn, id int, nphID uint32) (int64, error) {
 
 func write2DB(c redis.Conn, data ndtpData, s *session, packet []byte, time int64) (err error) {
 	err = write2NDTP(c, s.id, time, packet)
+	log.Printf("write2DB packet: %v", packet)
+	log.Printf("write2NDTP id: %d, time: %d, err: %v", s.id, time, err)
 	if err != nil {
 		return
 	}
 	if data.ToRnis.time != 0 {
 		err = write2EGTS(c, s.id, time, packet)
+		log.Printf("write2NDTP id: %d, time: %d, err: %v", s.id, time, err)
 	}
 	return
 }
