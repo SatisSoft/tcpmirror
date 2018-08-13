@@ -81,7 +81,8 @@ func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error
 	data.NPLReqID = binary.LittleEndian.Uint16(message[index1+13 : index1+15])
 	err = parseNPH(message[index1+15:], &data)
 	packet = message[index1:index1 + NPL_HEADER_LEN + dataLen]
-	restBuf = make([]byte, NPL_HEADER_LEN+dataLen)
+	restBufLen := len(message) - index1 - NPH_HEADER_LEN - dataLen
+	restBuf = make([]byte, restBufLen)
 	copy(restBuf, message[index1+NPL_HEADER_LEN+dataLen:])
 	if err == nil {
 		data.valid = true
