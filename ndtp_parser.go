@@ -50,7 +50,7 @@ type rnisData struct {
 
 func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error) {
 	index1 := bytes.Index(message, nplSignature)
-	log.Printf("message length: %d", len(message))
+	log.Printf("message length: %d; index1: %d", len(message), index1)
 	if index1 == -1 {
 		err = errors.New("NPL signature not found")
 		return
@@ -63,6 +63,7 @@ func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error
 		return
 	}
 	dataLen := int(binary.LittleEndian.Uint16(message[index1+2 : index1+4]))
+	log.Printf("dataLen: %d", dataLen)
 	if dataLen > (messageLen - NPL_HEADER_LEN) {
 		restBuf = make([]byte, len(message))
 		copy(restBuf, message)
@@ -82,6 +83,7 @@ func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error
 	err = parseNPH(message[index1+15:], &data)
 	packet = message[index1:index1 + NPL_HEADER_LEN + dataLen]
 	restBufLen := len(message) - index1 - NPH_HEADER_LEN - dataLen
+	log.Printf("restBufLen: %d", restBufLen)
 	restBuf = make([]byte, restBufLen)
 	copy(restBuf, message[index1+NPL_HEADER_LEN+dataLen:])
 	if err == nil {
