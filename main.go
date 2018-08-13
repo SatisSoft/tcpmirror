@@ -115,11 +115,13 @@ func handleConnection(c net.Conn, connNo uint64) {
 	changeAddress(packet, ip)
 	log.Printf("after change first packet: %v", packet)
 	err = writeConnDB(cR, data.NPH.ID, packet)
+	replyCopy := make([]byte, len(packet))
+	copy(replyCopy, packet)
 	if err != nil {
-		errorReply(c, packet)
+		errorReply(c, replyCopy)
 		return
 	} else {
-		reply(c, data.NPH, packet)
+		reply(c, data.NPH, replyCopy)
 	}
 	errClientCh := make(chan error)
 	ErrNDTPCh := make(chan error)
