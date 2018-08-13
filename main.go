@@ -135,9 +135,9 @@ func handleConnection(c net.Conn, connNo uint64) {
 		ndtpConn.conn = cN
 		ndtpConn.closed = false
 		sendFirstMessage(cR, &ndtpConn, &s, packet, ErrNDTPCh, &mu)
+		cR.Close()
 	}
-
-	connect(cR, c, &ndtpConn, ErrNDTPCh, errClientCh, &s, &mu)
+	connect(c, &ndtpConn, ErrNDTPCh, errClientCh, &s, &mu)
 FORLOOP:
 	for {
 		select {
@@ -254,12 +254,23 @@ func sendFirstMessage(cR redis.Conn, ndtpConn *connection, s *session, firstMess
 	}
 }
 
-func connect(cR redis.Conn, origin net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
-	go clientSession(cR, origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
-	go serverSession(cR, origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
+func connect(origin net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
+	go clientSession(origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
+	go serverSession(origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
 }
 
-func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
+func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
+	var cR redis.Conn
+	for {
+		var err error
+		cR, err = redis.Dial("tcp", ":6379")
+		if err != nil {
+			log.Printf("error connecting to redis in serverSession: %s\n", err)
+		} else {
+			break
+		}
+	}
+	defer cR.Close()
 	for {
 		if conClosed(ErrNDTPCh) {
 			return
@@ -309,7 +320,17 @@ func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 	}
 }
 
-func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
+func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
+	var cR redis.Conn
+	for {
+		var err error
+		cR, err = redis.Dial("tcp", ":6379")
+		if err != nil {
+			log.Printf("error connecting to redis in clientSession: %s\n", err)
+		} else {
+			break
+		}
+	}
 	var restBuf []byte
 	checkTicker := time.NewTicker(60 * time.Second)
 	defer checkTicker.Stop()
@@ -325,6 +346,8 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				return
 			}
 			restBuf = append(restBuf, b[:n]...)
+			log.Println("")
+			log.Println("")
 			log.Printf("received %d bytes from client; len(restBuf) = %d", n, len(restBuf))
 			for {
 				var data ndtpData
