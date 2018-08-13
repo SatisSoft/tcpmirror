@@ -48,7 +48,7 @@ type rnisData struct {
 	valid    bool
 }
 
-func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte, err error) {
+func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error) {
 	index1 := bytes.Index(message, nplSignature)
 	log.Printf("message length: %d", len(message))
 	if index1 == -1 {
@@ -62,8 +62,8 @@ func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte,
 		err = errors.New("messageLen is too short")
 		return
 	}
-	dataLen := binary.LittleEndian.Uint16(message[index1+2 : index1+4])
-	if int(dataLen) > (messageLen - NPL_HEADER_LEN) {
+	dataLen := int(binary.LittleEndian.Uint16(message[index1+2 : index1+4]))
+	if dataLen > (messageLen - NPL_HEADER_LEN) {
 		restBuf = make([]byte, len(message))
 		copy(restBuf, message)
 		err = errors.New("messageLen is too short")
@@ -71,7 +71,7 @@ func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte,
 	}
 	if binary.LittleEndian.Uint16(message[index1+4:index1+6])&2 != 0 {
 		crcHead := binary.BigEndian.Uint16(message[index1+6 : index1+8])
-		crcCalc := crc16(message[index1+headerSize : index1+headerSize+int(dataLen)])
+		crcCalc := crc16(message[index1+headerSize : index1+headerSize+dataLen])
 		if crcHead != crcCalc {
 			err = errors.New("crc incorrect")
 			return
@@ -80,9 +80,9 @@ func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte,
 	data.NPLType = message[index1+8]
 	data.NPLReqID = binary.LittleEndian.Uint16(message[index1+13 : index1+15])
 	err = parseNPH(message[index1+15:], &data)
-	packetLen = dataLen + NPL_HEADER_LEN
+	packet = message[index1:index1 + NPL_HEADER_LEN + dataLen]
 	restBuf = make([]byte, NPL_HEADER_LEN+dataLen)
-	copy(restBuf, message[index1:NPL_HEADER_LEN+dataLen])
+	copy(restBuf, message[index1+NPL_HEADER_LEN+dataLen:])
 	if err == nil {
 		data.valid = true
 	}

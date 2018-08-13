@@ -174,7 +174,7 @@ func egtsSession() {
 			packet := formEGTS(message, egtsMessageID, egtsRecID)
 			count += 1
 			buf = append(buf, packet...)
-			log.Printf("writeEGTSid in egtsSession: egtsRecID : %s", egtsRecID, message.messageID)
+			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsRecID, message.messageID)
 			err := writeEGTSid(cR, egtsMessageID, message.messageID)
 			egtsMessageID++
 			egtsRecID++
@@ -217,17 +217,16 @@ func waitReplyEGTS() {
 				log.Printf("error while getting reply from client %s", err)
 				go egtsConStatus()
 			}
-			if n != 0 {
-				egtsReqID, err := parseEGTS(b[:n])
+			egtsReqID, err := parseEGTS(b[:n])
+			if err != nil {
+				log.Printf("error while parsing reply from EGTS %v: %s", b[:n], err)
+			} else {
+				err := deleteEGTS(cR, egtsReqID)
 				if err != nil {
-					log.Printf("error while parsing reply from EGTS %v: %s", b[:n], err)
-				} else {
-					err := deleteEGTS(cR, egtsReqID)
-					if err != nil {
-						log.Printf("error while delete EGTS id %s", err)
-					}
+					log.Printf("error while delete EGTS id %s", err)
 				}
 			}
+
 		}
 	}
 }
@@ -302,6 +301,7 @@ func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
 	var restBuf []byte
 	checkTicker := time.NewTicker(60 * time.Second)
+	defer checkTicker.Stop()
 	for {
 		select {
 		case <-checkTicker.C:
@@ -314,29 +314,32 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				return
 			}
 			restBuf = append(restBuf, b[:n]...)
+			log.Printf("received %d bytes from client; len(restBuf) = %d", n, len(restBuf))
 			for {
 				var data ndtpData
-				var packetLen uint16
-				data, packetLen, restBuf, err = parseNDTP(restBuf)
+				var packet []byte
+				log.Printf("before parsing len(restBuf) = %d", len(restBuf))
+				data, packet, restBuf, err = parseNDTP(restBuf)
+				log.Printf("packetLen: %d; after parsing len(restBuf) = %d", packetLen, len(restBuf))
 				if err != nil {
 					if len(restBuf) > defaultBufferSize {
 						restBuf = []byte{}
 					}
-					log.Println(err)
+					log.Printf("error parseNDTP: %v", err)
 					break
 				}
 				mill := getMill()
 				data.NPH.ID = uint32(s.id)
-				err = write2DB(cR, data, s, restBuf[:packetLen], mill)
+				err = write2DB(cR, data, s, packet, mill)
 				if err != nil {
-					errorReply(client, restBuf[:packetLen])
+					errorReply(client, packet)
 					restBuf = []byte{}
 					break
 				}
 				//log.Println("try to send to NDTP server")
 				//log.Println("NDTP closed: ", ndtpConn.closed, "; NDTP recon: ", ndtpConn.recon)
 				if ndtpConn.closed != true {
-					NPHReqID, message := changePacket(restBuf[:packetLen], data, s)
+					NPHReqID, message := changePacket(packet, data, s)
 					err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
 					if err != nil {
 						log.Println(err)
@@ -358,12 +361,12 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 						egtsCh <- data.ToRnis
 					}
 				}
-				err = reply(client, data.NPH, restBuf[:packetLen])
+				err = reply(client, data.NPH, packet)
 				if err != nil {
 					errClientCh <- err
 					return
 				}
-				restBuf = restBuf[packetLen:]
+				//restBuf = restBuf[packetLen:]
 				time.Sleep(1 * time.Millisecond)
 				if len(restBuf) == 0 {
 					break
