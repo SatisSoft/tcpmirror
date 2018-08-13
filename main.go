@@ -178,7 +178,7 @@ func egtsSession() {
 			packet := formEGTS(message, egtsMessageID)
 			count += 1
 			buf = append(buf, packet...)
-			log.Printf("writeEGTSid in egtsSession: %s", message.messageID)
+			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsMessageID, message.messageID)
 			err := writeEGTSid(cR, egtsMessageID, message.messageID)
 			egtsMessageID++
 			if err != nil {
