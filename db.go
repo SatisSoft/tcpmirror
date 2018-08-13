@@ -110,6 +110,7 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 		return
 	}
 	numPackets := len(packets)
+	log.Printf("deleteEGTS 3: len(packets) = %d", numPackets)
 	switch {
 	case numPackets > 1:
 		for _, pack := range packets {
@@ -118,8 +119,8 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 				if err != nil {
 					log.Println("error while deleting EGTS packet from db")
 				}
-				return
 				log.Println("where is no EGTS packets for EGTSMessageID: ", egtsMessageID, "; messageID: ", messageID)
+				return
 			}
 		}
 	case numPackets == 1:

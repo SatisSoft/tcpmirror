@@ -111,7 +111,9 @@ func handleConnection(c net.Conn, connNo uint64) {
 	}
 	ip := getIP(c)
 	log.Printf("conn %d: ip: %s\n", connNo, ip)
-	changeAddress(firstMessage, ip)
+	log.Printf("before change first packet: %v", packet)
+	changeAddress(packet, ip)
+	log.Printf("after change first packet: %v", packet)
 	err = writeConnDB(cR, data.NPH.ID, packet)
 	if err != nil {
 		errorReply(c, packet)
@@ -243,6 +245,7 @@ func send2egts(buf []byte) {
 
 func sendFirstMessage(cR redis.Conn, ndtpConn *connection, s *session, firstMessage []byte, ErrNDTPCh chan error, mu *sync.Mutex) {
 	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+	log.Printf("sending first packet: %v", firstMessage)
 	_, err := ndtpConn.conn.Write(firstMessage)
 	if err != nil {
 		ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
