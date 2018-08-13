@@ -596,7 +596,7 @@ func egtsRemoveExpired() {
 	}
 }
 
-func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReсID *uint16) {
+func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 	messages, err := getOldEGTS(cR)
 	if err != nil {
 		log.Printf("can't get old EGTS %s", err)
@@ -609,12 +609,12 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReсID *uint16) {
 			var dataNDTP ndtpData
 			dataNDTP, _, _, err = parseNDTP(msg)
 			if err != nil {
-				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID, *egtsReсID)
+				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID, *egtsReqID)
 				bufOld = append(bufOld, packet...)
 				log.Printf("writeEGTSid in checkOldDataEGTS: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
 				err := writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
 				*egtsMessageID++
-				*egtsReсID++
+				*egtsReqID++
 				if err != nil {
 					log.Printf("checkOldDataEGTS: error while write EGTS id %s: %s", dataNDTP.ToRnis.messageID, err)
 				}
