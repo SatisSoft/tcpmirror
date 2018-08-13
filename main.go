@@ -165,7 +165,7 @@ func egtsSession() {
 	}
 	defer cR.Close()
 	var buf []byte
-	var egtsMessageID, egtsRecID uint16
+	var egtsMessageID uint16
 	count := 0
 	sendTicker := time.NewTicker(100 * time.Millisecond)
 	checkTicker := time.NewTicker(60 * time.Second)
@@ -174,14 +174,13 @@ func egtsSession() {
 	for {
 		select {
 		case message := <-egtsCh:
-			log.Printf("form egtsMessage: %d; egtsRecID: %d", egtsMessageID, egtsRecID)
-			packet := formEGTS(message, egtsMessageID, egtsRecID)
+			log.Printf("form egtsMessage: %d", egtsMessageID)
+			packet := formEGTS(message, egtsMessageID)
 			count += 1
 			buf = append(buf, packet...)
-			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsRecID, message.messageID)
+			log.Printf("writeEGTSid in egtsSession: %s", message.messageID)
 			err := writeEGTSid(cR, egtsMessageID, message.messageID)
 			egtsMessageID++
-			egtsRecID++
 			if err != nil {
 				log.Printf("error while write EGTS id in egtsSession %s: %s", message.messageID, err)
 			} else if count == 10 {
@@ -196,7 +195,7 @@ func egtsSession() {
 				buf = nil
 			}
 		case <-checkTicker.C:
-			checkOldDataEGTS(cR, &egtsMessageID, &egtsRecID)
+			checkOldDataEGTS(cR, &egtsMessageID)
 		}
 	}
 }
@@ -596,7 +595,7 @@ func egtsRemoveExpired() {
 	}
 }
 
-func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
+func checkOldDataEGTS(cR redis.Conn, egtsMessageID) {
 	messages, err := getOldEGTS(cR)
 	if err != nil {
 		log.Printf("can't get old EGTS %s", err)
@@ -609,12 +608,11 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 			var dataNDTP ndtpData
 			dataNDTP, _, _, err = parseNDTP(msg)
 			if err != nil {
-				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID, *egtsReqID)
+				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID)
 				bufOld = append(bufOld, packet...)
 				log.Printf("writeEGTSid in checkOldDataEGTS: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
 				err := writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
 				*egtsMessageID++
-				*egtsReqID++
 				if err != nil {
 					log.Printf("checkOldDataEGTS: error while write EGTS id %s: %s", dataNDTP.ToRnis.messageID, err)
 				}

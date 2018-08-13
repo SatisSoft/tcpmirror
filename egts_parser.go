@@ -25,8 +25,8 @@ const (
 	TIMESTAMP_20100101_000000_UTC = 1262304000
 )
 
-func formEGTS(data rnisData, egtsMessageID, egtsRecID uint16) []byte {
-	record := formRecord(data, egtsRecID)
+func formEGTS(data rnisData, egtsMessageID) []byte {
+	record := formRecord(data)
 	lenRec := len(record)
 	crcRec := make([]byte, 2)
 	binary.LittleEndian.PutUint16(crcRec[:], crc16EGTS(record))
@@ -40,12 +40,12 @@ func formEGTS(data rnisData, egtsMessageID, egtsRecID uint16) []byte {
 	return packet
 }
 
-func formRecord(data rnisData, numRec uint16) (record []byte) {
+func formRecord(data rnisData) (record []byte) {
 	subrec := formSubrec(data)
 	subRecLen := uint16(len(subrec))
 	headerRec := make([]byte, EGTS_RECORD_HEADER_LEN)
 	binary.LittleEndian.PutUint16(headerRec[0:2], subRecLen)
-	binary.LittleEndian.PutUint16(headerRec[2:4], numRec)
+	binary.LittleEndian.PutUint16(headerRec[2:4], 0)
 	headerRec[4] = 0x01
 	log.Printf("formRecord id: %d", data.id)
 	binary.LittleEndian.PutUint32(headerRec[5:9], data.id)
