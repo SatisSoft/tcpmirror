@@ -5,10 +5,10 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"time"
-	"log"
 )
 
 type ndtpData struct {
@@ -42,10 +42,10 @@ type rnisData struct {
 	// 0 - W; 1 - E
 	lohs int8
 	// 0 - S; 1 - N
-	lahs int8
-	mv bool
-	realTime	bool
-	valid bool
+	lahs     int8
+	mv       bool
+	realTime bool
+	valid    bool
 }
 
 func parseNDTP(message []byte) (data ndtpData, packetLen uint16, restBuf []byte, err error) {
@@ -101,7 +101,7 @@ func parseNPH(message []byte, data *ndtpData) error {
 			return err
 		} else {
 			data.ToRnis = rnis
-			if nph.NPHType == NPH_SND_HISTORY{
+			if nph.NPHType == NPH_SND_HISTORY {
 				data.ToRnis.realTime = true
 			}
 			index = index + +NPHLen
@@ -139,17 +139,17 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 			if message[index+15]&4 != 0 {
 				rnis.sos = true
 			}
-			if message[index+15]&32 != 0{
+			if message[index+15]&32 != 0 {
 				rnis.lahs = 1
 			}
-			if message[index+15]&64 != 0{
+			if message[index+15]&64 != 0 {
 				rnis.lohs = 1
 			}
-			if message[index+15]&128 != 0{
+			if message[index+15]&128 != 0 {
 				rnis.valid = true
 			}
 			avgSpeed := binary.LittleEndian.Uint16(message[index+17 : index+19])
-			if avgSpeed > 0{
+			if avgSpeed > 0 {
 				rnis.mv = true
 			}
 			rnis.speed = binary.LittleEndian.Uint16(message[index+16 : index+18])

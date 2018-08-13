@@ -5,9 +5,9 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"time"
-	"strconv"
 )
 
 const (
@@ -150,12 +150,12 @@ FORLOOP:
 
 func egtsSession() {
 	var cR redis.Conn
-	for{
+	for {
 		var err error
 		cR, err = redis.Dial("tcp", ":6379")
 		if err != nil {
 			log.Printf("error connecting to redis in egtsSession: %s\n", err)
-		} else{
+		} else {
 			break
 		}
 	}
@@ -170,6 +170,7 @@ func egtsSession() {
 	for {
 		select {
 		case message := <-egtsCh:
+			log.Printf("form egtsMessage: %d; egtsRecID: %d", egtsMessageID, egtsRecID)
 			packet := formEGTS(message, egtsMessageID, egtsRecID)
 			egtsMessageID++
 			egtsRecID++
@@ -198,12 +199,12 @@ func egtsSession() {
 
 func waitReplyEGTS() {
 	var cR redis.Conn
-	for{
+	for {
 		var err error
 		cR, err = redis.Dial("tcp", ":6379")
 		if err != nil {
 			log.Printf("error connecting to redis in waitReplyEGTS: %s\n", err)
-		} else{
+		} else {
 			break
 		}
 	}
@@ -332,8 +333,8 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 					restBuf = []byte{}
 					break
 				}
-				log.Println("try to send to NDTP server")
-				log.Println("NDTP closed: ", ndtpConn.closed, "; NDTP recon: ", ndtpConn.recon)
+				//log.Println("try to send to NDTP server")
+				//log.Println("NDTP closed: ", ndtpConn.closed, "; NDTP recon: ", ndtpConn.recon)
 				if ndtpConn.closed != true {
 					NPHReqID, message := changePacket(restBuf[:packetLen], data, s)
 					err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
@@ -349,8 +350,8 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 					}
 				}
 				data.ToRnis.messageID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
-				log.Println("try to send to EGTS server")
-				log.Println("EGTS closed: ", egtsConn.closed)
+				//log.Println("try to send to EGTS server")
+				//log.Println("EGTS closed: ", egtsConn.closed)
 				if egtsConn.closed != true {
 					if toEGTS(data) {
 						data.ToRnis.id = uint32(s.id)
@@ -364,6 +365,9 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				}
 				restBuf = restBuf[packetLen:]
 				time.Sleep(1 * time.Millisecond)
+				if len(restBuf) == 0 {
+					break
+				}
 			}
 		}
 	}
@@ -414,7 +418,7 @@ func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh ch
 					time.Sleep(1 * time.Minute)
 					ndtpConn.recon = false
 					return
-				} else{
+				} else {
 					log.Printf("error while send first message again to NDTP server: %s", err)
 				}
 			}
@@ -436,7 +440,7 @@ func egtsConStatus() {
 	}
 }
 
-func reconnectEGTS(){
+func reconnectEGTS() {
 	for {
 		for i := 0; i < 3; i++ {
 			cE, err := net.Dial("tcp", EGTSAddress)
@@ -528,12 +532,12 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 
 func egtsRemoveExpired() {
 	var cR redis.Conn
-	for{
+	for {
 		var err error
 		cR, err = redis.Dial("tcp", ":6379")
 		if err != nil {
 			log.Printf("error connecting to redis in egtsRemoveExpired: %s\n", err)
-		} else{
+		} else {
 			break
 		}
 	}

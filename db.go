@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"github.com/gomodule/redigo/redis"
+	"log"
 	"strconv"
 	"strings"
-	"log"
 )
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
@@ -104,7 +104,7 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 	binary.Write(idB, binary.LittleEndian, id)
 
 	packets, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", time, time))
-	log.Printf("deleteEGTS 2: key: %s; mssageID: %s", key, messageID)
+	log.Printf("deleteEGTS 2: key: %s; mssageID: %d", key, time)
 	if err != nil {
 		log.Println("error get EGTS packets from db: ", err)
 		return
@@ -113,9 +113,9 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 	switch {
 	case numPackets > 1:
 		for _, pack := range packets {
-			if bytes.Compare(pack[0:4],idB.Bytes()) == 0 {
+			if bytes.Compare(pack[0:4], idB.Bytes()) == 0 {
 				_, err = c.Do("ZREM", "rnis", pack)
-				if err!= nil{
+				if err != nil {
 					log.Println("error while deleting EGTS packet from db")
 				}
 				return
@@ -124,7 +124,7 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 		}
 	case numPackets == 1:
 		_, err = c.Do("ZREM", "rnis", packets[0])
-		if err!= nil{
+		if err != nil {
 			log.Println("error while deleting EGTS packet from db")
 		}
 	default:
