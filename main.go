@@ -172,12 +172,12 @@ func egtsSession() {
 		case message := <-egtsCh:
 			log.Printf("form egtsMessage: %d; egtsRecID: %d", egtsMessageID, egtsRecID)
 			packet := formEGTS(message, egtsMessageID, egtsRecID)
-			egtsMessageID++
-			egtsRecID++
 			count += 1
 			buf = append(buf, packet...)
 			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsMessageID, message.messageID)
 			err := writeEGTSid(cR, egtsMessageID, message.messageID)
+			egtsMessageID++
+			egtsRecID++
 			if err != nil {
 				log.Printf("error while write EGTS id in egtsSession %s: %s", message.messageID, err)
 			} else if count == 10 {
@@ -565,11 +565,11 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 			dataNDTP, _, _, err = parseNDTP(msg)
 			if err != nil {
 				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID, *egtsReqID)
-				*egtsMessageID++
-				*egtsReqID++
 				bufOld = append(bufOld, packet...)
 				log.Printf("writeEGTSid in checkOldDataEGTS: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
 				err := writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
+				*egtsMessageID++
+				*egtsReqID++
 				if err != nil {
 					log.Printf("checkOldDataEGTS: error while write EGTS id %s: %s", dataNDTP.ToRnis.messageID, err)
 				}
