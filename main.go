@@ -278,7 +278,7 @@ func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				var packet []byte
 				data, packet, restBuf, err = parseNDTP(restBuf)
 				if err != nil {
-					log.Println(err)
+					log.Printf("error while parsing NDTP from server: %v", err)
 					break
 				}
 				if !data.valid {
@@ -287,8 +287,8 @@ func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				}
 				if data.NPH.isResult {
 					err = removeFromNDTP(cR, s.id, data.NPH.NPHReqID)
-					if err != nil{
-						log.Printf("removeFromNDTP error for id %d, reqID %d: %v", s.id, data.NPH.NPHReqID)
+					if err != nil {
+						log.Printf("removeFromNDTP error for id %d, reqID %d: %v", s.id, data.NPH.NPHReqID, err)
 					}
 				} else {
 					client.SetWriteDeadline(time.Now().Add(writeTimeout))
@@ -299,7 +299,7 @@ func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 						return
 					}
 				}
-				if len(restBuf) == 0{
+				if len(restBuf) == 0 {
 					break
 				}
 			}

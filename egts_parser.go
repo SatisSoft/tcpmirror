@@ -4,9 +4,9 @@ import (
 	"bytes"
 	"encoding/binary"
 	"errors"
+	"fmt"
 	"log"
 	"math"
-	"fmt"
 )
 
 const (
@@ -130,8 +130,8 @@ func parseEGTS(message []byte) (reqID uint16, err error) {
 		err = errors.New("EGTS: incorrect body len")
 		return
 	}
-	bodyCrc := binary.LittleEndian.Uint16(message[startBody+bodyLen:startBody+bodyLen+2])
-	bodyCrcCalc := crc16EGTS(message[startBody:startBody+bodyLen])
+	bodyCrc := binary.LittleEndian.Uint16(message[startBody+bodyLen : startBody+bodyLen+2])
+	bodyCrcCalc := crc16EGTS(message[startBody : startBody+bodyLen])
 	if bodyCrc != bodyCrcCalc {
 		err = errors.New("EGTS: incorrect body crc")
 		return
