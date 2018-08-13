@@ -286,7 +286,10 @@ func serverSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 					continue
 				}
 				if data.NPH.isResult {
-					removeFromNDTP(cR, s.id, data.NPH.NPHReqID)
+					err = removeFromNDTP(cR, s.id, data.NPH.NPHReqID)
+					if err != nil{
+						log.Printf("removeFromNDTP error for id %d, reqID %d: %v", s.id, data.NPH.NPHReqID)
+					}
 				} else {
 					client.SetWriteDeadline(time.Now().Add(writeTimeout))
 					message := changePacketFromServ(packet, s)
@@ -328,6 +331,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				var packet []byte
 				log.Printf("before parsing len(restBuf) = %d", len(restBuf))
 				data, packet, restBuf, err = parseNDTP(restBuf)
+				log.Printf("packet before changing: %v", packet)
 				log.Printf("len(packet): %d; after parsing len(restBuf) = %d", len(packet), len(restBuf))
 				if err != nil {
 					if len(restBuf) > defaultBufferSize {
@@ -338,9 +342,11 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				}
 				mill := getMill()
 				data.NPH.ID = uint32(s.id)
-				err = write2DB(cR, data, s, packet, mill)
+				packetCopy := make([]byte, len(packet))
+				copy(packetCopy, packet)
+				err = write2DB(cR, data, s, packetCopy, mill)
 				if err != nil {
-					errorReply(client, packet)
+					errorReply(client, packetCopy)
 					restBuf = []byte{}
 					break
 				}
@@ -348,11 +354,13 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				//log.Println("NDTP closed: ", ndtpConn.closed, "; NDTP recon: ", ndtpConn.recon)
 				if ndtpConn.closed != true {
 					NPHReqID, message := changePacket(packet, data, s)
+					log.Printf("packet after changing: %v", message)
 					err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
 					if err != nil {
 						log.Println(err)
 					} else {
 						ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+						log.Printf("send message to server: %v", message)
 						_, err = ndtpConn.conn.Write(message)
 						if err != nil {
 							log.Printf("clientSession send to NDTP server error: %s", err)
