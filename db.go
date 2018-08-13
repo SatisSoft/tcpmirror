@@ -49,7 +49,8 @@ func write2DB(c redis.Conn, data ndtpData, s *session, packet []byte, time int64
 }
 
 func write2NDTP(c redis.Conn, id int, time int64, packet []byte) error {
-	log.Printf("write2NDTP id: %d; time: %d; packet: %v", id, time, packet)
+	//log.Printf("write2NDTP id: %d; time: %d; packet: %v", id, time, packet)
+	log.Printf("write2NDTP id: %d; time: %d", id, time)
 	_, err := c.Do("ZADD", id, time, packet)
 	return err
 }
@@ -58,7 +59,8 @@ func write2EGTS(c redis.Conn, id int, time int64, packet []byte) error {
 	idB := new(bytes.Buffer)
 	binary.Write(idB, binary.LittleEndian, uint32(id))
 	packet = append(idB.Bytes(), packet...)
-	log.Printf("write2EGTS id: %d; time: %d; packet: %v", id, time, packet)
+	//log.Printf("write2EGTS id: %d; time: %d; packet: %v", id, time, packet)
+	log.Printf("write2EGTS id: %d; time: %d", id, time)
 	_, err := c.Do("ZADD", "rnis", time, packet)
 	return err
 }
@@ -82,7 +84,7 @@ func getOldNDTP(c redis.Conn, id int) ([][]byte, error) {
 
 func writeEGTSid(c redis.Conn, egtsMessageID uint16, messageID string) (err error) {
 	key := "egts:" + strconv.Itoa(int(egtsMessageID))
-	log.Printf("writeEGTSid: key: %s; messageID: %s", key, messageID)
+	//log.Printf("writeEGTSid: key: %s; messageID: %s", key, messageID)
 	_, err = c.Do("SET", key, messageID, "ex", 50)
 	return
 }

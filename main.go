@@ -331,8 +331,8 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				var packet []byte
 				log.Printf("before parsing len(restBuf) = %d", len(restBuf))
 				data, packet, restBuf, err = parseNDTP(restBuf)
-				log.Printf("packet before changing: %v", packet)
-				log.Printf("len(packet): %d; after parsing len(restBuf) = %d", len(packet), len(restBuf))
+				//log.Printf("packet before changing: %v", packet)
+				//log.Printf("len(packet): %d; after parsing len(restBuf) = %d", len(packet), len(restBuf))
 				if err != nil {
 					if len(restBuf) > defaultBufferSize {
 						restBuf = []byte{}
@@ -346,21 +346,22 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				copy(packetCopy, packet)
 				err = write2DB(cR, data, s, packetCopy, mill)
 				if err != nil {
+					log.Println("send error reply to server because of: ", err)
 					errorReply(client, packetCopy)
 					restBuf = []byte{}
 					break
 				}
-				//log.Println("try to send to NDTP server")
+				log.Println("start to send to NDTP server")
 				//log.Println("NDTP closed: ", ndtpConn.closed, "; NDTP recon: ", ndtpConn.recon)
 				if ndtpConn.closed != true {
 					NPHReqID, message := changePacket(packet, data, s)
-					log.Printf("len: %d, packet after changing: %v", len(message), message)
+					//log.Printf("len: %d, packet after changing: %v", len(message), message)
 					err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
 					if err != nil {
 						log.Println(err)
 					} else {
 						ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						log.Printf("send message to server: %v", message)
+						//log.Printf("send message to server: %v", message)
 						_, err = ndtpConn.conn.Write(message)
 						if err != nil {
 							log.Printf("clientSession send to NDTP server error: %s", err)
@@ -369,7 +370,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 					}
 				}
 				data.ToRnis.messageID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
-				//log.Println("try to send to EGTS server")
+				log.Println("start to send to EGTS server")
 				//log.Println("EGTS closed: ", egtsConn.closed)
 				if egtsConn.closed != true {
 					if toEGTS(data) {
@@ -377,8 +378,10 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 						egtsCh <- data.ToRnis
 					}
 				}
+				log.Println("start to reply")
 				err = reply(client, data.NPH, packet)
 				if err != nil {
+					log.Println("error replying to att: ", err)
 					errClientCh <- err
 					return
 				}
