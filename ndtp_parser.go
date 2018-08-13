@@ -63,7 +63,6 @@ func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error
 		return
 	}
 	dataLen := int(binary.LittleEndian.Uint16(message[index1+2 : index1+4]))
-	log.Printf("dataLen: %d", dataLen)
 	if dataLen > (messageLen - NPL_HEADER_LEN) {
 		restBuf = make([]byte, len(message))
 		copy(restBuf, message)
@@ -74,7 +73,7 @@ func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error
 		crcHead := binary.BigEndian.Uint16(message[index1+6 : index1+8])
 		crcCalc := crc16(message[index1+headerSize : index1+headerSize+dataLen])
 		if crcHead != crcCalc {
-			err = errors.New("crc incorrect")
+			err = fmt.Errorf("crc incorrect: calc %d; receive: %d", crcCalc, crcHead)
 			return
 		}
 	}
@@ -83,7 +82,6 @@ func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error
 	err = parseNPH(message[index1+15:], &data)
 	packet = message[index1:index1 + NPL_HEADER_LEN + dataLen]
 	restBufLen := len(message) - index1 - NPL_HEADER_LEN - dataLen
-	log.Printf("restBufLen: %d", restBufLen)
 	restBuf = make([]byte, restBufLen)
 	copy(restBuf, message[index1+NPL_HEADER_LEN+dataLen:])
 	if err == nil {
@@ -104,7 +102,7 @@ func parseNPH(message []byte, data *ndtpData) error {
 			return err
 		} else {
 			data.ToRnis = rnis
-			if nph.NPHType == NPH_SND_HISTORY {
+			if nph.NPHType == NPH_SRV_NAVDATA {
 				data.ToRnis.realTime = true
 			}
 			index = index + +NPHLen
@@ -194,39 +192,35 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 
 func changePacket(b []byte, data ndtpData, s *session) (uint32, []byte) {
 	NPLReqID, NPHReqID := serverID(s)
-	NPLReqID1 := new(bytes.Buffer)
-	binary.Write(NPLReqID1, binary.LittleEndian, NPLReqID)
-	copy(b[13:], NPLReqID1.Bytes())
-	NPHReqID1 := new(bytes.Buffer)
-	binary.Write(NPHReqID1, binary.LittleEndian, NPHReqID)
-	copy(b[NPL_HEADER_LEN+6:], NPHReqID1.Bytes())
+	binary.LittleEndian.PutUint16(b[13:], NPLReqID)
+	binary.LittleEndian.PutUint32(b[NPL_HEADER_LEN+6:], NPHReqID)
 	if data.NPH.ServiceID == NPH_SRV_NAVDATA && data.NPH.NPHType == NPH_SND_REALTIME {
 		Now := getMill()
 		if (Now - int64(data.ToRnis.time)) > 60000 {
-			NPHType1 := new(bytes.Buffer)
-			binary.Write(NPHType1, binary.LittleEndian, uint16(NPH_SND_HISTORY))
-			copy(b[NPL_HEADER_LEN+2:], NPHType1.Bytes())
+			b[NPL_HEADER_LEN+2] = byte(NPH_SND_HISTORY)
 		}
 	}
 	crc := crc16(b[NPL_HEADER_LEN:])
-	crc1 := new(bytes.Buffer)
-	binary.Write(crc1, binary.LittleEndian, crc)
-	copy(b[6:], crc1.Bytes())
+	binary.BigEndian.PutUint16(b[6:], crc)
 	return NPHReqID, b
 }
 
 func changePacketFromServ(b []byte, s *session) []byte {
 	NPLReqID, NPHReqID := clientID(s)
-	NPLReqID1 := new(bytes.Buffer)
-	binary.Write(NPLReqID1, binary.LittleEndian, NPLReqID)
-	copy(b[13:], NPLReqID1.Bytes())
-	NPHReqID1 := new(bytes.Buffer)
-	binary.Write(NPHReqID1, binary.LittleEndian, NPHReqID)
-	copy(b[NPL_HEADER_LEN+6:], NPHReqID1.Bytes())
+
+	binary.LittleEndian.PutUint16(b[13:], NPLReqID)
+	binary.LittleEndian.PutUint32(b[NPL_HEADER_LEN+6:], NPHReqID)
+	//NPLReqID1 := new(bytes.Buffer)
+	//binary.Write(NPLReqID1, binary.LittleEndian, NPLReqID)
+	//copy(b[13:], NPLReqID1.Bytes())
+	//NPHReqID1 := new(bytes.Buffer)
+	//binary.Write(NPHReqID1, binary.LittleEndian, NPHReqID)
+	//copy(b[NPL_HEADER_LEN+6:], NPHReqID1.Bytes())
 	crc := crc16(b[NPL_HEADER_LEN:])
-	crc1 := new(bytes.Buffer)
-	binary.Write(crc1, binary.LittleEndian, crc)
-	copy(b[6:], crc1.Bytes())
+	//crc1 := new(bytes.Buffer)
+	//binary.Write(crc1, binary.LittleEndian, crc)
+	//copy(b[6:], crc1.Bytes())
+	binary.LittleEndian.PutUint16(b[6:], crc)
 	return b
 }
 
@@ -235,12 +229,15 @@ func answer(packet []byte) []byte {
 	copy(nph[2:], nphResultType)
 	crc := crc16(nph)
 	ans := packet[:NPL_HEADER_LEN]
-	dataSize := new(bytes.Buffer)
-	binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
-	copy(ans[2:], dataSize.Bytes())
-	crc1 := new(bytes.Buffer)
-	binary.Write(crc1, binary.LittleEndian, crc)
-	copy(ans[6:], crc1.Bytes())
+
+	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+4))
+	//dataSize := new(bytes.Buffer)
+	//binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
+	//copy(ans[2:], dataSize.Bytes())
+	//crc1 := new(bytes.Buffer)
+	//binary.Write(crc1, binary.LittleEndian, crc)
+	//copy(ans[6:], crc1.Bytes())
+	binary.LittleEndian.PutUint16(ans[6:], crc)
 	ans = append(ans, nph...)
 	return ans
 }
@@ -250,12 +247,14 @@ func errorAnswer(packet []byte) []byte {
 	copy(nph[2:], nphResultType)
 	crc := crc16(nph)
 	ans := packet[:NPL_HEADER_LEN]
-	dataSize := new(bytes.Buffer)
-	binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
-	copy(ans[2:], dataSize.Bytes())
-	crc1 := new(bytes.Buffer)
-	binary.Write(crc1, binary.LittleEndian, crc)
-	copy(ans[6:], crc1.Bytes())
+	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+4))
+	//dataSize := new(bytes.Buffer)
+	//binary.Write(dataSize, binary.LittleEndian, uint16(NPH_HEADER_LEN+4))
+	//copy(ans[2:], dataSize.Bytes())
+	//crc1 := new(bytes.Buffer)
+	//binary.Write(crc1, binary.LittleEndian, crc)
+	//copy(ans[6:], crc1.Bytes())
+	binary.LittleEndian.PutUint16(ans[6:], crc)
 	ans = append(ans, nph...)
 	return ans
 }
