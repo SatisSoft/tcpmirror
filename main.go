@@ -320,7 +320,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				var packet []byte
 				log.Printf("before parsing len(restBuf) = %d", len(restBuf))
 				data, packet, restBuf, err = parseNDTP(restBuf)
-				log.Printf("packetLen: %d; after parsing len(restBuf) = %d", packetLen, len(restBuf))
+				log.Printf("len(packet): %d; after parsing len(restBuf) = %d", len(packet), len(restBuf))
 				if err != nil {
 					if len(restBuf) > defaultBufferSize {
 						restBuf = []byte{}
