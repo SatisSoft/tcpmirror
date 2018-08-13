@@ -13,6 +13,7 @@ func writeConnDB(c redis.Conn, id uint32, message []byte) error {
 	key := "conn:" + strconv.Itoa(int(id))
 	log.Printf("writeConnDB key: %s; message: %v", key, message)
 	_, err := c.Do("SET", key, message)
+	log.Printf("writeConnDB err: %v", err)
 	return err
 }
 
@@ -20,6 +21,7 @@ func readConnDB(c redis.Conn, id int) ([]byte, error) {
 	key := "conn:" + strconv.Itoa(id)
 	res, err := redis.Bytes(c.Do("GET", key))
 	log.Printf("readConnDB key: %s; message: %v", key, res)
+	log.Printf("readConnDB err: %v", err)
 	return res, err
 }
 
@@ -27,6 +29,7 @@ func writeNDTPid(c redis.Conn, id, nphID uint32, mill int64) error {
 	key := "ntn:" + strconv.FormatUint(uint64(id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
 	log.Printf("writeNDTPid key: %s; val: %d", key, mill)
 	_, err := c.Do("SET", key, mill, "ex", 50)
+	log.Printf("writeNDTPid err: %v", err)
 	return err
 }
 
@@ -34,6 +37,7 @@ func readNDTPid(c redis.Conn, id int, nphID uint32) (int64, error) {
 	key := "ntn:" + strconv.FormatUint(uint64(id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
 	res, err := redis.Int64(c.Do("GET", key))
 	log.Printf("readNDTPid key: %s; res: %d", key, res)
+	log.Printf("readNDTPid err: %v", err)
 	return res, err
 }
 
@@ -55,6 +59,7 @@ func write2NDTP(c redis.Conn, id int, time int64, packet []byte) error {
 	//log.Printf("write2NDTP id: %d; time: %d; packet: %v", id, time, packet)
 	log.Printf("write2NDTP id: %d; time: %d", id, time)
 	_, err := c.Do("ZADD", id, time, packet)
+	log.Printf("write2NDTP err: %v", err)
 	return err
 }
 
@@ -75,6 +80,7 @@ func removeFromNDTP(c redis.Conn, id int, NPHReqID uint32) error {
 	}
 	log.Printf("removeFromNDTP: id: %d; time: %d", id, time)
 	_, err = c.Do("ZREMRANGEBYSCORE", id, time, time)
+	log.Printf("removeFromNDTP err: %v", err)
 	return err
 }
 
@@ -82,6 +88,7 @@ func getOldNDTP(c redis.Conn, id int) ([][]byte, error) {
 	max := getMill() - 60000
 	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", id, 0, max, "LIMIT", 0, 10))
 	log.Printf("getOldNDTP: id: %d; max: %d; len(res): %d", id, max, len(res))
+	log.Printf("getOldNDTP err: %v", err)
 	return res, err
 }
 
@@ -89,6 +96,7 @@ func writeEGTSid(c redis.Conn, egtsMessageID uint16, messageID string) (err erro
 	key := "egts:" + strconv.Itoa(int(egtsMessageID))
 	//log.Printf("writeEGTSid: key: %s; messageID: %s", key, messageID)
 	_, err = c.Do("SET", key, messageID, "ex", 50)
+	log.Printf("writeEGTSid err: %v", err)
 	return
 }
 
@@ -137,6 +145,7 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 		log.Println("where is no EGTS packets for ", egtsMessageID)
 		return
 	}
+	log.Printf("deleteEGTS err: %v", err)
 	return
 }
 
@@ -144,6 +153,7 @@ func removeExpiredDataEGTS(c redis.Conn) (err error) {
 	max := getMill() - 259200000 //3*24*60*60*1000
 	_, err = c.Do("ZREMRANGEBYSCORE", "rnis", 0, max)
 	log.Printf("removeExpiredDataEGTS: max: %d", max)
+	log.Printf("removeExpiredDataEGTS err: %v", err)
 	return
 }
 
@@ -151,5 +161,6 @@ func getOldEGTS(c redis.Conn) (res [][]byte, err error) {
 	max := getMill() - 60000
 	res, err = redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, "LIMIT", 0, 10000))
 	log.Printf("getOldEGTS: max: %d; len(res): %d", max, len(res))
+	log.Printf("getOldEGTS err: %v", err)
 	return
 }
