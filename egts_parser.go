@@ -136,14 +136,15 @@ func parseEGTS(message []byte) (reqID uint16, err error) {
 		err = errors.New("EGTS: incorrect body crc")
 		return
 	}
-	recID, res := parseResp(message[startBody : startBody+int(bodyLen)])
+	var res uint
+	reqID, res = parseResp(message[startBody : startBody+int(bodyLen)])
 	log.Printf("EGTS: bodyLen: %d, startBody: %d, startHeader: %d", bodyLen, startBody, startHeader)
-	log.Printf("EGTS: received recID: %d, procRes: %d, err: %s", recID, res, err)
+	log.Printf("EGTS: received recID: %d, procRes: %d, err: %v", reqID, res, err)
 	if err != nil {
 		return
 	}
 	if res != 0 {
-		err = fmt.Errorf("EGTS: received error result %d for reqID %d", res, recID)
+		err = fmt.Errorf("EGTS: received error result %d for reqID %d", res, reqID)
 	}
 	return
 }
