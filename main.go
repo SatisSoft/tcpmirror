@@ -278,7 +278,9 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 		if !ndtpConn.closed {
 			var b [defaultBufferSize]byte
 			n, err := ndtpConn.conn.Read(b[:])
+			log.Printf("received %d bytes from server", n)
 			if err != nil {
+				log.Printf("error while getting data from server: %v", err)
 				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 				continue
 			}
@@ -297,6 +299,7 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					continue
 				}
 				if data.NPH.isResult {
+					log.Printf("got NPH Result for id %d, reqID: %d", s.id, data.NPH.NPHReqID)
 					err = removeFromNDTP(cR, s.id, data.NPH.NPHReqID)
 					if err != nil {
 						log.Printf("removeFromNDTP error for id %d, reqID %d: %v", s.id, data.NPH.NPHReqID, err)
