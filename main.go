@@ -174,7 +174,7 @@ func egtsSession() {
 			packet := formEGTS(message, egtsMessageID, egtsRecID)
 			count += 1
 			buf = append(buf, packet...)
-			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsMessageID, message.messageID)
+			log.Printf("writeEGTSid in egtsSession: egtsRecID : %s", egtsRecID, message.messageID)
 			err := writeEGTSid(cR, egtsMessageID, message.messageID)
 			egtsMessageID++
 			egtsRecID++
@@ -218,11 +218,11 @@ func waitReplyEGTS() {
 				go egtsConStatus()
 			}
 			if n != 0 {
-				egtsMessageID, err := parseEGTS(b[:n])
+				egtsReqID, err := parseEGTS(b[:n])
 				if err != nil {
 					log.Printf("error while parsing reply from EGTS %v: %s", b[:n], err)
 				} else {
-					err := deleteEGTS(cR, egtsMessageID)
+					err := deleteEGTS(cR, egtsReqID)
 					if err != nil {
 						log.Printf("error while delete EGTS id %s", err)
 					}

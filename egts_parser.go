@@ -6,6 +6,7 @@ import (
 	"errors"
 	"log"
 	"math"
+	"fmt"
 )
 
 const (
@@ -100,7 +101,7 @@ func formSubrec(data rnisData) (subrec []byte) {
 	return
 }
 
-func parseEGTS(message []byte) (egtsMessageID uint16, err error) {
+func parseEGTS(message []byte) (reqID uint16, err error) {
 	startHeader := bytes.IndexByte(message, 0x01)
 	if startHeader == -1 {
 		err = errors.New("EGTS: can't find PRV")
@@ -135,14 +136,14 @@ func parseEGTS(message []byte) (egtsMessageID uint16, err error) {
 		err = errors.New("EGTS: incorrect body crc")
 		return
 	}
-	recID, procRes := parseResp(message[startBody : startBody+int(bodyLen)])
+	recID, res := parseResp(message[startBody : startBody+int(bodyLen)])
 	log.Printf("EGTS: bodyLen: %d, startBody: %d, startHeader: %d", bodyLen, startBody, startHeader)
-	log.Printf("EGTS: received recID: %d, procRes: %d, err: %s", recID, procRes, err)
+	log.Printf("EGTS: received recID: %d, procRes: %d, err: %s", recID, res, err)
 	if err != nil {
 		return
 	}
-	if procRes != 0 {
-		err = errors.New("EGTS: received error result")
+	if res != 0 {
+		err = fmt.Errorf("EGTS: received error result %d for reqID %d", res, recID)
 	}
 	return
 }
