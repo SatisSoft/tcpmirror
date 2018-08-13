@@ -354,7 +354,7 @@ func clientSession(cR redis.Conn, client net.Conn, ndtpConn *connection, ErrNDTP
 				//log.Println("NDTP closed: ", ndtpConn.closed, "; NDTP recon: ", ndtpConn.recon)
 				if ndtpConn.closed != true {
 					NPHReqID, message := changePacket(packet, data, s)
-					log.Printf("packet after changing: %v", message)
+					log.Printf("len: %d, packet after changing: %v", len(message), message)
 					err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
 					if err != nil {
 						log.Println(err)
