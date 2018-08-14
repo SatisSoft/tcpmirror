@@ -102,15 +102,15 @@ func formSubrec(data rnisData) (subrec []byte) {
 }
 
 func parseEGTS(message []byte) (reqID []uint16, err error) {
-	for{
+	for {
 		var id uint16
 		id, message, err = parsePacketEGTS(message)
 		if err != nil {
-			return 
+			return
 		}
 		reqID = append(reqID, id)
 		if len(message) < EGTS_PACKET_HEADER_LEN {
-			return 
+			return
 		}
 	}
 }

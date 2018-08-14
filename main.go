@@ -2,14 +2,14 @@ package main
 
 import (
 	"flag"
+	"github.com/ashirko/go-metrics"
+	"github.com/ashirko/go-metrics-graphite"
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"net"
 	"strconv"
 	"sync"
 	"time"
-	"github.com/ashirko/go-metrics"
-	"github.com/ashirko/go-metrics-graphite"
 )
 
 const (
@@ -19,13 +19,13 @@ const (
 )
 
 var (
-	listenAddress string
-	NDTPAddress   string
-	EGTSAddress   string
+	listenAddress   string
+	NDTPAddress     string
+	EGTSAddress     string
 	graphiteAddress string
-	egtsConn      connection
-	egtsCh        = make(chan rnisData, 10000)
-	egtsMu        sync.Mutex
+	egtsConn        connection
+	egtsCh          = make(chan rnisData, 10000)
+	egtsMu          sync.Mutex
 )
 
 type connection struct {
@@ -45,12 +45,12 @@ type session struct {
 	id             int
 }
 
-var(
-	countClientNDTP metrics.Counter
-	countToServerNDTP metrics.Counter
+var (
+	countClientNDTP     metrics.Counter
+	countToServerNDTP   metrics.Counter
 	countFromServerNDTP metrics.Counter
-	countServerEGTS metrics.Counter
-	enableMetrics bool
+	countServerEGTS     metrics.Counter
+	enableMetrics       bool
 )
 
 func main() {
@@ -63,19 +63,24 @@ func main() {
 		flag.Usage()
 		return
 	}
-	if graphiteAddress == ""{
+	if graphiteAddress == "" {
 		log.Println("don't send metrics to graphite")
-	} else{
+	} else {
 		addr, err := net.ResolveTCPAddr("tcp", graphiteAddress)
 		if err != nil {
 			log.Printf("error while connection to graphite: %s\n", err)
-		} else{
+		} else {
 			countClientNDTP = metrics.NewCustomCounter()
 			countToServerNDTP = metrics.NewCustomCounter()
 			countFromServerNDTP = metrics.NewCustomCounter()
 			countServerEGTS = metrics.NewCustomCounter()
+			metrics.Register("clNDTP", countClientNDTP)
+			metrics.Register("toServNDTP", countToServerNDTP)
+			metrics.Register("fromServNDTP", countFromServerNDTP)
+			metrics.Register("servEGTS", countServerEGTS)
 			enableMetrics = true
-				go graphite.Graphite(metrics.DefaultRegistry, 5*10e8, "tcpmirror.metrics", addr)
+			log.Println("start sending metrics to graphite")
+			go graphite.Graphite(metrics.DefaultRegistry, 5*10e8, "ndtpserv.metrics", addr)
 		}
 	}
 	l, err := net.Listen("tcp", listenAddress)
@@ -126,7 +131,7 @@ func handleConnection(c net.Conn, connNo uint64) {
 		log.Printf("%d error while getting first message from client %s", connNo, c.RemoteAddr())
 		return
 	}
-	if enableMetrics{
+	if enableMetrics {
 		countClientNDTP.Inc(1)
 	}
 	log.Printf("%d got first message from client %s", connNo, c.RemoteAddr())
@@ -216,7 +221,7 @@ func egtsSession() {
 				log.Printf("error while write EGTS id in egtsSession %s: %s", message.messageID, err)
 			} else if count == 10 {
 				send2egts(buf)
-				if enableMetrics{
+				if enableMetrics {
 					countServerEGTS.Inc(10)
 				}
 				count = 0
@@ -225,7 +230,7 @@ func egtsSession() {
 		case <-sendTicker.C:
 			if count < 10 {
 				send2egts(buf)
-				if enableMetrics{
+				if enableMetrics {
 					countServerEGTS.Inc(int64(count))
 				}
 				count = 0
@@ -384,7 +389,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 				errClientCh <- err
 				return
 			}
-			if enableMetrics{
+			if enableMetrics {
 				countFromServerNDTP.Inc(1)
 			}
 			restBuf = append(restBuf, b[:n]...)
@@ -405,7 +410,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					log.Printf("error parseNDTP: %v", err)
 					break
 				}
-				if enableMetrics{
+				if enableMetrics {
 					countClientNDTP.Inc(1)
 				}
 				mill := getMill()
@@ -434,8 +439,8 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 						if err != nil {
 							log.Printf("clientSession send to NDTP server error: %s", err)
 							ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
-						} else{
-							if enableMetrics{
+						} else {
+							if enableMetrics {
 								countToServerNDTP.Inc(1)
 							}
 						}
