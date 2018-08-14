@@ -50,7 +50,7 @@ func write2DB(c redis.Conn, data ndtpData, s *session, packet []byte, time int64
 	}
 	if data.ToRnis.time != 0 {
 		err = write2EGTS(c, s.id, time, packet)
-		log.Printf("write2NDTP id: %d, time: %d, err: %v", s.id, time, err)
+		log.Printf("write2DB id: %d, time: %d, err: %v", s.id, time, err)
 	}
 	return
 }
