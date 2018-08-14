@@ -101,7 +101,21 @@ func formSubrec(data rnisData) (subrec []byte) {
 	return
 }
 
-func parseEGTS(message []byte) (reqID uint16, err error) {
+func parseEGTS(message []byte) (reqID []uint16, err error) {
+	for{
+		var id uint16
+		id, message, err = parsePacketEGTS(message)
+		if err != nil {
+			return 
+		}
+		reqID = append(reqID, id)
+		if len(message) < EGTS_PACKET_HEADER_LEN {
+			return 
+		}
+	}
+}
+
+func parsePacketEGTS(message []byte) (reqID uint16, restBuf []byte, err error) {
 	startHeader := bytes.IndexByte(message, 0x01)
 	if startHeader == -1 {
 		err = errors.New("EGTS: can't find PRV")
@@ -146,6 +160,7 @@ func parseEGTS(message []byte) (reqID uint16, err error) {
 	if res != 0 {
 		err = fmt.Errorf("EGTS: received error result %d for reqID %d", res, reqID)
 	}
+	restBuf = message[startHeader+EGTS_PACKET_HEADER_LEN+bodyLen+2:]
 	return
 }
 
