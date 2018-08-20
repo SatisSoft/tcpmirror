@@ -48,6 +48,7 @@ type rnisData struct {
 	valid    bool
 }
 
+
 func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error) {
 	index1 := bytes.Index(message, nplSignature)
 	log.Printf("message length: %d; index1: %d", len(message), index1)
@@ -137,16 +138,16 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 			}
 			rnis.lon = float64((2*latHS-1)*int(lat)) / 10000000.0
 			rnis.lat = float64((2*lonHS-1)*int(lon)) / 10000000.0
-			if message[index+15]&4 != 0 {
+			if message[index+14]&4 != 0 {
 				rnis.sos = true
 			}
-			if message[index+15]&32 != 0 {
+			if message[index+14]&32 != 0 {
 				rnis.lahs = 1
 			}
-			if message[index+15]&64 != 0 {
+			if message[index+14]&64 != 0 {
 				rnis.lohs = 1
 			}
-			if message[index+15]&128 != 0 {
+			if message[index+14]&128 != 0 {
 				rnis.valid = true
 			}
 			avgSpeed := binary.LittleEndian.Uint16(message[index+17 : index+19])
