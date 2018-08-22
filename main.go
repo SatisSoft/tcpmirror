@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"fmt"
 )
 
 const (
@@ -257,6 +258,7 @@ func waitReplyEGTS() {
 	for {
 		var b [defaultBufferSize]byte
 		if !egtsConn.closed {
+			fmt.Println("start reading data from EGTS server")
 			n, err := egtsConn.conn.Read(b[:])
 			if err != nil {
 				log.Printf("error while getting reply from client %s", err)
@@ -273,6 +275,9 @@ func waitReplyEGTS() {
 					log.Printf("error while delete EGTS id %s", err)
 				}
 			}
+		} else{
+			fmt.Println("EGTS server closed")
+			time.Sleep(5 * time.Second)
 		}
 	}
 }
@@ -528,8 +533,10 @@ func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh ch
 }
 
 func egtsConStatus() {
+	fmt.Println("start egtsConStatus")
 	egtsMu.Lock()
 	defer egtsMu.Unlock()
+	fmt.Printf("egtsConStatus closed: %t; recon: %t", egtsConn.closed, egtsConn.recon)
 	if egtsConn.closed || egtsConn.recon {
 		return
 	} else {
@@ -541,14 +548,17 @@ func egtsConStatus() {
 }
 
 func reconnectEGTS() {
+	fmt.Println("start reconnectEGTS")
 	for {
 		for i := 0; i < 3; i++ {
+			fmt.Printf("try to reconnect to EGTS server: %d", i)
 			cE, err := net.Dial("tcp", EGTSAddress)
 			if err == nil {
 				egtsConn.conn = cE
 				egtsConn.closed = false
 				time.Sleep(1 * time.Minute)
 				egtsConn.recon = false
+				fmt.Printf("reconnected to EGTS server")
 				return
 			}
 			log.Printf("error while reconnecting to EGTS server: %s", err)
