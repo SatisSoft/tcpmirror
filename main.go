@@ -262,6 +262,7 @@ func waitReplyEGTS() {
 			if err != nil {
 				log.Printf("error while getting reply from client %s", err)
 				go egtsConStatus()
+				time.Sleep(5 * time.Second)
 				continue
 			}
 			egtsMsgIDs, err := parseEGTS(b[:n])
@@ -510,7 +511,7 @@ func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh ch
 				log.Printf("send first message again to %d", s.id)
 				firstMessage, err := readConnDB(cR, s.id)
 				if err != nil {
-					log.Println("reconnecting error")
+					log.Printf("error readConnDB: %v", err)
 					return
 				}
 				cN.SetWriteDeadline(time.Now().Add(writeTimeout))
@@ -555,9 +556,9 @@ func reconnectEGTS() {
 			if err == nil {
 				egtsConn.conn = cE
 				egtsConn.closed = false
+				log.Printf("reconnected to EGTS server")
 				time.Sleep(1 * time.Minute)
 				egtsConn.recon = false
-				log.Printf("reconnected to EGTS server")
 				return
 			}
 			log.Printf("error while reconnecting to EGTS server: %s", err)
