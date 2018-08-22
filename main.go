@@ -262,7 +262,7 @@ func waitReplyEGTS() {
 			if err != nil {
 				log.Printf("error while getting reply from client %s", err)
 				go egtsConStatus()
-				break
+				continue
 			}
 			egtsMsgIDs, err := parseEGTS(b[:n])
 			if err != nil {
