@@ -215,6 +215,17 @@ func egtsSession() {
 			buf = append(buf, packet...)
 			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsRecID, message.messageID)
 			err := writeEGTSid(cR, egtsMessageID, message.messageID)
+			if err != nil{
+				for {
+					cR, err = redis.Dial("tcp", ":6379")
+					if err != nil {
+						log.Printf("error reconnecting to redis in egtsSession 1: %s\n", err)
+					} else {
+						break
+					}
+					time.Sleep(5 * time.Second)
+				}
+			}
 			egtsMessageID++
 			egtsRecID++
 			if err != nil {
@@ -273,6 +284,15 @@ func waitReplyEGTS() {
 				err := deleteEGTS(cR, id)
 				if err != nil {
 					log.Printf("error while delete EGTS id %s", err)
+					for {
+						cR, err = redis.Dial("tcp", ":6379")
+						if err != nil {
+							log.Printf("error reconnecting to redis in waitReplyEGTS: %s\n", err)
+						} else {
+							break
+						}
+						time.Sleep(5 * time.Second)
+					}
 				}
 			}
 		} else{
@@ -656,6 +676,15 @@ func egtsRemoveExpired() {
 		err := removeExpiredDataEGTS(cR)
 		if err != nil {
 			log.Printf("error while remove expired data EGTS %s", err)
+			for {
+				cR, err = redis.Dial("tcp", ":6379")
+				if err != nil {
+					log.Printf("error reconnecting to redis in egtsRemoveExpired: %s\n", err)
+				} else {
+					break
+				}
+				time.Sleep(1 * time.Minute)
+			}
 		}
 		time.Sleep(1 * time.Hour)
 	}
@@ -678,6 +707,10 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 				bufOld = append(bufOld, packet...)
 				log.Printf("writeEGTSid in checkOldDataEGTS: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
 				err := writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
+				if err != nil{
+					log.Printf("error writeEGTSid in checkOldDataEGTS: %v", err)
+					continue
+				}
 				*egtsMessageID++
 				*egtsReqID++
 				if err != nil {
