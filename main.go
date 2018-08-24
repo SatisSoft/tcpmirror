@@ -242,7 +242,7 @@ func egtsSession() {
 				buf = nil
 			}
 		case <-sendTicker.C:
-			if count < 10 {
+			if (count > 0) && (count < 10) {
 				send2egts(buf)
 				if enableMetrics {
 					countServerEGTS.Inc(int64(count))
