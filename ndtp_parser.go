@@ -221,7 +221,7 @@ func changePacketFromServ(b []byte, s *session) []byte {
 	//crc1 := new(bytes.Buffer)
 	//binary.Write(crc1, binary.LittleEndian, crc)
 	//copy(b[6:], crc1.Bytes())
-	binary.LittleEndian.PutUint16(b[6:], crc)
+	binary.BigEndian.PutUint16(b[6:], crc)
 	return b
 }
 
@@ -238,7 +238,7 @@ func answer(packet []byte) []byte {
 	//crc1 := new(bytes.Buffer)
 	//binary.Write(crc1, binary.LittleEndian, crc)
 	//copy(ans[6:], crc1.Bytes())
-	binary.LittleEndian.PutUint16(ans[6:], crc)
+	binary.BigEndian.PutUint16(ans[6:], crc)
 	ans = append(ans, nph...)
 	return ans
 }
@@ -255,7 +255,7 @@ func errorAnswer(packet []byte) []byte {
 	//crc1 := new(bytes.Buffer)
 	//binary.Write(crc1, binary.LittleEndian, crc)
 	//copy(ans[6:], crc1.Bytes())
-	binary.LittleEndian.PutUint16(ans[6:], crc)
+	binary.BigEndian.PutUint16(ans[6:], crc)
 	ans = append(ans, nph...)
 	return ans
 }

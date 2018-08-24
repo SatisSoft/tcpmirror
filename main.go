@@ -11,7 +11,6 @@ import (
 	"sync"
 	"time"
 	"strings"
-	"fmt"
 )
 
 const (
@@ -752,5 +751,5 @@ func printPacket(s string, slice []byte){
 		sliceText = append(sliceText, text)
 	}
 	result := strings.Join(sliceText, ",")
-	fmt.Printf("%s: {%s}\n", s, result)
+	log.Printf("%s: {%s}\n", s, result)
 }
