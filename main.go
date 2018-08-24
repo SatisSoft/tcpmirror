@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"fmt"
 )
 
 const (
@@ -214,6 +215,7 @@ func egtsSession() {
 			count += 1
 			buf = append(buf, packet...)
 			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsRecID, message.messageID)
+			log.Printf("egts packet: %v", packet)
 			err := writeEGTSid(cR, egtsMessageID, message.messageID)
 			if err != nil{
 				for {
@@ -270,6 +272,7 @@ func waitReplyEGTS() {
 		if !egtsConn.closed {
 			log.Println("start reading data from EGTS server")
 			n, err := egtsConn.conn.Read(b[:])
+			fmt.Printf("egts: received %d bytes; packet: %v", n, b)
 			if err != nil {
 				log.Printf("error while getting reply from client %s", err)
 				go egtsConStatus()
@@ -345,10 +348,12 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 		if !ndtpConn.closed {
 			var b [defaultBufferSize]byte
 			n, err := ndtpConn.conn.Read(b[:])
-			log.Printf("received %d bytes from server", n)
+			log.Printf("ndtpConn.closed = %t; ndtpConn.recon = %t", ndtpConn.closed, ndtpConn.recon)
+			log.Printf("received %d bytes from server, packet: %v", n, b)
 			if err != nil {
 				log.Printf("error while getting data from server: %v", err)
 				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+				time.Sleep(5 * time.Second)
 				continue
 			}
 			var restBuf []byte
@@ -410,7 +415,9 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 			checkOldDataNDTP(cR, s, ndtpConn, mu, s.id, ErrNDTPCh)
 		default:
 			var b [defaultBufferSize]byte
+			log.Println("start reading from client")
 			n, err := client.Read(b[:])
+			log.Printf("received %d from client. packet: %v", n, b)
 			if err != nil {
 				errClientCh <- err
 				return
@@ -421,14 +428,13 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 			restBuf = append(restBuf, b[:n]...)
 			log.Println("")
 			log.Println("")
-			log.Printf("received %d bytes from client; len(restBuf) = %d", n, len(restBuf))
+			log.Printf("len(restBuf) = %d", len(restBuf))
 			for {
 				var data ndtpData
 				var packet []byte
 				log.Printf("before parsing len(restBuf) = %d", len(restBuf))
+				log.Printf("before parsing restBuf: %v", restBuf)
 				data, packet, restBuf, err = parseNDTP(restBuf)
-				//log.Printf("packet before changing: %v", packet)
-				//log.Printf("len(packet): %d; after parsing len(restBuf) = %d", len(packet), len(restBuf))
 				if err != nil {
 					if len(restBuf) > defaultBufferSize {
 						restBuf = []byte{}
@@ -519,6 +525,7 @@ func ndtpConStatus(cR redis.Conn, ndtpConn *connection, s *session, mu *sync.Mut
 }
 
 func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
+	fmt.Println("start reconnect NDTP")
 	for {
 		for i := 0; i < 3; i++ {
 			if conClosed(ErrNDTPCh) {
