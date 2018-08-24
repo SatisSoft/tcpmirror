@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"sync"
 	"time"
-	"fmt"
 )
 
 const (
@@ -272,7 +271,7 @@ func waitReplyEGTS() {
 		if !egtsConn.closed {
 			log.Println("start reading data from EGTS server")
 			n, err := egtsConn.conn.Read(b[:])
-			fmt.Printf("egts: received %d bytes; packet: %v", n, b)
+			log.Printf("egts: received %d bytes; packet: %v", n, b)
 			if err != nil {
 				log.Printf("error while getting reply from client %s", err)
 				go egtsConStatus()
@@ -525,7 +524,7 @@ func ndtpConStatus(cR redis.Conn, ndtpConn *connection, s *session, mu *sync.Mut
 }
 
 func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
-	fmt.Println("start reconnect NDTP")
+	log.Println("start reconnect NDTP")
 	for {
 		for i := 0; i < 3; i++ {
 			if conClosed(ErrNDTPCh) {
