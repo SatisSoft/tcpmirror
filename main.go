@@ -10,6 +10,8 @@ import (
 	"strconv"
 	"sync"
 	"time"
+	"strings"
+	"fmt"
 )
 
 const (
@@ -146,9 +148,9 @@ func handleConnection(c net.Conn, connNo uint64) {
 	}
 	ip := getIP(c)
 	log.Printf("conn %d: ip: %s\n", connNo, ip)
-	log.Printf("before change first packet: %v", packet)
+	printPacket("before change first packet: ", packet)
 	changeAddress(packet, ip)
-	log.Printf("after change first packet: %v", packet)
+	printPacket("after change first packet: ", packet)
 	err = writeConnDB(cR, data.NPH.ID, packet)
 	replyCopy := make([]byte, len(packet))
 	copy(replyCopy, packet)
@@ -193,7 +195,7 @@ func egtsSession() {
 		var err error
 		cR, err = redis.Dial("tcp", ":6379")
 		if err != nil {
-			log.Printf("error connecting to redis in egtsSession: %s\n", err)
+			log.Printf("egtsSession: error connecting to redis in egtsSession: %s\n", err)
 		} else {
 			break
 		}
@@ -214,7 +216,7 @@ func egtsSession() {
 			count += 1
 			buf = append(buf, packet...)
 			log.Printf("writeEGTSid in egtsSession: %d : %s", egtsRecID, message.messageID)
-			log.Printf("egts packet: %v", packet)
+			printPacket("egts packet: ", packet)
 			err := writeEGTSid(cR, egtsMessageID, message.messageID)
 			if err != nil{
 				for {
@@ -260,7 +262,7 @@ func waitReplyEGTS() {
 		var err error
 		cR, err = redis.Dial("tcp", ":6379")
 		if err != nil {
-			log.Printf("error connecting to redis in waitReplyEGTS: %s\n", err)
+			log.Printf("waitReplyEGTS: error connecting to redis in waitReplyEGTS: %s\n", err)
 		} else {
 			break
 		}
@@ -269,27 +271,27 @@ func waitReplyEGTS() {
 	for {
 		var b [defaultBufferSize]byte
 		if !egtsConn.closed {
-			log.Println("start reading data from EGTS server")
+			log.Println("waitReplyEGTS: start reading data from EGTS server")
 			n, err := egtsConn.conn.Read(b[:])
-			log.Printf("egts: received %d bytes; packet: %v", n, b)
+			log.Printf("waitReplyEGTS: received %d bytes; packet: %v", n, b)
 			if err != nil {
-				log.Printf("error while getting reply from client %s", err)
+				log.Printf("waitReplyEGTS: error while getting reply from egts server %s", err)
 				go egtsConStatus()
 				time.Sleep(5 * time.Second)
 				continue
 			}
 			egtsMsgIDs, err := parseEGTS(b[:n])
 			if err != nil {
-				log.Printf("error while parsing reply from EGTS %v: %s", b[:n], err)
+				log.Printf("waitReplyEGTS: error while parsing reply from EGTS %v: %s", b[:n], err)
 			}
 			for _, id := range egtsMsgIDs {
 				err := deleteEGTS(cR, id)
 				if err != nil {
-					log.Printf("error while delete EGTS id %s", err)
+					log.Printf("waitReplyEGTS: error while delete EGTS id %s", err)
 					for {
 						cR, err = redis.Dial("tcp", ":6379")
 						if err != nil {
-							log.Printf("error reconnecting to redis in waitReplyEGTS: %s\n", err)
+							log.Printf("waitReplyEGTS: error reconnecting to redis in waitReplyEGTS: %s\n", err)
 						} else {
 							break
 						}
@@ -307,6 +309,7 @@ func waitReplyEGTS() {
 func send2egts(buf []byte) {
 	if !egtsConn.closed {
 		egtsConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+		printPacket("send2egts: sending first packet: ", buf)
 		_, err := egtsConn.conn.Write(buf)
 		if err != nil {
 			egtsConStatus()
@@ -316,7 +319,7 @@ func send2egts(buf []byte) {
 
 func sendFirstMessage(cR redis.Conn, ndtpConn *connection, s *session, firstMessage []byte, ErrNDTPCh chan error, mu *sync.Mutex) {
 	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-	log.Printf("sending first packet: %v", firstMessage)
+	printPacket("sending first packet: ", firstMessage)
 	_, err := ndtpConn.conn.Write(firstMessage)
 	if err != nil {
 		ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
@@ -348,7 +351,8 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 			var b [defaultBufferSize]byte
 			n, err := ndtpConn.conn.Read(b[:])
 			log.Printf("ndtpConn.closed = %t; ndtpConn.recon = %t", ndtpConn.closed, ndtpConn.recon)
-			log.Printf("received %d bytes from server, packet: %v", n, b)
+			log.Printf("received %d bytes from server", n)
+			printPacket("serverSession: packet from server: ", b[:n])
 			if err != nil {
 				log.Printf("error while getting data from server: %v", err)
 				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
@@ -377,7 +381,9 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					}
 				} else {
 					client.SetWriteDeadline(time.Now().Add(writeTimeout))
+					printPacket("serverSession before changing: ", packet)
 					message := changePacketFromServ(packet, s)
+					printPacket("serverSession send packet to message: ", message)
 					_, err = client.Write(message)
 					if err != nil {
 						errClientCh <- err
@@ -416,7 +422,8 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 			var b [defaultBufferSize]byte
 			log.Println("start reading from client")
 			n, err := client.Read(b[:])
-			log.Printf("received %d from client. packet: %v", n, b)
+			log.Printf("received %d from client", n)
+			printPacket("clientSession: packet from client: ", b[:n])
 			if err != nil {
 				errClientCh <- err
 				return
@@ -460,12 +467,13 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 				if ndtpConn.closed != true {
 					NPHReqID, message := changePacket(packet, data, s)
 					//log.Printf("len: %d, packet after changing: %v", len(message), message)
+					printPacket("packet after changing: ", message)
 					err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
 					if err != nil {
-						log.Println(err)
+						log.Printf("error writingNDTPid: %v", err)
 					} else {
 						ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						//log.Printf("send message to server: %v", message)
+						printPacket("send message to serve: ", message)
 						_, err = ndtpConn.conn.Write(message)
 						if err != nil {
 							log.Printf("clientSession send to NDTP server error: %s", err)
@@ -524,7 +532,7 @@ func ndtpConStatus(cR redis.Conn, ndtpConn *connection, s *session, mu *sync.Mut
 }
 
 func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
-	log.Println("start reconnect NDTP")
+	log.Printf("start reconnect NDTP for id %d", s.id)
 	for {
 		for i := 0; i < 3; i++ {
 			if conClosed(ErrNDTPCh) {
@@ -541,6 +549,7 @@ func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh ch
 					return
 				}
 				cN.SetWriteDeadline(time.Now().Add(writeTimeout))
+				printPacket("reconnectNDTP: send first message again: ", firstMessage)
 				_, err = cN.Write(firstMessage)
 				if err == nil {
 					log.Printf("id %d reconnected", s.id)
@@ -608,6 +617,7 @@ func reply(c net.Conn, data nphData, packet []byte) error {
 	} else {
 		ans := answer(packet)
 		c.SetWriteDeadline(time.Now().Add(writeTimeout))
+		printPacket("reply: send answer: ", ans)
 		_, err := c.Write(ans)
 		return err
 	}
@@ -615,6 +625,7 @@ func reply(c net.Conn, data nphData, packet []byte) error {
 func errorReply(c net.Conn, packet []byte) error {
 	ans := errorAnswer(packet)
 	c.SetWriteDeadline(time.Now().Add(writeTimeout))
+	printPacket("errorReply: send error reply: ", ans)
 	_, err := c.Write(ans)
 	return err
 
@@ -656,6 +667,7 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 				log.Println(err)
 			} else {
 				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+				printPacket("checkOldDataNDTP: send message: ", message)
 				_, err = ndtpConn.conn.Write(message)
 				if err != nil {
 					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
@@ -730,4 +742,15 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 			bufOld = nil
 		}
 	}
+}
+
+func printPacket(s string, slice []byte){
+	sliceText := []string{}
+	for i := range slice {
+		number := slice[i]
+		text := strconv.Itoa(int(number))
+		sliceText = append(sliceText, text)
+	}
+	result := strings.Join(sliceText, ",")
+	fmt.Printf("%s: {%s}\n", s, result)
 }
