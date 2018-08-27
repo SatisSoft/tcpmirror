@@ -133,14 +133,14 @@ func parseNavData(message []byte) (rnis rnisData, index int, err error) {
 			rnis.time = binary.LittleEndian.Uint32(message[index+2 : index+6])
 			lon := binary.LittleEndian.Uint32(message[index+6 : index+10])
 			lat := binary.LittleEndian.Uint32(message[index+10 : index+14])
-			if message[index+15]&32 != 0 {
+			if message[index+14]&32 != 0 {
 				latHS = 1
 			}
-			if message[index+15]&64 != 0 {
+			if message[index+14]&64 != 0 {
 				lonHS = 1
 			}
-			rnis.lon = float64((2*latHS-1)*int(lat)) / 10000000.0
-			rnis.lat = float64((2*lonHS-1)*int(lon)) / 10000000.0
+			rnis.lon = float64((2*lonHS-1)*int(lon)) / 10000000.0
+			rnis.lat = float64((2*latHS-1)*int(lat)) / 10000000.0
 			if message[index+14]&4 != 0 {
 				rnis.sos = true
 			}
