@@ -434,8 +434,6 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 				countFromServerNDTP.Inc(1)
 			}
 			restBuf = append(restBuf, b[:n]...)
-			log.Println("")
-			log.Println("")
 			log.Printf("clientSession: len(restBuf) = %d", len(restBuf))
 			for {
 				var data ndtpData
@@ -481,7 +479,9 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					}
 					log.Println("clientSession: start to send to NDTP server")
 					if ndtpConn.closed != true {
-						NPHReqID, message := changePacket(packet, data, s)
+						packetCopyNDTP := make([]byte, len(packet))
+						copy(packetCopyNDTP, packet)
+						NPHReqID, message := changePacket(packetCopyNDTP, data, s)
 						printPacket("clientSession: packet after changing: ", message)
 						err = writeNDTPid(cR, s.id, NPHReqID, mill)
 						if err != nil {

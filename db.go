@@ -79,8 +79,8 @@ func removeFromNDTP(c redis.Conn, id int, NPHReqID uint32) error {
 		return err
 	}
 	log.Printf("removeFromNDTP: id: %d; time: %d", id, time)
-	_, err = c.Do("ZREMRANGEBYSCORE", id, time, time)
-	log.Printf("removeFromNDTP err: %v", err)
+	n, err := c.Do("ZREMRANGEBYSCORE", id, time, time)
+	log.Printf("removeFromNDTP n=%d; err: %v", n, err)
 	return err
 }
 
