@@ -8,15 +8,16 @@ import (
 	"log"
 	"net"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 )
 
 const (
 	defaultBufferSize = 1024
 	headerSize        = 15
 	writeTimeout      = 10 * time.Second
+	readTimeout       = 10 * time.Second
 )
 
 var (
@@ -217,7 +218,7 @@ func egtsSession() {
 			log.Printf("egtsSession: writeEGTSid in egtsSession: %d : %s", egtsRecID, message.messageID)
 			printPacket("egtsSession: egts packet: ", packet)
 			err := writeEGTSid(cR, egtsMessageID, message.messageID)
-			if err != nil{
+			if err != nil {
 				for {
 					cR, err = redis.Dial("tcp", ":6379")
 					if err != nil {
@@ -271,6 +272,7 @@ func waitReplyEGTS() {
 		var b [defaultBufferSize]byte
 		if !egtsConn.closed {
 			log.Println("waitReplyEGTS: start reading data from EGTS server")
+			egtsConn.conn.SetReadDeadline(time.Now().Add(writeTimeout))
 			n, err := egtsConn.conn.Read(b[:])
 			log.Printf("waitReplyEGTS: received %d bytes; packet: %v", n, b[:n])
 			if err != nil {
@@ -298,7 +300,7 @@ func waitReplyEGTS() {
 					}
 				}
 			}
-		} else{
+		} else {
 			log.Println("EGTS server closed")
 			time.Sleep(5 * time.Second)
 		}
@@ -452,9 +454,9 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					countClientNDTP.Inc(1)
 				}
 				mill := getMill()
-				if data.NPH.isResult{
+				if data.NPH.isResult {
 					controlReplyID, err := readControlID(cR, s.id, int(data.NPH.NPHReqID))
-					if err == nil{
+					if err == nil {
 						printPacket("clientSession: control message before changing: ", packet)
 						message := changeContolResult(packet, controlReplyID)
 						printPacket("clientSession: control message before changing: ", message)
@@ -466,7 +468,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 							ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 						}
 					}
-				} else{
+				} else {
 					data.NPH.ID = uint32(s.id)
 					packetCopy := make([]byte, len(packet))
 					copy(packetCopy, packet)
@@ -741,7 +743,7 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 				bufOld = append(bufOld, packet...)
 				log.Printf("writeEGTSid in checkOldDataEGTS: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
 				err := writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
-				if err != nil{
+				if err != nil {
 					log.Printf("error writeEGTSid in checkOldDataEGTS: %v", err)
 					continue
 				}
@@ -760,7 +762,7 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 	}
 }
 
-func printPacket(s string, slice []byte){
+func printPacket(s string, slice []byte) {
 	sliceText := []string{}
 	for i := range slice {
 		number := slice[i]

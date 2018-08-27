@@ -48,7 +48,6 @@ type rnisData struct {
 	valid    bool
 }
 
-
 func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error) {
 	index1 := bytes.Index(message, nplSignature)
 	log.Printf("message length: %d; index1: %d", len(message), index1)
@@ -208,7 +207,7 @@ func changePacket(b []byte, data ndtpData, s *session) (uint32, []byte) {
 	return NPHReqID, b
 }
 
-func changeContolResult(b []byte, controlReplyID int) []byte{
+func changeContolResult(b []byte, controlReplyID int) []byte {
 	binary.LittleEndian.PutUint32(b[NPL_HEADER_LEN+6:], uint32(controlReplyID))
 	crc := crc16(b[NPL_HEADER_LEN:])
 	binary.BigEndian.PutUint16(b[6:], crc)
