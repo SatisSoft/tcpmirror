@@ -272,7 +272,7 @@ func waitReplyEGTS() {
 		var b [defaultBufferSize]byte
 		if !egtsConn.closed {
 			log.Println("waitReplyEGTS: start reading data from EGTS server")
-			egtsConn.conn.SetReadDeadline(time.Now().Add(writeTimeout))
+			//egtsConn.conn.SetReadDeadline(time.Now().Add(writeTimeout))
 			n, err := egtsConn.conn.Read(b[:])
 			log.Printf("waitReplyEGTS: received %d bytes; packet: %v", n, b[:n])
 			if err != nil {
