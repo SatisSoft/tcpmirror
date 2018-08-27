@@ -13,7 +13,7 @@ func TestParserNDTP(t *testing.T) {
 		0, 220, 0, 4, 0, 2, 0, 22, 0, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 167, 97, 0, 0, 31, 6, 0, 0, 8,
 		0, 2, 0, 0, 0, 0, 0}
 	rnis := rnisData{1522961700, 37.692578, 55.7890249, 339, 0, false, 0, "", 0, 0, true, true, true}
-	nph := nphData{1, 2, 0, 0, false, 0}
+	nph := nphData{1, 2, 0, true, 0, false, 0}
 	dataOrig := ndtpData{0x02, 0x00, true, nph, rnis}
 	dataForm, _, _, _ := parseNDTP(packet)
 	if !reflect.DeepEqual(dataForm, dataOrig) {

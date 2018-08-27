@@ -24,6 +24,7 @@ type nphData struct {
 	ServiceID uint16
 	NPHType   uint16
 	NPHReqID  uint32
+	needReply bool
 	//optional
 	NPHResult uint32
 	isResult  bool
@@ -95,6 +96,9 @@ func parseNPH(message []byte, data *ndtpData) error {
 	var nph nphData
 	nph.ServiceID = binary.LittleEndian.Uint16(message[index : index+2])
 	nph.NPHType = binary.LittleEndian.Uint16(message[index+2 : index+4])
+	if binary.LittleEndian.Uint16(message[index+4:index+6]) == 1 {
+		nph.needReply = true
+	}
 	nph.NPHReqID = binary.LittleEndian.Uint32(message[index+6 : index+10])
 	if nph.ServiceID == NPH_SRV_NAVDATA && (nph.NPHType == NPH_SND_HISTORY || nph.NPHType == NPH_SND_REALTIME) {
 		rnis, NPHLen, err := parseNavData(message[index+NPH_HEADER_LEN:])
