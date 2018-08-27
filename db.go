@@ -164,3 +164,20 @@ func getOldEGTS(c redis.Conn) (res [][]byte, err error) {
 	log.Printf("getOldEGTS err: %v", err)
 	return
 }
+
+func writeControlID(c redis.Conn, id, id1 int, id2 uint32) error{
+	key := "s2c:" + strconv.Itoa(id) + ":" + strconv.Itoa(id1)
+	log.Printf("writeControlID key: %s; val: %v", key, id2)
+	val := strconv.Itoa(int(id2))
+	_, err := c.Do("SET", key, val, "ex", 30)
+	log.Printf("writeControlID err: %v", err)
+	return err
+}
+
+func readControlID(c redis.Conn, id, id1 int) (int, error) {
+	key := "s2c:" + strconv.Itoa(id) + ":" + strconv.Itoa(id1)
+	res, err := redis.Int(c.Do("GET", key))
+	log.Printf("readNDTPid key: %s; res: %d", key, res)
+	log.Printf("readNDTPid err: %v", err)
+	return res, err
+}
