@@ -483,7 +483,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					if ndtpConn.closed != true {
 						NPHReqID, message := changePacket(packet, data, s)
 						printPacket("clientSession: packet after changing: ", message)
-						err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
+						err = writeNDTPid(cR, s.id, NPHReqID, mill)
 						if err != nil {
 							log.Printf("error writingNDTPid: %v", err)
 						} else {
@@ -680,7 +680,7 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 			var NPHReqID uint32
 			var message []byte
 			NPHReqID, message = changePacket(mes, data, s)
-			err = writeNDTPid(cR, data.NPH.ID, NPHReqID, mill)
+			err = writeNDTPid(cR, s.id, NPHReqID, mill)
 			if err != nil {
 				log.Println(err)
 			} else {
