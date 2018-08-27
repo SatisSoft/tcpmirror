@@ -272,7 +272,7 @@ func waitReplyEGTS() {
 		if !egtsConn.closed {
 			log.Println("waitReplyEGTS: start reading data from EGTS server")
 			n, err := egtsConn.conn.Read(b[:])
-			log.Printf("waitReplyEGTS: received %d bytes; packet: %v", n, b)
+			log.Printf("waitReplyEGTS: received %d bytes; packet: %v", n, b[:n])
 			if err != nil {
 				log.Printf("waitReplyEGTS: error while getting reply from egts server %s", err)
 				go egtsConStatus()
