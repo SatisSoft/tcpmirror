@@ -515,10 +515,10 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 							}
 						}
 						data.ToRnis.messageID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
-						log.Println("clientSession: start to send to EGTS server")
 						//log.Println("EGTS closed: ", egtsConn.closed)
 						if egtsConn.closed != true {
 							if toEGTS(data) {
+								log.Println("clientSession: start to send to EGTS server")
 								data.ToRnis.id = uint32(s.id)
 								egtsCh <- data.ToRnis
 							}
