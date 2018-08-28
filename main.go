@@ -767,18 +767,48 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 		data, _, _, err = parseNDTP(mes)
 		if ndtpConn.closed != true {
 			mill := getMill()
-			var NPHReqID uint32
-			var message []byte
-			NPHReqID, message = changePacket(mes, data, s)
-			err = writeNDTPid(cR, s.id, NPHReqID, mill)
-			if err != nil {
-				log.Println(err)
-			} else {
-				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-				printPacket("checkOldDataNDTP: send message: ", message)
-				_, err = ndtpConn.conn.Write(message)
+			if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
+				log.Printf("checkOldDataNDTP: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
+				packetCopyNDTP := make([]byte, len(mes))
+				copy(packetCopyNDTP, mes)
+				_, message := changePacket(packetCopyNDTP, data, s)
+				printPacket("checkOldDataNDTP: packet after changing ext device message: ", message)
+				err = writeNDTPIdExt(cR, s.id, data.ext.mesID, data.ext.packNum, mill)
 				if err != nil {
-					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+					log.Printf("error writeNDTPIdExt: %v", err)
+				} else {
+					ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+					printPacket("checkOldDataNDTP: send ext device message to server: ", message)
+					_, err = ndtpConn.conn.Write(message)
+					if err != nil {
+						log.Printf("checkOldDataNDTP: send ext device message to NDTP server error: %s", err)
+						ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+					} else {
+						if enableMetrics {
+							countToServerNDTP.Inc(1)
+						}
+					}
+				}
+
+			} else {
+				var NPHReqID uint32
+				var message []byte
+				NPHReqID, message = changePacket(mes, data, s)
+				err = writeNDTPid(cR, s.id, NPHReqID, mill)
+				if err != nil {
+					log.Printf("checkOldDataNDTP: error writeNDTPid: %v", err)
+				} else {
+					ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+					printPacket("checkOldDataNDTP: send message: ", message)
+					_, err = ndtpConn.conn.Write(message)
+					if err != nil {
+						log.Printf("checkOldDataNDTP: send to NDTP server error: %s", err)
+						ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+					} else {
+						if enableMetrics {
+							countToServerNDTP.Inc(1)
+						}
+					}
 				}
 			}
 		}
