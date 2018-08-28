@@ -106,7 +106,7 @@ func removeFromNDTPExt(c redis.Conn, id int, mesID, reqID uint16) error {
 		return err
 	}
 	log.Printf("removeFromNDTPExt: id: %d; time: %d", id, time)
-	n, err := c.Do("removeFromNDTPExt", id, time, time)
+	n, err := c.Do("ZREMRANGEBYSCORE", id, time, time)
 	log.Printf("removeFromNDTPExt n=%d; err: %v", n, err)
 	return err
 }
