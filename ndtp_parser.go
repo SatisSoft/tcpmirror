@@ -144,9 +144,9 @@ func parseExtDevice(NPHType uint16, message []byte) (ext extDevice, err error) {
 		ext.mesID = binary.LittleEndian.Uint16(message[:2])
 		ext.packNum = binary.LittleEndian.Uint16(message[2:4])
 	case NPH_SED_DEVICE_RESULT:
-		ext.mesID = binary.LittleEndian.Uint16(message[:2])
+		ext.packNum = binary.LittleEndian.Uint16(message[:2])
 		ext.res = binary.LittleEndian.Uint32(message[2:6])
-		ext.packNum = binary.LittleEndian.Uint16(message[6:8])
+		ext.mesID = binary.LittleEndian.Uint16(message[6:8])
 		ext.isRes = true
 	default:
 		err = fmt.Errorf("parseExtDevice unknown NPHType: %d", NPHType)
@@ -284,8 +284,8 @@ func errorAnswer(packet []byte) []byte {
 func answerExt(packet []byte, mesID, packNum uint16) []byte {
 	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], okResultExt...)
 	copy(nph[2:], nphResultType)
-	binary.LittleEndian.PutUint16(nph[0:], mesID)
-	binary.LittleEndian.PutUint16(nph[6:], packNum)
+	binary.LittleEndian.PutUint16(nph[0:], packNum)
+	binary.LittleEndian.PutUint16(nph[6:], mesID)
 	crc := crc16(nph)
 	ans := packet[:NPL_HEADER_LEN]
 	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+8))
@@ -297,9 +297,9 @@ func answerExt(packet []byte, mesID, packNum uint16) []byte {
 func errorAnswerExt(packet []byte, mesID, packNum uint16) []byte {
 	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], okResultExt...)
 	copy(nph[2:], nphResultType)
-	binary.LittleEndian.PutUint16(nph[0:], mesID)
+	binary.LittleEndian.PutUint16(nph[0:], packNum)
 	binary.LittleEndian.PutUint32(nph[2:], uint32(NPH_RESULT_SERVICE_BUSY))
-	binary.LittleEndian.PutUint16(nph[6:], packNum)
+	binary.LittleEndian.PutUint16(nph[6:], mesID)
 	crc := crc16(nph)
 	ans := packet[:NPL_HEADER_LEN]
 	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+8))
