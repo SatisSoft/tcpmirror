@@ -17,7 +17,7 @@ type ndtpData struct {
 	valid    bool
 	NPH      nphData
 	ToRnis   rnisData
-	ext 	  extDevice
+	ext      extDevice
 }
 
 type nphData struct {
@@ -50,11 +50,11 @@ type rnisData struct {
 	valid    bool
 }
 
-type extDevice struct{
-	mesID uint16
+type extDevice struct {
+	mesID   uint16
 	packNum uint16
-	isRes bool
-	res uint32
+	isRes   bool
+	res     uint32
 }
 
 func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error) {
@@ -109,7 +109,7 @@ func parseNPH(message []byte, data *ndtpData) error {
 	}
 	nph.NPHReqID = binary.LittleEndian.Uint32(message[index+6 : index+10])
 	if nph.ServiceID == NPH_SRV_NAVDATA && (nph.NPHType == NPH_SND_HISTORY || nph.NPHType == NPH_SND_REALTIME) {
-		rnis, NPHLen, err := parseNavData(message[index+NPH_HEADER_LEN:])
+		rnis, err := parseNavData(message[index+NPH_HEADER_LEN:])
 		if err != nil {
 			return err
 		} else {
@@ -117,16 +117,15 @@ func parseNPH(message []byte, data *ndtpData) error {
 			if nph.NPHType == NPH_SRV_NAVDATA {
 				data.ToRnis.realTime = true
 			}
-			index = index + +NPHLen
 		}
 	} else if nph.ServiceID == NPH_SRV_GENERIC_CONTROLS && nph.NPHType == NPH_SGC_CONN_REQUEST {
 		nph.ID = binary.LittleEndian.Uint32(message[index+NPH_HEADER_LEN+6 : index+NPH_HEADER_LEN+10])
 	} else if nph.NPHType == NPH_RESULT {
 		nph.isResult = true
 		nph.NPHResult = binary.LittleEndian.Uint32(message[index+NPH_HEADER_LEN : index+NPH_HEADER_LEN+4])
-	} else if nph.ServiceID == NPH_SRV_EXTERNAL_DEVICE{
+	} else if nph.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
 		ext, err := parseExtDevice(nph.NPHType, message[index+NPH_HEADER_LEN:])
-		if err != nil{
+		if err != nil {
 			return err
 		} else {
 			data.ext = ext
@@ -136,8 +135,8 @@ func parseNPH(message []byte, data *ndtpData) error {
 	return nil
 }
 
-func parseExtDevice(NPHType uint16, message []byte) (ext extDevice, err error){
-	switch int(NPHType){
+func parseExtDevice(NPHType uint16, message []byte) (ext extDevice, err error) {
+	switch int(NPHType) {
 	case NPH_SED_DEVICE_TITLE_DATA:
 		ext.mesID = binary.LittleEndian.Uint16(message[:2])
 		ext.packNum = binary.LittleEndian.Uint16(message[2:4])
@@ -155,7 +154,8 @@ func parseExtDevice(NPHType uint16, message []byte) (ext extDevice, err error){
 	return
 }
 
-func parseNavData(message []byte) (rnis rnisData, index int, err error) {
+func parseNavData(message []byte) (rnis rnisData, err error) {
+	var index int
 	MesLen := len(message)
 	switch Type := message[0]; Type {
 	case 0:
@@ -276,6 +276,33 @@ func errorAnswer(packet []byte) []byte {
 	crc := crc16(nph)
 	ans := packet[:NPL_HEADER_LEN]
 	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+4))
+	binary.BigEndian.PutUint16(ans[6:], crc)
+	ans = append(ans, nph...)
+	return ans
+}
+
+func answerExt(packet []byte, mesID, packNum uint16) []byte {
+	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], okResultExt...)
+	copy(nph[2:], nphResultType)
+	binary.LittleEndian.PutUint16(nph[0:], mesID)
+	binary.LittleEndian.PutUint16(nph[6:], packNum)
+	crc := crc16(nph)
+	ans := packet[:NPL_HEADER_LEN]
+	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+8))
+	binary.BigEndian.PutUint16(ans[6:], crc)
+	ans = append(ans, nph...)
+	return ans
+}
+
+func errorAnswerExt(packet []byte, mesID, packNum uint16) []byte {
+	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], okResultExt...)
+	copy(nph[2:], nphResultType)
+	binary.LittleEndian.PutUint16(nph[0:], mesID)
+	binary.LittleEndian.PutUint32(nph[2:], uint32(NPH_RESULT_SERVICE_BUSY))
+	binary.LittleEndian.PutUint16(nph[6:], packNum)
+	crc := crc16(nph)
+	ans := packet[:NPL_HEADER_LEN]
+	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+8))
 	binary.BigEndian.PutUint16(ans[6:], crc)
 	ans = append(ans, nph...)
 	return ans

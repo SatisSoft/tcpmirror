@@ -197,13 +197,16 @@ var navDataLength = map[uint8]int{
 }
 
 var okResult = make([]byte, 4)
+var okResultExt = make([]byte, 8)
 var errResult = make([]byte, 4)
 var nphResultType = make([]byte, 2)
+var extResultType = make([]byte, 2)
 
 func init() {
 	body := new(bytes.Buffer)
 	binary.Write(body, binary.LittleEndian, uint32(NPH_RESULT_SERVICE_BUSY))
 	errResult = body.Bytes()
+	binary.LittleEndian.PutUint16(extResultType, uint16(NPH_SED_DEVICE_RESULT))
 }
 
 func crc16(bs []byte) (crc uint16) {

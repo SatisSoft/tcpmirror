@@ -41,6 +41,22 @@ func readNDTPid(c redis.Conn, id int, nphID uint32) (int64, error) {
 	return res, err
 }
 
+func writeNDTPIdExt(c redis.Conn, id int, mesID, packNum uint16, mill int64) error {
+	key := "ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10) + ":" + strconv.FormatUint(uint64(packNum), 10)
+	log.Printf("writeNDTPIdExt key: %s; val: %d", key, mill)
+	_, err := c.Do("SET", key, mill, "ex", 50)
+	log.Printf("writeNDTPIdExt err: %v", err)
+	return err
+}
+
+func readNDTPIdExt(c redis.Conn, id int, mesID, packNum uint16) (int64, error) {
+	key := "ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10) + ":" + strconv.FormatUint(uint64(packNum), 10)
+	res, err := redis.Int64(c.Do("GET", key))
+	log.Printf("readNDTPid key: %s; res: %d", key, res)
+	log.Printf("readNDTPid err: %v", err)
+	return res, err
+}
+
 func write2DB(c redis.Conn, data ndtpData, s *session, packet []byte, time int64) (err error) {
 	err = write2NDTP(c, s.id, time, packet)
 	log.Printf("write2DB packet: %v", packet)
@@ -81,6 +97,17 @@ func removeFromNDTP(c redis.Conn, id int, NPHReqID uint32) error {
 	log.Printf("removeFromNDTP: id: %d; time: %d", id, time)
 	n, err := c.Do("ZREMRANGEBYSCORE", id, time, time)
 	log.Printf("removeFromNDTP n=%d; err: %v", n, err)
+	return err
+}
+
+func removeFromNDTPExt(c redis.Conn, id int, mesID, reqID uint16) error {
+	time, err := readNDTPIdExt(c, id, mesID, reqID)
+	if err != nil {
+		return err
+	}
+	log.Printf("removeFromNDTPExt: id: %d; time: %d", id, time)
+	n, err := c.Do("removeFromNDTPExt", id, time, time)
+	log.Printf("removeFromNDTPExt n=%d; err: %v", n, err)
 	return err
 }
 

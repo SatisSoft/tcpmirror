@@ -380,6 +380,17 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					if err != nil {
 						log.Printf("serverSession: removeFromNDTP error for id %d, reqID %d: %v", s.id, data.NPH.NPHReqID, err)
 					}
+				} else if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
+					log.Printf("serverSession: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
+					if data.NPH.NPHType != NPH_SED_DEVICE_RESULT {
+						log.Println("serverSession: error received external message but not result")
+					} else {
+						err = removeFromNDTPExt(cR, s.id, data.ext.mesID, data.ext.packNum)
+						if err != nil {
+							log.Printf("serverSession: removeFromNDTPExt error for id %d : %v", s.id, err)
+						}
+					}
+
 				} else {
 					client.SetWriteDeadline(time.Now().Add(writeTimeout))
 					printPacket("serverSession: before changing control message: ", packet)
@@ -466,78 +477,126 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 							ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 						}
 					}
-				} else {
-					if !data.NPH.needReply {
-						log.Printf("clientSession: not need reply on message servId: %d, type: %d", data.NPH.ServiceID, data.NPH.NPHType)
-						packetCopyNDTP := make([]byte, len(packet))
-						copy(packetCopyNDTP, packet)
-						_, message := changePacket(packetCopyNDTP, data, s)
-						printPacket("clientSession: packet after changing (no reply): ", message)
-						ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-						printPacket("clientSession: send message to server (no reply): ", message)
-						_, err = ndtpConn.conn.Write(message)
-						if err != nil {
-							log.Printf("clientSession: send to NDTP server error (no reply): %s", err)
-							ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
-						}
-					} else {
-						data.NPH.ID = uint32(s.id)
-						packetCopy := make([]byte, len(packet))
-						copy(packetCopy, packet)
+				} else if !data.NPH.needReply {
+					log.Printf("clientSession: not need reply on message servId: %d, type: %d", data.NPH.ServiceID, data.NPH.NPHType)
+					packetCopyNDTP := make([]byte, len(packet))
+					copy(packetCopyNDTP, packet)
+					_, message := changePacket(packetCopyNDTP, data, s)
+					printPacket("clientSession: packet after changing (no reply): ", message)
+					ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+					printPacket("clientSession: send message to server (no reply): ", message)
+					_, err = ndtpConn.conn.Write(message)
+					if err != nil {
+						log.Printf("clientSession: send to NDTP server error (no reply): %s", err)
+						ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+					}
+				} else if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
+					log.Printf("clientSession: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
+					data.NPH.ID = uint32(s.id)
+					packetCopy := make([]byte, len(packet))
+					copy(packetCopy, packet)
+					if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA || data.NPH.NPHType == NPH_SED_DEVICE_DATA {
 						err = write2DB(cR, data, s, packetCopy, mill)
 						if err != nil {
-							log.Println("clientSession: send error reply to server because of: ", err)
-							errorReply(client, packetCopy)
+							log.Println("clientSession: send ext error reply to server because of: ", err)
+							errorReplyExt(client, data.ext.mesID, data.ext.packNum, packetCopy)
 							restBuf = []byte{}
 							break
 						}
-						log.Println("clientSession: start to send to NDTP server")
-						if ndtpConn.closed != true {
-							packetCopyNDTP := make([]byte, len(packet))
-							copy(packetCopyNDTP, packet)
-							NPHReqID, message := changePacket(packetCopyNDTP, data, s)
-							printPacket("clientSession: packet after changing: ", message)
-							err = writeNDTPid(cR, s.id, NPHReqID, mill)
+						log.Println("clientSession: start to send ext device message to NDTP server")
+					}
+					if ndtpConn.closed != true {
+						packetCopyNDTP := make([]byte, len(packet))
+						copy(packetCopyNDTP, packet)
+						_, message := changePacket(packetCopyNDTP, data, s)
+						printPacket("clientSession: packet after changing ext device message: ", message)
+						err = writeNDTPIdExt(cR, s.id, data.ext.mesID, data.ext.packNum, mill)
+						if err != nil {
+							log.Printf("error writeNDTPIdExt: %v", err)
+						} else {
+							ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+							printPacket("clientSession: send ext device message to server: ", message)
+							_, err = ndtpConn.conn.Write(message)
 							if err != nil {
-								log.Printf("error writingNDTPid: %v", err)
+								log.Printf("clientSession: send ext device message to NDTP server error: %s", err)
+								ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 							} else {
-								ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-								printPacket("clientSession: send message to server: ", message)
-								_, err = ndtpConn.conn.Write(message)
-								if err != nil {
-									log.Printf("clientSession: send to NDTP server error: %s", err)
-									ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
-								} else {
-									if enableMetrics {
-										countToServerNDTP.Inc(1)
-									}
+								if enableMetrics {
+									countToServerNDTP.Inc(1)
 								}
 							}
 						}
-						data.ToRnis.messageID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
-						//log.Println("EGTS closed: ", egtsConn.closed)
-						if egtsConn.closed != true {
-							if toEGTS(data) {
-								log.Println("clientSession: start to send to EGTS server")
-								data.ToRnis.id = uint32(s.id)
-								egtsCh <- data.ToRnis
+					}
+					log.Println("clientSession: start to reply to ext device message")
+					err = replyExt(client, data.ext.mesID, data.ext.packNum, packet)
+					if err != nil {
+						log.Println("clientSession: error replying to ext device message: ", err)
+						errClientCh <- err
+						return
+					}
+					time.Sleep(1 * time.Millisecond)
+					if len(restBuf) == 0 {
+						break
+					}
+
+				} else {
+					data.NPH.ID = uint32(s.id)
+					packetCopy := make([]byte, len(packet))
+					copy(packetCopy, packet)
+					err = write2DB(cR, data, s, packetCopy, mill)
+					if err != nil {
+						log.Println("clientSession: send error reply to server because of: ", err)
+						errorReply(client, packetCopy)
+						restBuf = []byte{}
+						break
+					}
+					log.Println("clientSession: start to send to NDTP server")
+					if ndtpConn.closed != true {
+						packetCopyNDTP := make([]byte, len(packet))
+						copy(packetCopyNDTP, packet)
+						NPHReqID, message := changePacket(packetCopyNDTP, data, s)
+						printPacket("clientSession: packet after changing: ", message)
+						err = writeNDTPid(cR, s.id, NPHReqID, mill)
+						if err != nil {
+							log.Printf("error writingNDTPid: %v", err)
+						} else {
+							ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+							printPacket("clientSession: send message to server: ", message)
+							_, err = ndtpConn.conn.Write(message)
+							if err != nil {
+								log.Printf("clientSession: send to NDTP server error: %s", err)
+								ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+							} else {
+								if enableMetrics {
+									countToServerNDTP.Inc(1)
+								}
 							}
 						}
-						log.Println("clientSession: start to reply")
-						err = reply(client, data.NPH, packet)
-						if err != nil {
-							log.Println("clientSession: error replying to att: ", err)
-							errClientCh <- err
-							return
-						}
-						//restBuf = restBuf[packetLen:]
-						time.Sleep(1 * time.Millisecond)
-						if len(restBuf) == 0 {
-							break
-						}
-
 					}
+					data.ToRnis.messageID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
+					//log.Println("EGTS closed: ", egtsConn.closed)
+					if egtsConn.closed != true {
+						if toEGTS(data) {
+							log.Println("clientSession: start to send to EGTS server")
+							data.ToRnis.id = uint32(s.id)
+							egtsCh <- data.ToRnis
+						}
+					}
+					log.Println("clientSession: start to reply")
+					err = reply(client, data.NPH, packet)
+					if err != nil {
+						log.Println("clientSession: error replying to att: ", err)
+						errClientCh <- err
+						return
+					}
+					//restBuf = restBuf[packetLen:]
+					time.Sleep(1 * time.Millisecond)
+					if len(restBuf) == 0 {
+						break
+					}
+
 				}
+
 			}
 		}
 	}
@@ -658,6 +717,21 @@ func errorReply(c net.Conn, packet []byte) error {
 	ans := errorAnswer(packet)
 	c.SetWriteDeadline(time.Now().Add(writeTimeout))
 	printPacket("errorReply: send error reply: ", ans)
+	_, err := c.Write(ans)
+	return err
+
+}
+func replyExt(c net.Conn, mesID, packNum uint16, packet []byte) error {
+	ans := answerExt(packet, mesID, packNum)
+	c.SetWriteDeadline(time.Now().Add(writeTimeout))
+	printPacket("replyExt: send answer: ", ans)
+	_, err := c.Write(ans)
+	return err
+}
+func errorReplyExt(c net.Conn, mesID, packNum uint16, packet []byte) error {
+	ans := errorAnswerExt(packet, mesID, packNum)
+	c.SetWriteDeadline(time.Now().Add(writeTimeout))
+	printPacket("errorReplyExt: send error reply: ", ans)
 	_, err := c.Write(ans)
 	return err
 
