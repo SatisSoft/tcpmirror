@@ -766,7 +766,11 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 		var data ndtpData
 		data, _, _, err = parseNDTP(mes)
 		if ndtpConn.closed != true {
-			mill := getMill()
+			mill, err := getScore(cR, id, mes)
+			if err != nil {
+				log.Printf("checkOldDataNDTP: error getting score for %v : %v", mes, err)
+				continue
+			}
 			if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
 				log.Printf("checkOldDataNDTP: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
 				packetCopyNDTP := make([]byte, len(mes))

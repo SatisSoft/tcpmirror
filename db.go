@@ -111,6 +111,13 @@ func removeFromNDTPExt(c redis.Conn, id int, mesID, reqID uint16) error {
 	return err
 }
 
+func getScore(c redis.Conn, id int, mes []byte) (int64, error){
+	log.Printf("getScore id=%d; mes: %v", id, mes)
+	res, err := redis.Int64(c.Do("ZSCORE", id, mes))
+	log.Printf("getScore res=%d; err: %v", res, mes)
+	return res, err
+}
+
 func getOldNDTP(c redis.Conn, id int) ([][]byte, error) {
 	max := getMill() - 60000
 	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", id, 0, max, "LIMIT", 0, 10))
