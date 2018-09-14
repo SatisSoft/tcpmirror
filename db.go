@@ -111,7 +111,7 @@ func removeFromNDTPExt(c redis.Conn, id int, mesID, reqID uint16) error {
 	return err
 }
 
-func getScore(c redis.Conn, id int, mes []byte) (int64, error){
+func getScore(c redis.Conn, id int, mes []byte) (int64, error) {
 	log.Printf("getScore id=%d; mes: %v", id, mes)
 	res, err := redis.Int64(c.Do("ZSCORE", id, mes))
 	log.Printf("getScore res=%d; err: %v", res, mes)

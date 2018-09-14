@@ -5,6 +5,8 @@ import (
 	"github.com/ashirko/go-metrics"
 	"github.com/ashirko/go-metrics-graphite"
 	"github.com/gomodule/redigo/redis"
+	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/mem"
 	"log"
 	"net"
 	"strconv"
@@ -17,7 +19,6 @@ const (
 	defaultBufferSize = 1024
 	headerSize        = 15
 	writeTimeout      = 10 * time.Second
-	readTimeout       = 10 * time.Second
 )
 
 var (
@@ -52,6 +53,11 @@ var (
 	countToServerNDTP   metrics.Counter
 	countFromServerNDTP metrics.Counter
 	countServerEGTS     metrics.Counter
+	memFree             metrics.Gauge
+	memUsed             metrics.Gauge
+	cpu15               metrics.GaugeFloat64
+	cpu1                metrics.GaugeFloat64
+	usedPercent         metrics.GaugeFloat64
 	enableMetrics       bool
 )
 
@@ -68,22 +74,7 @@ func main() {
 	if graphiteAddress == "" {
 		log.Println("don't send metrics to graphite")
 	} else {
-		addr, err := net.ResolveTCPAddr("tcp", graphiteAddress)
-		if err != nil {
-			log.Printf("error while connection to graphite: %s\n", err)
-		} else {
-			countClientNDTP = metrics.NewCustomCounter()
-			countToServerNDTP = metrics.NewCustomCounter()
-			countFromServerNDTP = metrics.NewCustomCounter()
-			countServerEGTS = metrics.NewCustomCounter()
-			metrics.Register("clNDTP", countClientNDTP)
-			metrics.Register("toServNDTP", countToServerNDTP)
-			metrics.Register("fromServNDTP", countFromServerNDTP)
-			metrics.Register("servEGTS", countServerEGTS)
-			enableMetrics = true
-			log.Println("start sending metrics to graphite")
-			go graphite.Graphite(metrics.DefaultRegistry, 5*10e8, "ndtpserv.metrics", addr)
-		}
+		startMetrics(graphiteAddress)
 	}
 	l, err := net.Listen("tcp", listenAddress)
 	if err != nil {
@@ -895,4 +886,55 @@ func printPacket(s string, slice []byte) {
 	}
 	result := strings.Join(sliceText, ",")
 	log.Printf("%s {%s}\n", s, result)
+}
+
+func startMetrics(graphiteAddress string) {
+	addr, err := net.ResolveTCPAddr("tcp", graphiteAddress)
+	if err != nil {
+		log.Printf("error while connection to graphite: %s\n", err)
+	} else {
+		countClientNDTP = metrics.NewCustomCounter()
+		countToServerNDTP = metrics.NewCustomCounter()
+		countFromServerNDTP = metrics.NewCustomCounter()
+		countServerEGTS = metrics.NewCustomCounter()
+		memFree = metrics.NewGauge()
+		memUsed = metrics.NewGauge()
+		cpu15 = metrics.NewGaugeFloat64()
+		cpu1 = metrics.NewGaugeFloat64()
+		usedPercent = metrics.NewGaugeFloat64()
+		metrics.Register("clNDTP", countClientNDTP)
+		metrics.Register("toServNDTP", countToServerNDTP)
+		metrics.Register("fromServNDTP", countFromServerNDTP)
+		metrics.Register("servEGTS", countServerEGTS)
+		metrics.Register("memFree", memFree)
+		metrics.Register("memUsed", memUsed)
+		metrics.Register("UsedPercent", memUsed)
+		metrics.Register("cpu15", cpu15)
+		metrics.Register("cpu1", cpu1)
+		enableMetrics = true
+		log.Println("start sending metrics to graphite")
+		go graphite.Graphite(metrics.DefaultRegistry, 10*10e8, "ndtpserv.metrics", addr)
+		go periodicSysMon()
+	}
+}
+
+func periodicSysMon() {
+	for {
+		v, err := mem.VirtualMemory()
+		if err != nil {
+			log.Printf("periodic mem mon error: %s", err)
+		} else {
+			memFree.Update(int64(v.Free))
+			memUsed.Update(int64(v.Used))
+			usedPercent.Update(v.UsedPercent)
+		}
+		c, err := load.Avg()
+		if err != nil {
+			log.Printf("periodic cpu mon error: %s", err)
+		} else {
+			cpu1.Update(c.Load1)
+			cpu15.Update(c.Load15)
+		}
+		time.Sleep(10 * time.Second)
+	}
 }

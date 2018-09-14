@@ -114,7 +114,7 @@ func parseNPH(message []byte, data *ndtpData) error {
 			return err
 		} else {
 			data.ToRnis = rnis
-			if nph.NPHType == NPH_SRV_NAVDATA {
+			if nph.NPHType == NPH_SND_REALTIME {
 				data.ToRnis.realTime = true
 			}
 		}
