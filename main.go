@@ -117,14 +117,19 @@ func main() {
 		listenAddress   string
 		forwardAddress  string
 		mirrorAddresses mirrorList
+		localAddress    string
 		//mu sync.Mutex
 	)
 
 	flag.StringVar(&listenAddress, "l", "", "listen address (e.g. 'localhost:8080')")
 	flag.StringVar(&forwardAddress, "f", "", "forward to address (e.g. 'localhost:8081')")
 	flag.Var(&mirrorAddresses, "m", "comma separated list of mirror addresses (e.g. 'localhost:8082,localhost:8083')")
+	flag.StringVar(&localAddress, "i", "", "local IP address (e.g. '10.10.10.10")
 	flag.Parse()
 
+	locIP := net.ParseIP(localAddress)
+	locIP1 := net.TCPAddr{locIP, nil, nil}
+	remIP, _ := net.ResolveTCPAddr("tcp", forwardAddress)
 	if listenAddress == "" || forwardAddress == "" {
 		flag.Usage()
 		return
@@ -147,7 +152,7 @@ func main() {
 
 		go func(c net.Conn, connNo uint64) {
 
-			cF, err := net.Dial("tcp", forwardAddress)
+			cF, err := net.DialTCP("tcp", &locIP1, remIP)
 			if err != nil {
 				log.Printf("error while connecting to server: %s", err)
 				c.Close()
