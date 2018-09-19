@@ -908,7 +908,7 @@ func startMetrics(graphiteAddress string) {
 		metrics.Register("servEGTS", countServerEGTS)
 		metrics.Register("memFree", memFree)
 		metrics.Register("memUsed", memUsed)
-		metrics.Register("UsedPercent", memUsed)
+		metrics.Register("UsedPercent", usedPercent)
 		metrics.Register("cpu15", cpu15)
 		metrics.Register("cpu1", cpu1)
 		enableMetrics = true
