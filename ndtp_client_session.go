@@ -89,21 +89,22 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 }
 
 func procNPHResult(cR redis.Conn, ndtpConn *connection, s *session, NPHReqID uint32, packet []byte, ErrNDTPCh chan error, mu *sync.Mutex) (err error) {
+	log.Println("procNPHResult")
 	err = removeFromNDTPServ(cR, s.id, NPHReqID)
 	return
 }
 
 func procNoNeedReply(cR redis.Conn, ndtpConn *connection, data ndtpData, s *session, packet []byte, ErrNDTPCh chan error, mu *sync.Mutex) (err error) {
-	log.Printf("clientSession: not need reply on message servId: %d, type: %d", data.NPH.ServiceID, data.NPH.NPHType)
+	log.Printf("procNoNeedReply: not need reply on message servId: %d, type: %d", data.NPH.ServiceID, data.NPH.NPHType)
 	packetCopyNDTP := make([]byte, len(packet))
 	copy(packetCopyNDTP, packet)
 	_, message := changePacket(packetCopyNDTP, data, s)
-	printPacket("clientSession: packet after changing (no reply): ", message)
+	printPacket("procNoNeedReply: packet after changing (no reply): ", message)
 	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-	printPacket("clientSession: send message to server (no reply): ", message)
+	printPacket("procNoNeedReply: send message to server (no reply): ", message)
 	_, err = ndtpConn.conn.Write(message)
 	if err != nil {
-		log.Printf("clientSession: send to NDTP server error (no reply): %s", err)
+		log.Printf("procNoNeedReply: send to NDTP server error (no reply): %s", err)
 		ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 	}
 	return
@@ -171,25 +172,25 @@ func procMes(cR redis.Conn, client net.Conn, ndtpConn *connection, data ndtpData
 	copy(packetCopy, packet)
 	err = write2DB(cR, data, s, packetCopy, mill)
 	if err != nil {
-		log.Println("clientSession: send error reply to server because of: ", err)
+		log.Println("procMes: send error reply to server because of: ", err)
 		errorReply(client, packetCopy)
 		return
 	}
-	log.Println("clientSession: start to send to NDTP server")
+	log.Println("procMes: start to send to NDTP server")
 	if ndtpConn.closed != true {
 		packetCopyNDTP := make([]byte, len(packet))
 		copy(packetCopyNDTP, packet)
 		NPHReqID, message := changePacket(packetCopyNDTP, data, s)
-		printPacket("clientSession: packet after changing: ", message)
+		printPacket("procMes: packet after changing: ", message)
 		err = writeNDTPid(cR, s.id, NPHReqID, mill)
 		if err != nil {
 			log.Printf("error writingNDTPid: %v", err)
 		} else {
 			ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			printPacket("clientSession: send message to server: ", message)
+			printPacket("procMes: send message to server: ", message)
 			_, err = ndtpConn.conn.Write(message)
 			if err != nil {
-				log.Printf("clientSession: send to NDTP server error: %s", err)
+				log.Printf("procMes: send to NDTP server error: %s", err)
 				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 			} else {
 				if enableMetrics {
@@ -201,15 +202,15 @@ func procMes(cR redis.Conn, client net.Conn, ndtpConn *connection, data ndtpData
 	data.ToRnis.messageID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
 	if egtsConn.closed != true {
 		if toEGTS(data) {
-			log.Println("clientSession: start to send to EGTS server")
+			log.Println("procMes: start to send to EGTS server")
 			data.ToRnis.id = uint32(s.id)
 			egtsCh <- data.ToRnis
 		}
 	}
-	log.Println("clientSession: start to reply")
+	log.Println("procMes: start to reply")
 	err = reply(client, data.NPH, packet)
 	if err != nil {
-		log.Println("clientSession: error replying to att: ", err)
+		log.Println("procMes: error replying to att: ", err)
 		errClientCh <- err
 		return
 	}
