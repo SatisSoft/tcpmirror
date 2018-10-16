@@ -152,7 +152,6 @@ func ndtpRemoveExpired(id int, ErrNDTPCh chan error) {
 		case <-ErrNDTPCh:
 			return
 		default:
-			continue
 			time.Sleep(1 * time.Hour)
 		}
 	}
