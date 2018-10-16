@@ -242,14 +242,6 @@ func changePacket(b []byte, data ndtpData, s *session) (uint32, []byte) {
 	binary.BigEndian.PutUint16(b[6:], crc)
 	return NPHReqID, b
 }
-
-func changeContolResult(b []byte, controlReplyID int) []byte {
-	binary.LittleEndian.PutUint32(b[NPL_HEADER_LEN+6:], uint32(controlReplyID))
-	crc := crc16(b[NPL_HEADER_LEN:])
-	binary.BigEndian.PutUint16(b[6:], crc)
-	return b
-}
-
 func changePacketFromServ(b []byte, s *session) (int, []byte) {
 	NPLReqID, NPHReqID := clientID(s)
 	binary.LittleEndian.PutUint16(b[13:], NPLReqID)
@@ -257,6 +249,15 @@ func changePacketFromServ(b []byte, s *session) (int, []byte) {
 	crc := crc16(b[NPL_HEADER_LEN:])
 	binary.BigEndian.PutUint16(b[6:], crc)
 	return int(NPHReqID), b
+}
+
+func changeContolResult(b []byte, controlReplyID int, s *session) []byte {
+	NPLReqID := serverNPLID(s)
+	binary.LittleEndian.PutUint16(b[13:], NPLReqID)
+	binary.LittleEndian.PutUint32(b[NPL_HEADER_LEN+6:], uint32(controlReplyID))
+	crc := crc16(b[NPL_HEADER_LEN:])
+	binary.BigEndian.PutUint16(b[6:], crc)
+	return b
 }
 
 func answer(packet []byte) []byte {
