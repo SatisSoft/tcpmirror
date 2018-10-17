@@ -133,7 +133,7 @@ func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errCl
 		printPacket("handleExtDevMes: packet after changing ext device message: ", message)
 		err = writeNDTPIdExtServ(cR, s.id, data.ext.mesID, data.ext.packNum, mill)
 		if err != nil {
-			log.Printf("error writeNDTPIdExt: %v", err)
+			log.Printf("handleExtDevMes: error writeNDTPIdExt %v", err)
 			errorReplyExt(ndtpConn.conn, data.ext.mesID, data.ext.packNum, packetCopy)
 			return
 		} else {

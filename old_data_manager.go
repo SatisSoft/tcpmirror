@@ -188,6 +188,7 @@ func egtsRemoveExpired() {
 }
 
 func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
+	log.Println("checkOldDataEGTS: start")
 	messages, err := getOldEGTS(cR)
 	if err != nil {
 		log.Printf("can't get old EGTS %s", err)
@@ -197,6 +198,7 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 	var i int
 	for _, msg := range messages {
 		if i < 10 {
+			log.Printf("checkOldDataEGTS: try to send message %v", msg)
 			var dataNDTP ndtpData
 			dataNDTP, _, _, err = parseNDTP(msg)
 			if err != nil {
