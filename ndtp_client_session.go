@@ -216,3 +216,10 @@ func procMes(cR redis.Conn, client net.Conn, ndtpConn *connection, data ndtpData
 	}
 	return
 }
+
+func toEGTS(data ndtpData) bool {
+	if data.ToRnis.time != 0 {
+		return true
+	}
+	return false
+}

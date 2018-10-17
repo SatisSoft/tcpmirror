@@ -138,7 +138,7 @@ func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errCl
 			return
 		} else {
 			client.SetWriteDeadline(time.Now().Add(writeTimeout))
-			printPacket("handleExtDevMes: send ext device message to server: ", message)
+			printPacket("handleExtDevMes: send ext device message to client: ", message)
 			_, err = client.Write(message)
 			if err != nil {
 				log.Printf("handleExtDevMes: send ext device message to NDTP server error: %s", err)
@@ -146,7 +146,7 @@ func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errCl
 				return
 			}
 		}
-		log.Println("handleExtDevMes: start to reply to ext device message")
+		log.Println("handleExtDevMes: start to reply to server")
 		err = replyExt(ndtpConn.conn, data.ext.mesID, data.ext.packNum, packet)
 		if err != nil {
 			log.Println("handleExtDevMes: error replying to ext device message: ", err)

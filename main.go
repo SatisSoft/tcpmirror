@@ -197,13 +197,6 @@ func connect(origin net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan 
 	go serverSession(origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
 }
 
-func toEGTS(data ndtpData) bool {
-	if data.ToRnis.time != 0 {
-		return true
-	}
-	return false
-}
-
 func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
 	log.Printf("reconnectNDTP: start reconnect NDTP for id %d", s.id)
 	for {
@@ -275,16 +268,20 @@ func errorReply(c net.Conn, packet []byte) error {
 
 }
 func replyExt(c net.Conn, mesID, packNum uint16, packet []byte) error {
+	log.Printf("replyExt: packet: %v", packet)
 	ans := answerExt(packet, mesID, packNum)
-	c.SetWriteDeadline(time.Now().Add(writeTimeout))
+	log.Printf("replyExt: length = %d; ans: %v", len(ans), ans)
 	printPacket("replyExt: send answer: ", ans)
+	c.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err := c.Write(ans)
 	return err
 }
 func errorReplyExt(c net.Conn, mesID, packNum uint16, packet []byte) error {
+	log.Printf("errorReplyExt: packet: %v", packet)
 	ans := errorAnswerExt(packet, mesID, packNum)
-	c.SetWriteDeadline(time.Now().Add(writeTimeout))
+	log.Printf("errorReplyExt: length = %d; ans: %v", len(ans), ans)
 	printPacket("errorReplyExt: send error reply: ", ans)
+	c.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err := c.Write(ans)
 	return err
 }
