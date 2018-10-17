@@ -201,6 +201,7 @@ var okResultExt = make([]byte, 8)
 var errResult = make([]byte, 4)
 var nphResultType = make([]byte, 2)
 var extResultType = make([]byte, 2)
+var NPH_NO_NEED_REPLY uint16 = 0
 
 func init() {
 	body := new(bytes.Buffer)

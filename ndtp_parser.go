@@ -263,6 +263,7 @@ func changeContolResult(b []byte, controlReplyID int, s *session) []byte {
 func answer(packet []byte) []byte {
 	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], okResult...)
 	copy(nph[2:], nphResultType)
+	binary.LittleEndian.PutUint16(nph[4:], NPH_NO_NEED_REPLY)
 	crc := crc16(nph)
 	ans := packet[:NPL_HEADER_LEN]
 	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+4))
@@ -274,6 +275,7 @@ func answer(packet []byte) []byte {
 func errorAnswer(packet []byte) []byte {
 	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], errResult...)
 	copy(nph[2:], nphResultType)
+	binary.LittleEndian.PutUint16(nph[4:], NPH_NO_NEED_REPLY)
 	crc := crc16(nph)
 	ans := packet[:NPL_HEADER_LEN]
 	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+4))
@@ -288,6 +290,7 @@ func answerExt(packet []byte, mesID, packNum uint16) []byte {
 	binary.LittleEndian.PutUint16(result[6:], mesID)
 	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], result...)
 	copy(nph[2:], extResultType)
+	binary.LittleEndian.PutUint16(nph[4:], NPH_NO_NEED_REPLY)
 	crc := crc16(nph)
 	ans := packet[:NPL_HEADER_LEN]
 	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+8))
@@ -303,6 +306,7 @@ func errorAnswerExt(packet []byte, mesID, packNum uint16) []byte {
 	binary.LittleEndian.PutUint16(result[6:], mesID)
 	nph := append(packet[NPL_HEADER_LEN:NPL_HEADER_LEN+NPH_HEADER_LEN], result...)
 	copy(nph[2:], extResultType)
+	binary.LittleEndian.PutUint16(nph[4:], NPH_NO_NEED_REPLY)
 	crc := crc16(nph)
 	ans := packet[:NPL_HEADER_LEN]
 	binary.LittleEndian.PutUint16(ans[2:], uint16(NPH_HEADER_LEN+8))

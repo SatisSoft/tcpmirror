@@ -208,7 +208,9 @@ func procMes(cR redis.Conn, client net.Conn, ndtpConn *connection, data ndtpData
 		}
 	}
 	log.Println("procMes: start to reply")
-	err = reply(client, data.NPH, packet)
+	packetCopyNDTP1 := make([]byte, len(packet))
+	copy(packetCopyNDTP1, packet)
+	err = reply(client, data.NPH, packetCopyNDTP1)
 	if err != nil {
 		log.Println("procMes: error replying to att: ", err)
 		errClientCh <- err
