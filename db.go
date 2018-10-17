@@ -41,16 +41,16 @@ func readNDTPid(c redis.Conn, id int, nphID uint32) (int64, error) {
 	return res, err
 }
 
-func writeNDTPIdExt(c redis.Conn, id int, mesID, packNum uint16, mill int64) error {
-	key := "ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10) + ":" + strconv.FormatUint(uint64(packNum), 10)
+func writeNDTPIdExt(c redis.Conn, id int, mesID uint16, mill int64) error {
+	key := "ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
 	log.Printf("writeNDTPIdExt key: %s; val: %d", key, mill)
 	_, err := c.Do("SET", key, mill, "ex", 50)
 	log.Printf("writeNDTPIdExt err: %v", err)
 	return err
 }
 
-func readNDTPIdExt(c redis.Conn, id int, mesID, packNum uint16) (int64, error) {
-	key := "ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10) + ":" + strconv.FormatUint(uint64(packNum), 10)
+func readNDTPIdExt(c redis.Conn, id int, mesID uint16) (int64, error) {
+	key := "ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
 	res, err := redis.Int64(c.Do("GET", key))
 	log.Printf("readNDTPIdExt key: %s; res: %d", key, res)
 	log.Printf("readNDTPIdExt err: %v", err)
@@ -100,8 +100,8 @@ func removeFromNDTP(c redis.Conn, id int, NPHReqID uint32) error {
 	return err
 }
 
-func removeFromNDTPExt(c redis.Conn, id int, mesID, reqID uint16) error {
-	time, err := readNDTPIdExt(c, id, mesID, reqID)
+func removeFromNDTPExt(c redis.Conn, id int, mesID uint16) error {
+	time, err := readNDTPIdExt(c, id, mesID)
 	if err != nil {
 		return err
 	}
@@ -224,8 +224,8 @@ func write2DBServer(c redis.Conn, s *session, packet []byte, time int64) error {
 	return err
 }
 
-func removeFromNDTPExtServ(c redis.Conn, id int, mesID, reqID uint16) error {
-	time, err := readNDTPIdExtServ(c, id, mesID, reqID)
+func removeFromNDTPExtServ(c redis.Conn, id int, mesID uint16) error {
+	time, err := readNDTPIdExtServ(c, id, mesID)
 	if err != nil {
 		return err
 	}
@@ -236,16 +236,16 @@ func removeFromNDTPExtServ(c redis.Conn, id int, mesID, reqID uint16) error {
 	return err
 }
 
-func writeNDTPIdExtServ(c redis.Conn, id int, mesID, packNum uint16, mill int64) error {
-	key := "s_ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10) + ":" + strconv.FormatUint(uint64(packNum), 10)
+func writeNDTPIdExtServ(c redis.Conn, id int, mesID uint16, mill int64) error {
+	key := "s_ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
 	log.Printf("writeNDTPIdExtServ key: %s; val: %d", key, mill)
 	_, err := c.Do("SET", key, mill, "ex", 50)
 	log.Printf("writeNDTPIdExtServ err: %v", err)
 	return err
 }
 
-func readNDTPIdExtServ(c redis.Conn, id int, mesID, packNum uint16) (int64, error) {
-	key := "s_ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10) + ":" + strconv.FormatUint(uint64(packNum), 10)
+func readNDTPIdExtServ(c redis.Conn, id int, mesID uint16) (int64, error) {
+	key := "s_ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
 	res, err := redis.Int64(c.Do("GET", key))
 	log.Printf("readNDTPIdExtServ key: %s; res: %d", key, res)
 	log.Printf("readNDTPIdExtServ err: %v", err)

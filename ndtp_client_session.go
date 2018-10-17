@@ -128,7 +128,7 @@ func procExtDevice(cR redis.Conn, client net.Conn, ndtpConn *connection, data nd
 			copy(packetCopyNDTP, packet)
 			_, message := changePacket(packetCopyNDTP, data, s)
 			printPacket("procExtDevice: packet after changing ext device message: ", message)
-			err = writeNDTPIdExt(cR, s.id, data.ext.mesID, data.ext.packNum, mill)
+			err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
 			if err != nil {
 				log.Printf("error writeNDTPIdExt: %v", err)
 			} else {
@@ -154,7 +154,7 @@ func procExtDevice(cR redis.Conn, client net.Conn, ndtpConn *connection, data nd
 		}
 	} else {
 		if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-			err = removeFromNDTPExtServ(cR, s.id, data.ext.mesID, data.ext.packNum)
+			err = removeFromNDTPExtServ(cR, s.id, data.ext.mesID)
 			if err != nil {
 				log.Printf("procExtDevice: removeFromNDTPExt error for id %d : %v", s.id, err)
 			}

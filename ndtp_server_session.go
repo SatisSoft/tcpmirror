@@ -131,7 +131,7 @@ func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errCl
 		copy(packetCopyNDTP, packet)
 		_, message := changePacketFromServ(packetCopyNDTP, s)
 		printPacket("handleExtDevMes: packet after changing ext device message: ", message)
-		err = writeNDTPIdExtServ(cR, s.id, data.ext.mesID, data.ext.packNum, mill)
+		err = writeNDTPIdExtServ(cR, s.id, data.ext.mesID, mill)
 		if err != nil {
 			log.Printf("handleExtDevMes: error writeNDTPIdExt %v", err)
 			errorReplyExt(ndtpConn.conn, data.ext.mesID, data.ext.packNum, packetCopy)
@@ -155,7 +155,8 @@ func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errCl
 		}
 	} else {
 		if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-			err = removeFromNDTPExt(cR, s.id, data.ext.mesID, data.ext.packNum)
+			log.Printf("handleExtDevMes: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
+			err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
 			if err != nil {
 				log.Printf("handleExtDevMes: removeFromNDTPExt error for id %d : %v", s.id, err)
 			}
