@@ -29,7 +29,7 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 				copy(packetCopyNDTP, mes)
 				_, message := changePacket(packetCopyNDTP, data, s)
 				printPacket("checkOldDataNDTP: packet after changing ext device message: ", message)
-				err = writeNDTPIdExt(cR, s.id, data.ext.mesID, data.ext.packNum, mill)
+				err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
 				if err != nil {
 					log.Printf("error writeNDTPIdExt: %v", err)
 				} else {
@@ -92,7 +92,7 @@ func checkOldDataNDTPServ(cR redis.Conn, s *session, client net.Conn, id int) {
 			copy(packetCopyNDTP, mes)
 			_, message := changePacketFromServ(packetCopyNDTP, s)
 			printPacket("checkOldDataNDTPServ: packet after changing ext device message: ", message)
-			err = writeNDTPIdExtServ(cR, s.id, data.ext.mesID, data.ext.packNum, mill)
+			err = writeNDTPIdExtServ(cR, s.id, data.ext.mesID, mill)
 			if err != nil {
 				log.Printf("checkOldDataNDTPServ: error writeNDTPIdExt: %v", err)
 			} else {
