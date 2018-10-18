@@ -68,7 +68,7 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 						continue
 					}
 					if data.NPH.isResult {
-						err = removeFromNDTP(cR, s.id, data.NPH.NPHReqID)
+						err = handleNPHResult(cR, s.id, &data)
 					} else if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
 						err = handleExtDevMes(cR, client, ndtpConn, errClientCh, s, data, packet)
 					} else {
@@ -89,6 +89,15 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 			}
 		}
 	}
+}
+
+func handleNPHResult(cR redis.Conn, id int, data *ndtpData) (err error) {
+	if data.NPH.NPHResult == 0 {
+		err = removeFromNDTP(cR, id, data.NPH.NPHReqID)
+	} else {
+		log.Printf("handeNPHResult: nph result error for id %d : %d", id, data.NPH.NPHResult)
+	}
+	return
 }
 
 func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data ndtpData, packet []byte) (err error) {
@@ -156,7 +165,7 @@ func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errCl
 	} else {
 		if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
 			log.Printf("handleExtDevMes: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
-			if data.ext.res == 0{
+			if data.ext.res == 0 {
 				log.Println("handleExtDevMes: received result and remove data from db")
 				err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
 				if err != nil {

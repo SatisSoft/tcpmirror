@@ -65,7 +65,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 				}
 				mill := getMill()
 				if data.NPH.isResult {
-					err = procNPHResult(cR, ndtpConn, s, data.NPH.NPHReqID, packet, ErrNDTPCh, mu)
+					err = procNPHResult(cR, s, data.NPH.NPHReqID, data.NPH.NPHResult)
 				} else if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
 					err = procExtDevice(cR, client, ndtpConn, data, s, packet, ErrNDTPCh, errClientCh, mu, mill)
 				} else if !data.NPH.needReply {
@@ -82,15 +82,18 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 				if len(restBuf) == 0 {
 					break
 				}
-
 			}
 		}
 	}
 }
 
-func procNPHResult(cR redis.Conn, ndtpConn *connection, s *session, NPHReqID uint32, packet []byte, ErrNDTPCh chan error, mu *sync.Mutex) (err error) {
-	log.Println("procNPHResult")
-	err = removeFromNDTPServ(cR, s.id, NPHReqID)
+func procNPHResult(cR redis.Conn, s *session, NPHReqID, NPHResult uint32) (err error) {
+	if NPHResult == 0 {
+		log.Println("procNPHResult receive result ok")
+		err = removeFromNDTPServ(cR, s.id, NPHReqID)
+	} else {
+		log.Printf("procNPHResult: nph result error for id %d : %d", s.id, NPHResult)
+	}
 	return
 }
 
@@ -154,13 +157,13 @@ func procExtDevice(cR redis.Conn, client net.Conn, ndtpConn *connection, data nd
 		}
 	} else {
 		if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-			if data.ext.res == 0{
+			if data.ext.res == 0 {
 				log.Println("procExtDevice: received result and remove data from db")
 				err = removeFromNDTPExtServ(cR, s.id, data.ext.mesID)
 				if err != nil {
 					log.Printf("procExtDevice: removeFromNDTPExt error for id %d : %v", s.id, err)
 				}
-			} else{
+			} else {
 				log.Println("procExtDevice: received result with error status")
 			}
 		} else {
