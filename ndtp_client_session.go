@@ -154,9 +154,14 @@ func procExtDevice(cR redis.Conn, client net.Conn, ndtpConn *connection, data nd
 		}
 	} else {
 		if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-			err = removeFromNDTPExtServ(cR, s.id, data.ext.mesID)
-			if err != nil {
-				log.Printf("procExtDevice: removeFromNDTPExt error for id %d : %v", s.id, err)
+			if data.ext.res == 0{
+				log.Println("procExtDevice: received result and remove data from db")
+				err = removeFromNDTPExtServ(cR, s.id, data.ext.mesID)
+				if err != nil {
+					log.Printf("procExtDevice: removeFromNDTPExt error for id %d : %v", s.id, err)
+				}
+			} else{
+				log.Println("procExtDevice: received result with error status")
 			}
 		} else {
 			err = fmt.Errorf("handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)

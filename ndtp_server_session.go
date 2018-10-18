@@ -155,10 +155,16 @@ func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errCl
 		}
 	} else {
 		if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-			log.Printf("handleExtDevMes: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
-			err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
-			if err != nil {
-				log.Printf("handleExtDevMes: removeFromNDTPExt error for id %d : %v", s.id, err)
+			log.Printf("handleExtDevMes: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
+			if data.ext.res == 0{
+				log.Println("handleExtDevMes: received result and remove data from db")
+				err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
+				if err != nil {
+					log.Printf("handleExtDevMes: removeFromNDTPExt error for id %d : %v", s.id, err)
+				}
+
+			} else {
+				log.Println("handleExtDevMes: received result with error status")
 			}
 		} else {
 			err = fmt.Errorf("handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
