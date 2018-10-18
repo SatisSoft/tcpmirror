@@ -35,6 +35,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 		default:
 			var b [defaultBufferSize]byte
 			log.Println("clientSession: start reading from client")
+			client.SetReadDeadline(time.Now().Add(readTimeout))
 			n, err := client.Read(b[:])
 			log.Printf("clientSession: received %d from client", n)
 			printPacket("clientSession: packet from client: ", b[:n])

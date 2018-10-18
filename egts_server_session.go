@@ -91,6 +91,7 @@ func waitReplyEGTS() {
 		if !egtsConn.closed {
 			log.Println("waitReplyEGTS: start reading data from EGTS server")
 			//egtsConn.conn.SetReadDeadline(time.Now().Add(writeTimeout))
+			egtsConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
 			n, err := egtsConn.conn.Read(b[:])
 			log.Printf("waitReplyEGTS: received %d bytes; packet: %v", n, b[:n])
 			if err != nil {
@@ -133,6 +134,21 @@ func send2egts(buf []byte) {
 		if err != nil {
 			egtsConStatus()
 		}
+	}
+}
+
+func egtsConStatus() {
+	log.Println("start egtsConStatus")
+	egtsMu.Lock()
+	defer egtsMu.Unlock()
+	log.Printf("egtsConStatus closed: %t; recon: %t", egtsConn.closed, egtsConn.recon)
+	if egtsConn.closed || egtsConn.recon {
+		return
+	} else {
+		egtsConn.recon = true
+		egtsConn.conn.Close()
+		egtsConn.closed = true
+		go reconnectEGTS()
 	}
 }
 

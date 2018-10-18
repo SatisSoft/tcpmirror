@@ -19,6 +19,7 @@ const (
 	defaultBufferSize = 1024
 	headerSize        = 15
 	writeTimeout      = 10 * time.Second
+	readTimeout      = 180 * time.Second
 )
 
 var (
@@ -119,6 +120,7 @@ func handleConnection(c net.Conn, connNo uint64) {
 		return
 	}
 	var b [defaultBufferSize]byte
+	c.SetReadDeadline(time.Now().Add(readTimeout))
 	n, err := c.Read(b[:])
 	if err != nil {
 		log.Printf("handleConnection: %d error while getting first message from client %s", connNo, c.RemoteAddr())
@@ -195,57 +197,6 @@ func connect(origin net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan 
 	go clientSession(origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
 	//connection with MGT
 	go serverSession(origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
-}
-
-func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
-	log.Printf("reconnectNDTP: start reconnect NDTP for id %d", s.id)
-	for {
-		for i := 0; i < 3; i++ {
-			if conClosed(ErrNDTPCh) {
-				return
-			}
-			cN, err := net.Dial("tcp", NDTPAddress)
-			if err != nil {
-				log.Printf("reconnectNDTP: error while reconnecting to NDPT server: %s", err)
-			} else {
-				log.Printf("reconnectNDTP: send first message again to %d", s.id)
-				firstMessage, err := readConnDB(cR, s.id)
-				if err != nil {
-					log.Printf("error readConnDB: %v", err)
-					return
-				}
-				cN.SetWriteDeadline(time.Now().Add(writeTimeout))
-				printPacket("reconnectNDTP: send first message again: ", firstMessage)
-				_, err = cN.Write(firstMessage)
-				if err == nil {
-					log.Printf("reconnectNDTP: id %d reconnected", s.id)
-					ndtpConn.conn = cN
-					ndtpConn.closed = false
-					time.Sleep(1 * time.Minute)
-					ndtpConn.recon = false
-					return
-				} else {
-					log.Printf("reconnectNDTP: error while send first message again to NDTP server: %s", err)
-				}
-			}
-		}
-		time.Sleep(1 * time.Minute)
-	}
-}
-
-func egtsConStatus() {
-	log.Println("start egtsConStatus")
-	egtsMu.Lock()
-	defer egtsMu.Unlock()
-	log.Printf("egtsConStatus closed: %t; recon: %t", egtsConn.closed, egtsConn.recon)
-	if egtsConn.closed || egtsConn.recon {
-		return
-	} else {
-		egtsConn.recon = true
-		egtsConn.conn.Close()
-		egtsConn.closed = true
-		go reconnectEGTS()
-	}
 }
 
 func reply(c net.Conn, data nphData, packet []byte) error {

@@ -41,7 +41,7 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 			//if connection to client is not closed, reading data from server
 			if !ndtpConn.closed {
 				var b [defaultBufferSize]byte
-				//todo set reading timeout
+				ndtpConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
 				n, err := ndtpConn.conn.Read(b[:])
 				log.Printf("serverSession: ndtpConn.closed = %t; ndtpConn.recon = %t", ndtpConn.closed, ndtpConn.recon)
 				log.Printf("serverSession: received %d bytes from server", n)
@@ -201,5 +201,41 @@ func ndtpConStatus(cR redis.Conn, ndtpConn *connection, s *session, mu *sync.Mut
 		ndtpConn.conn.Close()
 		ndtpConn.closed = true
 		go reconnectNDTP(cR, ndtpConn, s, ErrNDTPCh)
+	}
+}
+
+func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
+	log.Printf("reconnectNDTP: start reconnect NDTP for id %d", s.id)
+	for {
+		for i := 0; i < 3; i++ {
+			if conClosed(ErrNDTPCh) {
+				return
+			}
+			cN, err := net.Dial("tcp", NDTPAddress)
+			if err != nil {
+				log.Printf("reconnectNDTP: error while reconnecting to NDPT server: %s", err)
+			} else {
+				log.Printf("reconnectNDTP: send first message again to %d", s.id)
+				firstMessage, err := readConnDB(cR, s.id)
+				if err != nil {
+					log.Printf("error readConnDB: %v", err)
+					return
+				}
+				cN.SetWriteDeadline(time.Now().Add(writeTimeout))
+				printPacket("reconnectNDTP: send first message again: ", firstMessage)
+				_, err = cN.Write(firstMessage)
+				if err == nil {
+					log.Printf("reconnectNDTP: id %d reconnected", s.id)
+					ndtpConn.conn = cN
+					ndtpConn.closed = false
+					time.Sleep(1 * time.Minute)
+					ndtpConn.recon = false
+					return
+				} else {
+					log.Printf("reconnectNDTP: error while send first message again to NDTP server: %s", err)
+				}
+			}
+		}
+		time.Sleep(1 * time.Minute)
 	}
 }
