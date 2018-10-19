@@ -27,7 +27,7 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 				log.Printf("checkOldDataNDTP: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
 				packetCopyNDTP := make([]byte, len(mes))
 				copy(packetCopyNDTP, mes)
-				_, message := changePacket(packetCopyNDTP, data, s)
+				_, message := changePacketHistory(packetCopyNDTP, data, s)
 				printPacket("checkOldDataNDTP: packet after changing ext device message: ", message)
 				err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
 				if err != nil {
@@ -49,7 +49,7 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 			} else {
 				var NPHReqID uint32
 				var message []byte
-				NPHReqID, message = changePacket(mes, data, s)
+				NPHReqID, message = changePacketHistory(mes, data, s)
 				err = writeNDTPid(cR, s.id, NPHReqID, mill)
 				if err != nil {
 					log.Printf("checkOldDataNDTP: error writeNDTPid: %v", err)

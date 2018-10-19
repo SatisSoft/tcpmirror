@@ -226,7 +226,16 @@ func parseNavData(message []byte) (rnis rnisData, err error) {
 	return
 }
 
-func changePacket(b []byte, data ndtpData, s *session) (uint32, []byte) {
+func changePacket(b []byte, s *session) (uint32, []byte) {
+	NPLReqID, NPHReqID := serverID(s)
+	binary.LittleEndian.PutUint16(b[13:], NPLReqID)
+	binary.LittleEndian.PutUint32(b[NPL_HEADER_LEN+6:], NPHReqID)
+	crc := crc16(b[NPL_HEADER_LEN:])
+	binary.BigEndian.PutUint16(b[6:], crc)
+	return NPHReqID, b
+}
+
+func changePacketHistory(b []byte, data ndtpData, s *session) (uint32, []byte) {
 	NPLReqID, NPHReqID := serverID(s)
 	binary.LittleEndian.PutUint16(b[13:], NPLReqID)
 	binary.LittleEndian.PutUint32(b[NPL_HEADER_LEN+6:], NPHReqID)
@@ -242,6 +251,7 @@ func changePacket(b []byte, data ndtpData, s *session) (uint32, []byte) {
 	binary.BigEndian.PutUint16(b[6:], crc)
 	return NPHReqID, b
 }
+
 func changePacketFromServ(b []byte, s *session) (int, []byte) {
 	NPLReqID, NPHReqID := clientID(s)
 	binary.LittleEndian.PutUint16(b[13:], NPLReqID)

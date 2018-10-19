@@ -102,7 +102,7 @@ func procNoNeedReply(cR redis.Conn, ndtpConn *connection, data ndtpData, s *sess
 	log.Printf("procNoNeedReply: not need reply on message servId: %d, type: %d", data.NPH.ServiceID, data.NPH.NPHType)
 	packetCopyNDTP := make([]byte, len(packet))
 	copy(packetCopyNDTP, packet)
-	_, message := changePacket(packetCopyNDTP, data, s)
+	_, message := changePacket(packetCopyNDTP, s)
 	printPacket("procNoNeedReply: packet after changing (no reply): ", message)
 	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	printPacket("procNoNeedReply: send message to server (no reply): ", message)
@@ -130,7 +130,7 @@ func procExtDevice(cR redis.Conn, client net.Conn, ndtpConn *connection, data nd
 		if ndtpConn.closed != true {
 			packetCopyNDTP := make([]byte, len(packet))
 			copy(packetCopyNDTP, packet)
-			_, message := changePacket(packetCopyNDTP, data, s)
+			_, message := changePacket(packetCopyNDTP, s)
 			printPacket("procExtDevice: packet after changing ext device message: ", message)
 			err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
 			if err != nil {
@@ -189,7 +189,7 @@ func procMes(cR redis.Conn, client net.Conn, ndtpConn *connection, data ndtpData
 	if ndtpConn.closed != true {
 		packetCopyNDTP := make([]byte, len(packet))
 		copy(packetCopyNDTP, packet)
-		NPHReqID, message := changePacket(packetCopyNDTP, data, s)
+		NPHReqID, message := changePacket(packetCopyNDTP, s)
 		printPacket("procMes: packet after changing: ", message)
 		err = writeNDTPid(cR, s.id, NPHReqID, mill)
 		if err != nil {
