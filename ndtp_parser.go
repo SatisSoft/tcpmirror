@@ -211,7 +211,7 @@ func parseNavData(message []byte) (rnis rnisData, err error) {
 	default:
 		DataLen, ok := navDataLength[Type]
 		if ok {
-			if index+DataLen > MesLen {
+			if index+DataLen < MesLen {
 				index = index + DataLen
 			} else {
 				err = fmt.Errorf("NavData type %d is too short", Type)
