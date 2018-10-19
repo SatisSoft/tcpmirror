@@ -240,12 +240,8 @@ func changePacketHistory(b []byte, data ndtpData, s *session) (uint32, []byte) {
 	binary.LittleEndian.PutUint16(b[13:], NPLReqID)
 	binary.LittleEndian.PutUint32(b[NPL_HEADER_LEN+6:], NPHReqID)
 	if data.NPH.ServiceID == NPH_SRV_NAVDATA && data.NPH.NPHType == NPH_SND_REALTIME {
-		Now := getMill()
-		log.Printf("time in packet: %d; time now: %d", int64(data.ToRnis.time)*1000, Now)
-		if (Now - int64(data.ToRnis.time)*1000) > 60000 {
-			log.Println("change packet type to history")
-			b[NPL_HEADER_LEN+2] = byte(NPH_SND_HISTORY)
-		}
+		log.Println("changePacketHistory: change packet type to history")
+		b[NPL_HEADER_LEN+2] = byte(NPH_SND_HISTORY)
 	}
 	crc := crc16(b[NPL_HEADER_LEN:])
 	binary.BigEndian.PutUint16(b[6:], crc)
