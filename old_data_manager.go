@@ -12,41 +12,40 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 	res, err := getOldNDTP(cR, id)
 	if err != nil {
 		log.Println("can't get old NDTP for id: ", id)
-		return
-	}
-	for _, mes := range res {
-		var data ndtpData
-		data, _, _, err = parseNDTP(mes)
-		if ndtpConn.closed != true {
-			mill, err := getScore(cR, id, mes)
-			if err != nil {
-				log.Printf("checkOldDataNDTP: error getting score for %v : %v", mes, err)
-				continue
-			}
-			if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
-				log.Printf("checkOldDataNDTP: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
-				packetCopyNDTP := make([]byte, len(mes))
-				copy(packetCopyNDTP, mes)
-				_, message := changePacketHistory(packetCopyNDTP, data, s)
-				printPacket("checkOldDataNDTP: packet after changing ext device message: ", message)
-				err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
+	} else {
+		for _, mes := range res {
+			var data ndtpData
+			data, _, _, err = parseNDTP(mes)
+			if ndtpConn.closed != true {
+				mill, err := getScore(cR, id, mes)
 				if err != nil {
-					log.Printf("error writeNDTPIdExt: %v", err)
-				} else {
-					ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-					printPacket("checkOldDataNDTP: send ext device message to server: ", message)
-					_, err = ndtpConn.conn.Write(message)
-					if err != nil {
-						log.Printf("checkOldDataNDTP: send ext device message to NDTP server error: %s", err)
-						ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
-					} else {
-						if enableMetrics {
-							countToServerNDTP.Inc(1)
-						}
-					}
+					log.Printf("checkOldDataNDTP: error getting score for %v : %v", mes, err)
+					continue
 				}
-
-			} else {
+				//if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
+				//	log.Printf("checkOldDataNDTP: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
+				//	packetCopyNDTP := make([]byte, len(mes))
+				//	copy(packetCopyNDTP, mes)
+				//	_, message := changePacketHistory(packetCopyNDTP, data, s)
+				//	printPacket("checkOldDataNDTP: packet after changing ext device message: ", message)
+				//	err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
+				//	if err != nil {
+				//		log.Printf("error writeNDTPIdExt: %v", err)
+				//	} else {
+				//		ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+				//		printPacket("checkOldDataNDTP: send ext device message to server: ", message)
+				//		_, err = ndtpConn.conn.Write(message)
+				//		if err != nil {
+				//			log.Printf("checkOldDataNDTP: send ext device message to NDTP server error: %s", err)
+				//			ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+				//		} else {
+				//			if enableMetrics {
+				//				countToServerNDTP.Inc(1)
+				//			}
+				//		}
+				//	}
+				//
+				//} else {
 				var NPHReqID uint32
 				var message []byte
 				NPHReqID, message = changePacketHistory(mes, data, s)
@@ -66,60 +65,108 @@ func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.
 						}
 					}
 				}
+				//}
+			} else {
+				log.Printf("checkOldDataNDTP: connection to server closed")
 			}
+			time.Sleep(1 * time.Millisecond)
 		}
-		time.Sleep(1 * time.Millisecond)
+	}
+	res, err = getOldNDTPExt(cR, id)
+	for _, mes := range res {
+		var data ndtpData
+		data, _, _, err = parseNDTP(mes)
+		if ndtpConn.closed != true {
+			mill, err := getScore(cR, id, mes)
+			if err != nil {
+				log.Printf("checkOldDataNDTP: error getting score for ext %v : %v", mes, err)
+				continue
+			}
+			if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
+				var message []byte
+				_, message = changePacket(mes, s)
+				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+				printPacket("checkOldDataNDTP: send message: ", message)
+				_, err = ndtpConn.conn.Write(message)
+				if err != nil {
+					log.Printf("checkOldDataNDTP: send to NDTP server error: %s", err)
+					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+				} else {
+					log.Printf("checkOldDataNDTP: remove old data for id: %d", id)
+					removeOldNDTPExt(cR, id, mill)
+				}
+			}
+			//}
+		} else {
+			log.Printf("checkOldDataNDTP: connection to server closed")
+		}
 	}
 }
 
 func checkOldDataNDTPServ(cR redis.Conn, s *session, client net.Conn, id int) {
-	res, err := getOldNDTPServ(cR, id)
+	res, err := getServExt(cR, id)
+	if err != nil{
+		log.Printf("checkOldDataNDTPServ: error getServExt %v", err)
+	}
+	packetCopyNDTP := make([]byte, len(res))
+	copy(packetCopyNDTP, res)
+	_, message := changePacketFromServ(packetCopyNDTP, s)
+	printPacket("checkOldDataNDTPServ: send ext device message to client: ", message)
+	client.SetWriteDeadline(time.Now().Add(writeTimeout))
+	_, err = client.Write(message)
 	if err != nil {
-		log.Println("checkOldDataNDTPServ: can't get old NDTP for id: ", id)
-		return
+		log.Printf("checkOldDataNDTPServ: send ext device message to NDTP client error: %s", err)
 	}
-	for _, mes := range res {
-		var data ndtpData
-		data, _, _, err = parseNDTP(mes)
-		mill, err := getScoreServ(cR, id, mes)
-		if err != nil {
-			log.Printf("checkOldDataNDTPServ: error getting score for %v : %v", mes, err)
-			continue
-		}
-		if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
-			log.Printf("checkOldDataNDTPServ: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
-			packetCopyNDTP := make([]byte, len(mes))
-			copy(packetCopyNDTP, mes)
-			_, message := changePacketFromServ(packetCopyNDTP, s)
-			printPacket("checkOldDataNDTPServ: packet after changing ext device message: ", message)
-			err = writeNDTPIdExtServ(cR, s.id, data.ext.mesID, mill)
-			if err != nil {
-				log.Printf("checkOldDataNDTPServ: error writeNDTPIdExt: %v", err)
-			} else {
-				client.SetWriteDeadline(time.Now().Add(writeTimeout))
-				printPacket("checkOldDataNDTPServ: send ext device message to server: ", message)
-				_, err = client.Write(message)
-				if err != nil {
-					log.Printf("checkOldDataNDTPServ: send ext device message to NDTP server error: %s", err)
-				}
-			}
-		} else {
-			NPHReqID, message := changePacketFromServ(mes, s)
-			err = writeNDTPidServ(cR, s.id, uint32(NPHReqID), mill)
-			if err != nil {
-				log.Printf("checkOldDataNDTPServ: error writeNDTPidServ: %v", err)
-			} else {
-				client.SetWriteDeadline(time.Now().Add(writeTimeout))
-				printPacket("checkOldDataNDTPServ: send message: ", message)
-				client.SetWriteDeadline(time.Now().Add(writeTimeout))
-				_, err = client.Write(message)
-				if err != nil {
-					log.Printf("checkOldDataNDTPServ: send to NDTP server error: %s", err)
-				}
-			}
-		}
-		time.Sleep(1 * time.Millisecond)
+	err = setNDTPExtFlag(cR, s.id, "0")
+	if err != nil {
+		log.Printf("checkOldDataNDTPServ: setNDTPExtFlag error: %s", err)
 	}
+	//if err != nil {
+	//	log.Println("checkOldDataNDTPServ: can't get old NDTP for id: ", id)
+	//	return
+	//}
+	//for _, mes := range res {
+	//	var data ndtpData
+	//	data, _, _, err = parseNDTP(mes)
+	//	mill, err := getScoreServ(cR, id, mes)
+	//	if err != nil {
+	//		log.Printf("checkOldDataNDTPServ: error getting score for %v : %v", mes, err)
+	//		continue
+	//	}
+	//	if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
+	//		log.Printf("checkOldDataNDTPServ: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
+	//		packetCopyNDTP := make([]byte, len(mes))
+	//		copy(packetCopyNDTP, mes)
+	//		_, message := changePacketFromServ(packetCopyNDTP, s)
+	//		printPacket("checkOldDataNDTPServ: packet after changing ext device message: ", message)
+	//		err = writeNDTPIdExtServ(cR, s.id, data.ext.mesID, mill)
+	//		if err != nil {
+	//			log.Printf("checkOldDataNDTPServ: error writeNDTPIdExt: %v", err)
+	//		} else {
+	//			client.SetWriteDeadline(time.Now().Add(writeTimeout))
+	//			printPacket("checkOldDataNDTPServ: send ext device message to server: ", message)
+	//			_, err = client.Write(message)
+	//			if err != nil {
+	//				log.Printf("checkOldDataNDTPServ: send ext device message to NDTP server error: %s", err)
+	//			}
+	//		}
+	//	} else {
+	//		NPHReqID, message := changePacketFromServ(mes, s)
+	//		err = writeNDTPidServ(cR, s.id, uint32(NPHReqID), mill)
+	//		if err != nil {
+	//			log.Printf("checkOldDataNDTPServ: error writeNDTPidServ: %v", err)
+	//		} else {
+	//			client.SetWriteDeadline(time.Now().Add(writeTimeout))
+	//			printPacket("checkOldDataNDTPServ: send message: ", message)
+	//			client.SetWriteDeadline(time.Now().Add(writeTimeout))
+	//			_, err = client.Write(message)
+	//			if err != nil {
+	//				log.Printf("checkOldDataNDTPServ: send to NDTP server error: %s", err)
+	//			}
+	//		}
+	//	}
+	//	time.Sleep(1 * time.Millisecond)
+	//}
 }
 
 func ndtpRemoveExpired(id int, ErrNDTPCh chan error) {

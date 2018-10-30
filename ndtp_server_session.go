@@ -70,9 +70,9 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					if data.NPH.isResult {
 						err = handleNPHResult(cR, s.id, &data)
 					} else if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
-						err = handleExtDevMes(cR, client, ndtpConn, errClientCh, s, data, packet)
+						err = handleExtDevMes(cR, client, ndtpConn, errClientCh, s, &data, packet)
 					} else {
-						err = handlePacket(cR, client, errClientCh, s, data, packet)
+						err = handlePacket(cR, client, errClientCh, s, &data, packet)
 					}
 					if err != nil {
 						log.Printf("serverSession: error: %s", err)
@@ -100,79 +100,89 @@ func handleNPHResult(cR redis.Conn, id int, data *ndtpData) (err error) {
 	return
 }
 
-func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data ndtpData, packet []byte) (err error) {
+func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
 	client.SetWriteDeadline(time.Now().Add(writeTimeout))
 	printPacket("handlePacket: before changing control message: ", packet)
-	mill := getMill()
-	packetCopy := make([]byte, len(packet))
-	copy(packetCopy, packet)
-	err = write2DBServer(cR, s, packetCopy, mill)
-	if err != nil {
-		log.Printf("handlePacket: error write2DBServer: %v", err)
-		return
-	}
-	NPHReqID, message := changePacketFromServ(packet, s)
-	err = writeNDTPidServ(cR, s.id, uint32(NPHReqID), mill)
+	reqID, message := changePacketFromServ(packet, s)
+	writeControlID(cR, s.id, reqID, data.NPH.NPHReqID)
 	printPacket("handlePacket: send control message to client: ", message)
 	_, err = client.Write(message)
 	if err != nil {
 		errClientCh <- err
 		return
 	}
-	return
+	//client.SetWriteDeadline(time.Now().Add(writeTimeout))
+	//printPacket("handlePacket: before changing control message: ", packet)
+	//mill := getMill()
+	//packetCopy := make([]byte, len(packet))
+	//copy(packetCopy, packet)
+	////err = write2DBServer(cR, s, packetCopy, mill)
+	////if err != nil {
+	////	log.Printf("handlePacket: error write2DBServer: %v", err)
+	////	return
+	////}
+	//NPHReqID, message := changePacketFromServ(packet, s)
+	//err = writeNDTPidServ(cR, s.id, uint32(NPHReqID), mill)
+	//printPacket("handlePacket: send control message to client: ", message)
+	//_, err = client.Write(message)
+	//if err != nil {
+	//	errClientCh <- err
+	//	return
+	//}
+	//return
 }
 
-func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errClientCh chan error, s *session, data ndtpData, packet []byte) (err error) {
+func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
 	if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA || data.NPH.NPHType == NPH_SED_DEVICE_DATA {
 		log.Printf("handleExtDevMes: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
 		data.NPH.ID = uint32(s.id)
 		packetCopy := make([]byte, len(packet))
 		copy(packetCopy, packet)
 		mill := getMill()
-		err = write2DBServer(cR, s, packetCopy, mill)
+		err = writeServExt(cR, s.id, packetCopy, mill)
 		if err != nil {
 			log.Println("handleExtDevMes: send ext error reply to server because of: ", err)
-			errorReplyExt(ndtpConn.conn, data.ext.mesID, data.ext.packNum, packetCopy)
 			return
 		}
 		log.Println("handleExtDevMes: start to send ext device message to NDTP server")
 		packetCopyNDTP := make([]byte, len(packet))
 		copy(packetCopyNDTP, packet)
 		_, message := changePacketFromServ(packetCopyNDTP, s)
-		printPacket("handleExtDevMes: packet after changing ext device message: ", message)
-		err = writeNDTPIdExtServ(cR, s.id, data.ext.mesID, mill)
+		client.SetWriteDeadline(time.Now().Add(writeTimeout))
+		printPacket("handleExtDevMes: send ext device message to client: ", message)
+		_, err = client.Write(message)
 		if err != nil {
-			log.Printf("handleExtDevMes: error writeNDTPIdExt %v", err)
-			errorReplyExt(ndtpConn.conn, data.ext.mesID, data.ext.packNum, packetCopy)
-			return
-		} else {
-			client.SetWriteDeadline(time.Now().Add(writeTimeout))
-			printPacket("handleExtDevMes: send ext device message to client: ", message)
-			_, err = client.Write(message)
-			if err != nil {
-				log.Printf("handleExtDevMes: send ext device message to NDTP server error: %s", err)
-				errClientCh <- err
-				return
-			}
-		}
-		log.Println("handleExtDevMes: start to reply to server")
-		err = replyExt(ndtpConn.conn, data.ext.mesID, data.ext.packNum, packet)
-		if err != nil {
-			log.Println("handleExtDevMes: error replying to ext device message: ", err)
+			log.Printf("handleExtDevMes: send ext device message to NDTP server error: %s", err)
 			errClientCh <- err
 			return
 		}
 	} else {
 		if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
 			log.Printf("handleExtDevMes: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
+
+			packetCopy := make([]byte, len(packet))
+			copy(packetCopy, packet)
+			printPacket("handleExtDevMes: send ext device result to server: ", packetCopy)
+			_, message := changePacket(packetCopy, s)
+			client.SetWriteDeadline(time.Now().Add(writeTimeout))
+			_, err = client.Write(message)
+			if err != nil {
+				log.Printf("handleExtDevMes: send ext device message to NDTP server error: %s", err)
+				errClientCh <- err
+				return
+			}
+
 			if data.ext.res == 0 {
 				log.Println("handleExtDevMes: received result and remove data from db")
 				err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
 				if err != nil {
 					log.Printf("handleExtDevMes: removeFromNDTPExt error for id %d : %v", s.id, err)
 				}
-
 			} else {
+				err = setNDTPExtFlag(cR, s.id, "1")
+				if err != nil {
+					log.Printf("handleExtDevMes: setNDTPExtFlag error for id %d : %v", s.id, err)
+				}
 				log.Println("handleExtDevMes: received result with error status")
 			}
 		} else {
@@ -209,6 +219,7 @@ func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh ch
 	for {
 		for i := 0; i < 3; i++ {
 			if conClosed(ErrNDTPCh) {
+				log.Println("reconnectNDTP: close because of client connection is closed")
 				return
 			}
 			cN, err := net.Dial("tcp", NDTPAddress)

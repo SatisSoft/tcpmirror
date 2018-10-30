@@ -3,11 +3,22 @@ package main
 import (
 	"bytes"
 	"encoding/binary"
+	"fmt"
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"strconv"
 	"strings"
 )
+
+//from server:
+//conn:id - NPH_SGC_CONN_REQUEST
+//s2c:id1:id2 - NPH_SRV_GENERIC_CONTROLS
+//ext:id - NPH_SRV_EXTERNAL_DEVICE
+
+//from client:
+//ext_c:id; ext_s:id1:id2 - NPH_SRV_EXTERNAL_DEVICE
+//id, ntn:id1:id2 - NPH_SRV_NAVDATA for NDTP Server
+//rnis - NPH_SRV_NAVDATA for EGTS Server
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
 	key := "conn:" + strconv.Itoa(int(id))
@@ -42,7 +53,7 @@ func readNDTPid(c redis.Conn, id int, nphID uint32) (int64, error) {
 }
 
 func writeNDTPIdExt(c redis.Conn, id int, mesID uint16, mill int64) error {
-	key := "ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
+	key := "ext_s:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
 	log.Printf("writeNDTPIdExt key: %s; val: %d", key, mill)
 	_, err := c.Do("SET", key, mill, "ex", 50)
 	log.Printf("writeNDTPIdExt err: %v", err)
@@ -50,7 +61,7 @@ func writeNDTPIdExt(c redis.Conn, id int, mesID uint16, mill int64) error {
 }
 
 func readNDTPIdExt(c redis.Conn, id int, mesID uint16) (int64, error) {
-	key := "ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
+	key := "ext_s:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
 	res, err := redis.Int64(c.Do("GET", key))
 	log.Printf("readNDTPIdExt key: %s; res: %d", key, res)
 	log.Printf("readNDTPIdExt err: %v", err)
@@ -77,6 +88,25 @@ func write2NDTP(c redis.Conn, id int, time int64, packet []byte) error {
 	_, err := c.Do("ZADD", id, time, packet)
 	log.Printf("write2NDTP err: %v", err)
 	return err
+}
+
+
+func write2NDTPExtClient(c redis.Conn, id int, time int64, packet []byte) error {
+	key := "ext_c:" + strconv.Itoa(id)
+	//log.Printf("write2NDTP id: %d; time: %d; packet: %v", id, time, packet)
+	log.Printf("write2NDTPExtClient id: %d; time: %d", key, time)
+	_, err := c.Do("ZADD", key, time, packet)
+	log.Printf("write2NDTPExtClient err: %v", err)
+	return err
+}
+
+func getOldNDTPExt(c redis.Conn, id int) ([][]byte, error) {
+	key := "ext_c:" + strconv.Itoa(id)
+	max := getMill() - 60000
+	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", key, 0, max, "LIMIT", 0, 10))
+	log.Printf("getOldNDTPExt: id: %d; max: %d; len(res): %d", key, max, len(res))
+	log.Printf("getOldNDTPExt err: %v", err)
+	return res, err
 }
 
 func write2EGTS(c redis.Conn, id int, time int64, packet []byte) error {
@@ -309,5 +339,79 @@ func removeFromNDTPServ(c redis.Conn, id int, NPHReqID uint32) error {
 	log.Printf("removeFromNDTPServ: id: %d; time: %d", id, time)
 	n, err := c.Do("ZREMRANGEBYSCORE", key, time, time)
 	log.Printf("removeFromNDTPServ n=%d; err: %v", n, err)
+	return err
+}
+
+func writeServExt(c redis.Conn, id int, packet []byte, mill int64) error{
+	key := "ext:" + strconv.Itoa(id)
+	time := strconv.FormatInt(mill, 10)
+	flag := "0"
+	//key := "sntn:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(nphID), 10)
+	log.Printf("writeServExt id: %d; time: %s", id, time)
+	_, err := c.Do("HMSET", key, "time", time, "flag", flag, "packet", packet)
+	log.Printf("writeServExt err: %v", err)
+	return err
+}
+
+func removeServerExt(c redis.Conn,  id int) error{
+	key := "ext:" + strconv.Itoa(id)
+	log.Printf("removeServerExt id: %d;", id)
+	_, err := c.Do("DEL", key)
+	log.Printf("removeServerExt err: %v;", err)
+	return err
+}
+
+func setNDTPExtFlag(c redis.Conn, id int, flag string) error{
+	key := "ext:" + strconv.Itoa(id)
+	log.Printf("setServExtFlag key: %s; flag: %s", key, flag)
+	_, err := c.Do("HSET", key, flag, flag)
+	return err
+}
+
+func getServExt(c redis.Conn, id int) (mes []byte, err error){
+	key := "ext:" + strconv.Itoa(id)
+	log.Printf("getServExt key: %s", key)
+	res, err := redis.StringMap(c.Do("HGETALL", key))
+	if err != nil{
+		log.Printf("getServExt error: %v", err)
+		return
+	}
+	if res["flag"] == "1"{
+		time, err := strconv.ParseInt(res["time"], 10, 64)
+		if err != nil{
+			fmt.Printf("getServExt parse time error: %v", err)
+		}
+		now := getMill()
+		if now - time > 60000{
+			mes = []byte(res["packet"])
+			return
+		}
+	}
+	return
+}
+
+func setFlagServerExt(c redis.Conn,  id int) error{
+	key := "ext:" + strconv.Itoa(id)
+	log.Printf("setFlagServerExt id: %d;", id)
+	exist, err := c.Do("EXISTS", key)
+	if err != nil{
+		log.Printf("setFlagServerExt: error checking existance for key: %v", key)
+		return err
+	}
+	log.Printf("setFlagServerExt id exist: %v;", exist)
+	if exist == "1"{
+		_, err = c.Do("HSETS", key, "flag", "1")
+		log.Printf("setFlagServerExt err2: %v;", err)
+	} else {
+		err = fmt.Errorf("setFlagServerExt: record doesn't exist: %v", err)
+		return err
+	}
+	return err
+}
+
+func removeOldNDTPExt(c redis.Conn,  id int, time int64) error{
+	log.Printf("removeOldNDTPExt: id: %d; time: %d", id, time)
+	n, err := c.Do("ZREMRANGEBYSCORE", id, time, time)
+	log.Printf("removeOldNDTPExt n=%d; err: %v", n, err)
 	return err
 }
