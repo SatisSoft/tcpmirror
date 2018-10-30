@@ -8,199 +8,128 @@ import (
 	"time"
 )
 
-func checkOldDataNDTP(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, id int, ErrNDTPCh chan error) {
+func checkOldDataClient(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, id int, ErrNDTPCh chan error) {
 	res, err := getOldNDTP(cR, id)
 	if err != nil {
-		log.Println("can't get old NDTP for id: ", id)
+		log.Printf("checkOldDataNDTP: getOldNDTP error for if %d : %v", id, err)
 	} else {
-		for _, mes := range res {
-			var data ndtpData
-			data, _, _, err = parseNDTP(mes)
-			if ndtpConn.closed != true {
-				mill, err := getScore(cR, id, mes)
-				if err != nil {
-					log.Printf("checkOldDataNDTP: error getting score for %v : %v", mes, err)
-					continue
-				}
-				//if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
-				//	log.Printf("checkOldDataNDTP: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
-				//	packetCopyNDTP := make([]byte, len(mes))
-				//	copy(packetCopyNDTP, mes)
-				//	_, message := changePacketHistory(packetCopyNDTP, data, s)
-				//	printPacket("checkOldDataNDTP: packet after changing ext device message: ", message)
-				//	err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
-				//	if err != nil {
-				//		log.Printf("error writeNDTPIdExt: %v", err)
-				//	} else {
-				//		ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-				//		printPacket("checkOldDataNDTP: send ext device message to server: ", message)
-				//		_, err = ndtpConn.conn.Write(message)
-				//		if err != nil {
-				//			log.Printf("checkOldDataNDTP: send ext device message to NDTP server error: %s", err)
-				//			ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
-				//		} else {
-				//			if enableMetrics {
-				//				countToServerNDTP.Inc(1)
-				//			}
-				//		}
-				//	}
-				//
-				//} else {
-				var NPHReqID uint32
-				var message []byte
-				NPHReqID, message = changePacketHistory(mes, data, s)
-				err = writeNDTPid(cR, s.id, NPHReqID, mill)
-				if err != nil {
-					log.Printf("checkOldDataNDTP: error writeNDTPid: %v", err)
-				} else {
-					ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-					printPacket("checkOldDataNDTP: send message: ", message)
-					_, err = ndtpConn.conn.Write(message)
-					if err != nil {
-						log.Printf("checkOldDataNDTP: send to NDTP server error: %s", err)
-						ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
-					} else {
-						if enableMetrics {
-							countToServerNDTP.Inc(1)
-						}
-					}
-				}
-				//}
-			} else {
-				log.Printf("checkOldDataNDTP: connection to server closed")
-			}
-			time.Sleep(1 * time.Millisecond)
-		}
+		resendNav(cR, s, ndtpConn, mu, id, ErrNDTPCh, res)
 	}
 	res, err = getOldNDTPExt(cR, id)
+	if err != nil {
+		log.Printf("checkOldDataNDTP: getOldNDTPExt error for if %d : %v", id, err)
+	} else {
+		resendExt(cR, s, ndtpConn, mu, id, ErrNDTPCh, res)
+	}
+}
+
+func resendNav(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, id int, ErrNDTPCh chan error, res [][]byte) {
 	for _, mes := range res {
-		var data ndtpData
-		data, _, _, err = parseNDTP(mes)
+		data, _, _, _ := parseNDTP(mes)
 		if ndtpConn.closed != true {
 			mill, err := getScore(cR, id, mes)
 			if err != nil {
-				log.Printf("checkOldDataNDTP: error getting score for ext %v : %v", mes, err)
+				log.Printf("resendNav: error getting score for %v : %v", mes, err)
+				continue
+			}
+			NPHReqID, message := changePacketHistory(mes, data, s)
+			err = writeNDTPid(cR, s.id, NPHReqID, mill)
+			if err != nil {
+				log.Printf("resendNav: error writeNDTPid: %v", err)
+			} else {
+				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+				printPacket("resendNav: send message: ", message)
+				_, err = ndtpConn.conn.Write(message)
+				if err != nil {
+					log.Printf("resendNav: send to NDTP server error: %s", err)
+					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+				} else if enableMetrics {
+					countToServerNDTP.Inc(1)
+				}
+			}
+		} else {
+			log.Printf("resendNav: connection to server closed")
+			return
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
+}
+
+func resendExt(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, id int, ErrNDTPCh chan error, res [][]byte) {
+	for _, mes := range res {
+		var data ndtpData
+		data, _, _, _ = parseNDTP(mes)
+		if ndtpConn.closed != true {
+			mill, err := getScoreExt(cR, id, mes)
+			if err != nil {
+				log.Printf("resendExt: error getting score for ext %v : %v", mes, err)
 				continue
 			}
 			if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-				var message []byte
-				_, message = changePacket(mes, s)
+				_, message := changePacket(mes, s)
+				printPacket("resendExt: send message: ", message)
 				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-				printPacket("checkOldDataNDTP: send message: ", message)
 				_, err = ndtpConn.conn.Write(message)
 				if err != nil {
-					log.Printf("checkOldDataNDTP: send to NDTP server error: %s", err)
+					log.Printf("resendExt: send to NDTP server error: %s", err)
 					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 				} else {
-					log.Printf("checkOldDataNDTP: remove old data for id: %d", id)
-					removeOldNDTPExt(cR, id, mill)
+					log.Printf("resendExt: remove old data for id: %d", id)
+					removeOldExt(cR, id, mill)
+					if enableMetrics {
+						countToServerNDTP.Inc(1)
+					}
+				}
+			} else if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA {
+				_, message := changePacket(mes, s)
+				printPacket("resendExt: packet after changing ext device message: ", message)
+				err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
+				if err != nil {
+					log.Printf("error writeNDTPIdExt: %v", err)
+				} else {
+					printPacket("resendExt: send ext device message to server: ", message)
+					ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+					_, err = ndtpConn.conn.Write(message)
+					if err != nil {
+						log.Printf("resendExt: send ext device message to NDTP server error: %s", err)
+						ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+					} else if enableMetrics {
+						countToServerNDTP.Inc(1)
+					}
 				}
 			}
-			//}
 		} else {
-			log.Printf("checkOldDataNDTP: connection to server closed")
+			log.Printf("resendExt: connection to server closed")
+			return
 		}
 	}
 }
 
-func checkOldDataNDTPServ(cR redis.Conn, s *session, client net.Conn, id int) {
-	res, err := getServExt(cR, id)
-	if err != nil{
-		log.Printf("checkOldDataNDTPServ: error getServExt %v", err)
-	}
-	packetCopyNDTP := make([]byte, len(res))
-	copy(packetCopyNDTP, res)
-	_, message := changePacketFromServ(packetCopyNDTP, s)
-	printPacket("checkOldDataNDTPServ: send ext device message to client: ", message)
-	client.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err = client.Write(message)
+func checkOldDataServ(cR redis.Conn, s *session, client net.Conn, id int) {
+	res, mill, flag, err := getServExt(cR, id)
 	if err != nil {
-		log.Printf("checkOldDataNDTPServ: send ext device message to NDTP client error: %s", err)
+		log.Printf("checkOldDataNDTPServ: error getServExt: %v", err)
+		return
+	}
+	log.Printf("checkOldDataNDTPServ: id: %d; mill: %d; flag: %s; res: %v", s.id, mill, flag, res)
+	now := getMill()
+	if now-mill > 60000 && flag == "0" {
+		err = removeServerExt(cR, s.id)
+		if err != nil {
+			log.Printf("checkOldDataNDTPServ: error removing old ext data for id %d : %v", s.id, err)
+		}
+		return
 	}
 	err = setNDTPExtFlag(cR, s.id, "0")
 	if err != nil {
 		log.Printf("checkOldDataNDTPServ: setNDTPExtFlag error: %s", err)
 	}
-	//if err != nil {
-	//	log.Println("checkOldDataNDTPServ: can't get old NDTP for id: ", id)
-	//	return
-	//}
-	//for _, mes := range res {
-	//	var data ndtpData
-	//	data, _, _, err = parseNDTP(mes)
-	//	mill, err := getScoreServ(cR, id, mes)
-	//	if err != nil {
-	//		log.Printf("checkOldDataNDTPServ: error getting score for %v : %v", mes, err)
-	//		continue
-	//	}
-	//	if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
-	//		log.Printf("checkOldDataNDTPServ: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
-	//		packetCopyNDTP := make([]byte, len(mes))
-	//		copy(packetCopyNDTP, mes)
-	//		_, message := changePacketFromServ(packetCopyNDTP, s)
-	//		printPacket("checkOldDataNDTPServ: packet after changing ext device message: ", message)
-	//		err = writeNDTPIdExtServ(cR, s.id, data.ext.mesID, mill)
-	//		if err != nil {
-	//			log.Printf("checkOldDataNDTPServ: error writeNDTPIdExt: %v", err)
-	//		} else {
-	//			client.SetWriteDeadline(time.Now().Add(writeTimeout))
-	//			printPacket("checkOldDataNDTPServ: send ext device message to server: ", message)
-	//			_, err = client.Write(message)
-	//			if err != nil {
-	//				log.Printf("checkOldDataNDTPServ: send ext device message to NDTP server error: %s", err)
-	//			}
-	//		}
-	//	} else {
-	//		NPHReqID, message := changePacketFromServ(mes, s)
-	//		err = writeNDTPidServ(cR, s.id, uint32(NPHReqID), mill)
-	//		if err != nil {
-	//			log.Printf("checkOldDataNDTPServ: error writeNDTPidServ: %v", err)
-	//		} else {
-	//			client.SetWriteDeadline(time.Now().Add(writeTimeout))
-	//			printPacket("checkOldDataNDTPServ: send message: ", message)
-	//			client.SetWriteDeadline(time.Now().Add(writeTimeout))
-	//			_, err = client.Write(message)
-	//			if err != nil {
-	//				log.Printf("checkOldDataNDTPServ: send to NDTP server error: %s", err)
-	//			}
-	//		}
-	//	}
-	//	time.Sleep(1 * time.Millisecond)
-	//}
-}
-
-func ndtpRemoveExpired(id int, ErrNDTPCh chan error) {
-	var cR redis.Conn
-	for {
-		var err error
-		cR, err = redis.Dial("tcp", ":6379")
-		if err != nil {
-			log.Printf("error connecting to redis in ndtpRemoveExpired for id %d: %s\n", id, err)
-		} else {
-			break
-		}
-	}
-	defer cR.Close()
-	for {
-		err := removeExpiredDataNDTP(cR, id)
-		if err != nil {
-			log.Printf("error while remove expired data ndtp for id %d: %s", id, err)
-			for {
-				cR, err = redis.Dial("tcp", ":6379")
-				if err != nil {
-					log.Printf("error reconnecting to redis in ndtpRemoveExpired for id %d: %s\n", id, err)
-				} else {
-					break
-				}
-				time.Sleep(1 * time.Minute)
-			}
-		}
-		select {
-		case <-ErrNDTPCh:
-			return
-		default:
-			time.Sleep(1 * time.Hour)
-		}
+	_, message := changePacketFromServ(res, s)
+	printPacket("checkOldDataNDTPServ: send ext device message to client: ", message)
+	client.SetWriteDeadline(time.Now().Add(writeTimeout))
+	_, err = client.Write(message)
+	if err != nil {
+		log.Printf("checkOldDataNDTPServ: send ext device message to NDTP client error: %s", err)
 	}
 }
 

@@ -33,7 +33,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 	for {
 		select {
 		case <-checkTicker.C:
-			checkOldDataNDTP(cR, s, ndtpConn, mu, s.id, ErrNDTPCh)
+			checkOldDataClient(cR, s, ndtpConn, mu, s.id, ErrNDTPCh)
 		default:
 			var b [defaultBufferSize]byte
 			log.Println("clientSession: start reading from client")
@@ -70,7 +70,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 				if data.NPH.isResult {
 					err = procNPHResult(cR, ndtpConn, s, &data, packet)
 				} else if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
-					err = procExtDevice(cR, client, ndtpConn, &data, s, packet, ErrNDTPCh, errClientCh, mu, mill)
+					err = handleExtClient(cR, client, ndtpConn, &data, s, packet, ErrNDTPCh, errClientCh, mu, mill)
 				} else if !data.NPH.needReply {
 					err = procNoNeedReply(cR, ndtpConn, &data, s, packet, ErrNDTPCh, mu)
 				} else {
@@ -127,78 +127,81 @@ func procNoNeedReply(cR redis.Conn, ndtpConn *connection, data *ndtpData, s *ses
 	return
 }
 
-func procExtDevice(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, ErrNDTPCh, errClientCh chan error, mu *sync.Mutex, mill int64) (err error) {
-	log.Printf("procExtDevice: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
-	if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA || data.NPH.NPHType == NPH_SED_DEVICE_DATA {
-		data.NPH.ID = uint32(s.id)
-		packetCopy := make([]byte, len(packet))
-		copy(packetCopy, packet)
-		err = write2NDTPExtClient(cR, s.id, mill, packet)
-		if err != nil {
-			log.Println("procExtDevice: send ext error reply to client because of: ", err)
-			errorReplyExt(client, data.ext.mesID, data.ext.packNum, packetCopy)
-			return
-		}
-		log.Println("procExtDevice: start to send ext device message to NDTP server")
-		if ndtpConn.closed != true {
-			packetCopyNDTP := make([]byte, len(packet))
-			copy(packetCopyNDTP, packet)
-			_, message := changePacket(packetCopyNDTP, s)
-			printPacket("procExtDevice: packet after changing ext device message: ", message)
-			err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
-			if err != nil {
-				log.Printf("error writeNDTPIdExt: %v", err)
-			} else {
-				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-				printPacket("procExtDevice: send ext device message to server: ", message)
-				_, err = ndtpConn.conn.Write(message)
-				if err != nil {
-					log.Printf("procExtDevice: send ext device message to NDTP server error: %s", err)
-					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
-				} else {
-					if enableMetrics {
-						countToServerNDTP.Inc(1)
-					}
-				}
-			}
-		}
-		log.Println("procExtDevice: start to reply to ext device message")
-		err = replyExt(client, data.ext.mesID, data.ext.packNum, packet)
-		if err != nil {
-			log.Println("procExtDevice: error replying to ext device message: ", err)
-			errClientCh <- err
-			return
-		}
+func handleExtClient(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, ErrNDTPCh, errClientCh chan error, mu *sync.Mutex, mill int64) (err error) {
+	log.Printf("handleExtClient: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
+	if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA {
+		err = handleExtTitleClient(cR, client, ndtpConn, data, s, packet, ErrNDTPCh, errClientCh, mu, mill)
+	} else if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
+		err = handleExtResClient(cR, ndtpConn, data, s, packet, mill)
 	} else {
-		if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-			if data.ext.res == 0 {
-				log.Println("procExtDevice: received result and remove data from db")
-				err = removeServerExt(cR, s.id)
-				if err != nil {
-					log.Printf("procExtDevice: removeFromNDTPExt error for id %d : %v", s.id, err)
-				}
-			} else {
-				log.Println("procExtDevice: received result with error status")
-				setFlagServerExt(cR, s.id)
-			}
-			packetCopyNDTP := make([]byte, len(packet))
-			copy(packetCopyNDTP, packet)
-			_, message := changePacket(packetCopyNDTP, s)
-			printPacket("procExtDevice: send ext device message to server: ", message)
+		err = fmt.Errorf("unknown NPHType: %d, packet %v", data.NPH.NPHType, packet)
+	}
+	return
+}
+
+func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, ErrNDTPCh, errClientCh chan error, mu *sync.Mutex, mill int64) (err error) {
+	data.NPH.ID = uint32(s.id)
+	packetCopy := make([]byte, len(packet))
+	copy(packetCopy, packet)
+	err = writeExtClient(cR, s.id, mill, packet)
+	if err != nil {
+		log.Println("procExtDevice: send ext error reply to client because of: ", err)
+		errorReplyExt(client, data.ext.mesID, data.ext.packNum, packetCopy)
+		return
+	}
+	log.Println("procExtDevice: start to send ext device message to NDTP server")
+	if ndtpConn.closed != true {
+		packetCopyNDTP := make([]byte, len(packet))
+		copy(packetCopyNDTP, packet)
+		_, message := changePacket(packetCopyNDTP, s)
+		printPacket("procExtDevice: packet after changing ext device message: ", message)
+		err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
+		if err != nil {
+			log.Printf("error writeNDTPIdExt: %v", err)
+		} else {
 			ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+			printPacket("procExtDevice: send ext device message to server: ", message)
 			_, err = ndtpConn.conn.Write(message)
 			if err != nil {
-				log.Printf("procExtDevice: error write ext device result to server: %v", err)
-				err = write2NDTPExtClient(cR, s.id, mill, packet)
-				if err != nil{
-					log.Printf("procExtDevice: error write2DB ext device result: %v", err)
+				log.Printf("procExtDevice: send ext device message to NDTP server error: %s", err)
+				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+			} else {
+				if enableMetrics {
+					countToServerNDTP.Inc(1)
 				}
 			}
+		}
+	}
+	log.Println("procExtDevice: start to reply to ext device message")
+	err = replyExt(client, data.ext.mesID, data.ext.packNum, packet)
+	if err != nil {
+		log.Println("procExtDevice: error replying to ext device message: ", err)
+		errClientCh <- err
+	}
+	return
+}
 
-
-		} else {
-			err = fmt.Errorf("handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
-			fmt.Printf("procExtDevice: error %s", err)
+func handleExtResClient(cR redis.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, mill int64) (err error) {
+	if data.ext.res == 0 {
+		log.Println("handleExtResClient: received result and remove data from db")
+		err = removeServerExt(cR, s.id)
+		if err != nil {
+			log.Printf("handleExtResClient: removeFromNDTPExt error for id %d : %v", s.id, err)
+		}
+	} else {
+		log.Println("handleExtResClient: received result with error status")
+		setFlagServerExt(cR, s.id, "1")
+	}
+	packetCopy := copyPack(packet)
+	_, message := changePacket(packetCopy, s)
+	printPacket("handleExtResClient: send ext device message to server: ", message)
+	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+	_, err = ndtpConn.conn.Write(message)
+	if err != nil {
+		log.Printf("handleExtResClient: error write ext device result to server: %v", err)
+		err = writeExtClient(cR, s.id, mill, packet)
+		if err != nil {
+			log.Printf("handleExtResClient: error write2DB ext device result: %v", err)
 		}
 	}
 	return

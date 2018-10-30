@@ -32,7 +32,7 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 	for {
 		select {
 		case <-checkTicker.C:
-			checkOldDataNDTPServ(cR, s, client, s.id)
+			checkOldDataServ(cR, s, client, s.id)
 		default:
 			//check if connection with client is closed
 			if conClosed(ErrNDTPCh) {
@@ -70,7 +70,7 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					if data.NPH.isResult {
 						err = handleNPHResult(cR, s.id, &data)
 					} else if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
-						err = handleExtDevMes(cR, client, ndtpConn, errClientCh, s, &data, packet)
+						err = handleExtServ(cR, client, errClientCh, s, &data, packet)
 					} else {
 						err = handlePacket(cR, client, errClientCh, s, &data, packet)
 					}
@@ -111,6 +111,7 @@ func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *ses
 		errClientCh <- err
 		return
 	}
+	return
 	//client.SetWriteDeadline(time.Now().Add(writeTimeout))
 	//printPacket("handlePacket: before changing control message: ", packet)
 	//mill := getMill()
@@ -132,62 +133,63 @@ func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *ses
 	//return
 }
 
-func handleExtDevMes(cR redis.Conn, client net.Conn, ndtpConn *connection, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
-	if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA || data.NPH.NPHType == NPH_SED_DEVICE_DATA {
-		log.Printf("handleExtDevMes: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
-		data.NPH.ID = uint32(s.id)
-		packetCopy := make([]byte, len(packet))
-		copy(packetCopy, packet)
-		mill := getMill()
-		err = writeServExt(cR, s.id, packetCopy, mill)
+func handleExtServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
+	log.Printf("handleExtServ: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
+	if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA {
+		err = handleExtTitleServ(cR, client, errClientCh, s, packet)
+	} else if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
+		err = handleExtResServ(cR, client, errClientCh, s, data, packet)
+	} else {
+		err = fmt.Errorf("unknown NPHType: %d, packet %v", data.NPH.NPHType, packet)
+	}
+	return err
+}
+
+func handleExtTitleServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, packet []byte) (err error) {
+	packetCopy := copyPack(packet)
+	mill := getMill()
+	err = writeExtServ(cR, s.id, packetCopy, mill)
+	if err != nil {
+		log.Println("handleExtTitleServ: send ext error reply to server because of: ", err)
+		return
+	}
+	log.Println("handleExtTitleServ: start to send ext device message to NDTP server")
+	packetCopy1 := copyPack(packet)
+	_, message := changePacketFromServ(packetCopy1, s)
+	printPacket("handleExtTitleServ: send ext device message to client: ", message)
+	client.SetWriteDeadline(time.Now().Add(writeTimeout))
+	_, err = client.Write(message)
+	if err != nil {
+		log.Printf("handleExtTitleServ: send ext device message to NDTP server error: %s", err)
+		errClientCh <- err
+	}
+	return
+}
+
+func handleExtResServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
+	packetCopy := copyPack(packet)
+	printPacket("handleExtResServ: send ext device result to server: ", packetCopy)
+	_, message := changePacket(packetCopy, s)
+	client.SetWriteDeadline(time.Now().Add(writeTimeout))
+	_, err = client.Write(message)
+	if err != nil {
+		log.Printf("handleExtResServ: send ext device message to NDTP server error: %s", err)
+		errClientCh <- err
+		return
+	}
+
+	if data.ext.res == 0 {
+		log.Println("handleExtResServ: received result and remove data from db")
+		err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
 		if err != nil {
-			log.Println("handleExtDevMes: send ext error reply to server because of: ", err)
-			return
-		}
-		log.Println("handleExtDevMes: start to send ext device message to NDTP server")
-		packetCopyNDTP := make([]byte, len(packet))
-		copy(packetCopyNDTP, packet)
-		_, message := changePacketFromServ(packetCopyNDTP, s)
-		client.SetWriteDeadline(time.Now().Add(writeTimeout))
-		printPacket("handleExtDevMes: send ext device message to client: ", message)
-		_, err = client.Write(message)
-		if err != nil {
-			log.Printf("handleExtDevMes: send ext device message to NDTP server error: %s", err)
-			errClientCh <- err
-			return
+			log.Printf("handleExtResServ: removeFromNDTPExt error for id %d : %v", s.id, err)
 		}
 	} else {
-		if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-			log.Printf("handleExtDevMes: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
-
-			packetCopy := make([]byte, len(packet))
-			copy(packetCopy, packet)
-			printPacket("handleExtDevMes: send ext device result to server: ", packetCopy)
-			_, message := changePacket(packetCopy, s)
-			client.SetWriteDeadline(time.Now().Add(writeTimeout))
-			_, err = client.Write(message)
-			if err != nil {
-				log.Printf("handleExtDevMes: send ext device message to NDTP server error: %s", err)
-				errClientCh <- err
-				return
-			}
-
-			if data.ext.res == 0 {
-				log.Println("handleExtDevMes: received result and remove data from db")
-				err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
-				if err != nil {
-					log.Printf("handleExtDevMes: removeFromNDTPExt error for id %d : %v", s.id, err)
-				}
-			} else {
-				err = setNDTPExtFlag(cR, s.id, "1")
-				if err != nil {
-					log.Printf("handleExtDevMes: setNDTPExtFlag error for id %d : %v", s.id, err)
-				}
-				log.Println("handleExtDevMes: received result with error status")
-			}
-		} else {
-			err = fmt.Errorf("handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum)
+		err = setNDTPExtFlag(cR, s.id, "1")
+		if err != nil {
+			log.Printf("handleExtResServ: setNDTPExtFlag error for id %d : %v", s.id, err)
 		}
+		log.Println("handleExtResServ: received result with error status")
 	}
 	return
 }

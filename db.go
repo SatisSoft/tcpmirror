@@ -12,12 +12,12 @@ import (
 
 //from server:
 //conn:id - NPH_SGC_CONN_REQUEST
-//s2c:id1:id2 - NPH_SRV_GENERIC_CONTROLS
-//ext:id - NPH_SRV_EXTERNAL_DEVICE
+//gc_s:id1:id2 - NPH_SRV_GENERIC_CONTROLS
+//ext_s:id - NPH_SRV_EXTERNAL_DEVICE
 
 //from client:
-//ext_c:id; ext_s:id1:id2 - NPH_SRV_EXTERNAL_DEVICE
-//id, ntn:id1:id2 - NPH_SRV_NAVDATA for NDTP Server
+//ext_c:id; ext_id_c:id1:id2 - NPH_SRV_EXTERNAL_DEVICE
+//id, nid:id1:id2 - NPH_SRV_NAVDATA for NDTP Server
 //rnis - NPH_SRV_NAVDATA for EGTS Server
 
 func writeConnDB(c redis.Conn, id uint32, message []byte) error {
@@ -37,7 +37,7 @@ func readConnDB(c redis.Conn, id int) ([]byte, error) {
 }
 
 func writeNDTPid(c redis.Conn, id int, nphID uint32, mill int64) error {
-	key := "ntn:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(nphID), 10)
+	key := "nid:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(nphID), 10)
 	log.Printf("writeNDTPid key: %s; val: %d", key, mill)
 	_, err := c.Do("SET", key, mill, "ex", 50)
 	log.Printf("writeNDTPid err: %v", err)
@@ -45,7 +45,7 @@ func writeNDTPid(c redis.Conn, id int, nphID uint32, mill int64) error {
 }
 
 func readNDTPid(c redis.Conn, id int, nphID uint32) (int64, error) {
-	key := "ntn:" + strconv.FormatUint(uint64(id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
+	key := "nid:" + strconv.FormatUint(uint64(id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
 	res, err := redis.Int64(c.Do("GET", key))
 	log.Printf("readNDTPid key: %s; res: %d", key, res)
 	log.Printf("readNDTPid err: %v", err)
@@ -53,7 +53,7 @@ func readNDTPid(c redis.Conn, id int, nphID uint32) (int64, error) {
 }
 
 func writeNDTPIdExt(c redis.Conn, id int, mesID uint16, mill int64) error {
-	key := "ext_s:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
+	key := "ext_id_c:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
 	log.Printf("writeNDTPIdExt key: %s; val: %d", key, mill)
 	_, err := c.Do("SET", key, mill, "ex", 50)
 	log.Printf("writeNDTPIdExt err: %v", err)
@@ -61,7 +61,7 @@ func writeNDTPIdExt(c redis.Conn, id int, mesID uint16, mill int64) error {
 }
 
 func readNDTPIdExt(c redis.Conn, id int, mesID uint16) (int64, error) {
-	key := "ext_s:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
+	key := "ext_id_c:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
 	res, err := redis.Int64(c.Do("GET", key))
 	log.Printf("readNDTPIdExt key: %s; res: %d", key, res)
 	log.Printf("readNDTPIdExt err: %v", err)
@@ -83,20 +83,17 @@ func write2DB(c redis.Conn, data ndtpData, s *session, packet []byte, time int64
 }
 
 func write2NDTP(c redis.Conn, id int, time int64, packet []byte) error {
-	//log.Printf("write2NDTP id: %d; time: %d; packet: %v", id, time, packet)
 	log.Printf("write2NDTP id: %d; time: %d", id, time)
 	_, err := c.Do("ZADD", id, time, packet)
 	log.Printf("write2NDTP err: %v", err)
 	return err
 }
 
-
-func write2NDTPExtClient(c redis.Conn, id int, time int64, packet []byte) error {
+func writeExtClient(c redis.Conn, id int, time int64, packet []byte) error {
 	key := "ext_c:" + strconv.Itoa(id)
-	//log.Printf("write2NDTP id: %d; time: %d; packet: %v", id, time, packet)
-	log.Printf("write2NDTPExtClient id: %d; time: %d", key, time)
+	log.Printf("writeExtClient id: %s; time: %d", key, time)
 	_, err := c.Do("ZADD", key, time, packet)
-	log.Printf("write2NDTPExtClient err: %v", err)
+	log.Printf("writeExtClient err: %v", err)
 	return err
 }
 
@@ -104,8 +101,16 @@ func getOldNDTPExt(c redis.Conn, id int) ([][]byte, error) {
 	key := "ext_c:" + strconv.Itoa(id)
 	max := getMill() - 60000
 	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", key, 0, max, "LIMIT", 0, 10))
-	log.Printf("getOldNDTPExt: id: %d; max: %d; len(res): %d", key, max, len(res))
+	log.Printf("getOldNDTPExt: id: %s; max: %d; len(res): %d", key, max, len(res))
 	log.Printf("getOldNDTPExt err: %v", err)
+	return res, err
+}
+
+func getScoreExt(c redis.Conn, id int, mes []byte) (int64, error) {
+	key := "ext_c:" + strconv.Itoa(id)
+	log.Printf("getScoreExt key=%d; mes: %v", key, mes)
+	res, err := redis.Int64(c.Do("ZSCORE", key, mes))
+	log.Printf("getScoreExt res=%d; err: %v", res, mes)
 	return res, err
 }
 
@@ -230,7 +235,7 @@ func getOldEGTS(c redis.Conn) (res [][]byte, err error) {
 }
 
 func writeControlID(c redis.Conn, id, id1 int, id2 uint32) error {
-	key := "s2c:" + strconv.Itoa(id) + ":" + strconv.Itoa(id1)
+	key := "gc_s:" + strconv.Itoa(id) + ":" + strconv.Itoa(id1)
 	log.Printf("writeControlID key: %s; val: %v", key, id2)
 	val := strconv.Itoa(int(id2))
 	_, err := c.Do("SET", key, val, "ex", 30)
@@ -239,79 +244,10 @@ func writeControlID(c redis.Conn, id, id1 int, id2 uint32) error {
 }
 
 func readControlID(c redis.Conn, id, id1 int) (int, error) {
-	key := "s2c:" + strconv.Itoa(id) + ":" + strconv.Itoa(id1)
+	key := "gc_s:" + strconv.Itoa(id) + ":" + strconv.Itoa(id1)
 	res, err := redis.Int(c.Do("GET", key))
 	log.Printf("readControlID key: %s; res: %d", key, res)
 	log.Printf("readControlID err: %v", err)
-	return res, err
-}
-
-func write2DBServer(c redis.Conn, s *session, packet []byte, time int64) error {
-	key := "serv:" + strconv.Itoa(s.id)
-	_, err := c.Do("ZADD", key, time, packet)
-	log.Printf("write2DBServer packet: %v", packet)
-	log.Printf("write2DBServer id: %d, time: %d, err: %v", s.id, time, err)
-	return err
-}
-
-func removeFromNDTPExtServ(c redis.Conn, id int, mesID uint16) error {
-	time, err := readNDTPIdExtServ(c, id, mesID)
-	if err != nil {
-		return err
-	}
-	log.Printf("removeFromNDTPExtServ: id: %d; time: %d", id, time)
-	key := "serv:" + strconv.Itoa(id)
-	n, err := c.Do("ZREMRANGEBYSCORE", key, time, time)
-	log.Printf("removeFromNDTPExtServ n=%d; err: %v", n, err)
-	return err
-}
-
-func writeNDTPIdExtServ(c redis.Conn, id int, mesID uint16, mill int64) error {
-	key := "s_ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
-	log.Printf("writeNDTPIdExtServ key: %s; val: %d", key, mill)
-	_, err := c.Do("SET", key, mill, "ex", 50)
-	log.Printf("writeNDTPIdExtServ err: %v", err)
-	return err
-}
-
-func readNDTPIdExtServ(c redis.Conn, id int, mesID uint16) (int64, error) {
-	key := "s_ext:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
-	res, err := redis.Int64(c.Do("GET", key))
-	log.Printf("readNDTPIdExtServ key: %s; res: %d", key, res)
-	log.Printf("readNDTPIdExtServ err: %v", err)
-	return res, err
-}
-
-func getOldNDTPServ(c redis.Conn, id int) ([][]byte, error) {
-	max := getMill() - 60000
-	key := "serv:" + strconv.Itoa(id)
-	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", key, 0, max, "LIMIT", 0, 10))
-	log.Printf("getOldNDTPServ: id: %d; max: %d; len(res): %d", id, max, len(res))
-	log.Printf("getOldNDTPServ err: %v", err)
-	return res, err
-}
-
-func getScoreServ(c redis.Conn, id int, mes []byte) (int64, error) {
-	key := "serv:" + strconv.Itoa(id)
-	log.Printf("getScoreServ id=%d; mes: %v", id, mes)
-	res, err := redis.Int64(c.Do("ZSCORE", key, mes))
-	log.Printf("getScoreServ res=%d; err: %v", res, mes)
-	return res, err
-}
-
-func writeNDTPidServ(c redis.Conn, id int, nphID uint32, mill int64) error {
-	key := "sntn:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(nphID), 10)
-	log.Printf("writeNDTPidServ key: %s; val: %d", key, mill)
-	_, err := c.Do("SET", key, mill, "ex", 50)
-	log.Printf("writeNDTPidServ err: %v", err)
-	return err
-}
-
-func readNDTPidServ(c redis.Conn, id int, nphID uint32) (int64, error) {
-	key := "sntn:" + strconv.FormatUint(uint64(id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
-	res, err := redis.Int64(c.Do("GET", key))
-	log.Printf("readNDTPidServ key: %s; res: %d", key, res)
-	log.Printf("readNDTPidServ err: %v", err)
 	return res, err
 }
 
@@ -322,96 +258,82 @@ func removeExpiredDataNDTP(c redis.Conn, id int) (err error) {
 	if err != nil {
 		return
 	}
-	key := "serv:" + strconv.Itoa(id)
+	key := "ext_s:" + strconv.Itoa(id)
 	_, err = c.Do("ZREMRANGEBYSCORE", key, 0, max)
 	log.Printf("removeExpiredDataNDTP: max: %d", max)
 	log.Printf("removeExpiredDataNDTP err1: %v", err)
+	if err != nil {
+		return
+	}
+
 	return
 }
 
-func removeFromNDTPServ(c redis.Conn, id int, NPHReqID uint32) error {
-	time, err := readNDTPidServ(c, id, NPHReqID)
-	if err != nil {
-		log.Printf("removeFromNDTPServ: error %s", err)
-		return err
-	}
-	key := "serv:" + strconv.Itoa(id)
-	log.Printf("removeFromNDTPServ: id: %d; time: %d", id, time)
-	n, err := c.Do("ZREMRANGEBYSCORE", key, time, time)
-	log.Printf("removeFromNDTPServ n=%d; err: %v", n, err)
-	return err
-}
-
-func writeServExt(c redis.Conn, id int, packet []byte, mill int64) error{
-	key := "ext:" + strconv.Itoa(id)
+func writeExtServ(c redis.Conn, id int, packet []byte, mill int64) error {
+	key := "ext_s:" + strconv.Itoa(id)
 	time := strconv.FormatInt(mill, 10)
 	flag := "0"
-	//key := "sntn:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(nphID), 10)
-	log.Printf("writeServExt id: %d; time: %s", id, time)
+	log.Printf("writeExtServ id: %d; time: %s", id, time)
 	_, err := c.Do("HMSET", key, "time", time, "flag", flag, "packet", packet)
-	log.Printf("writeServExt err: %v", err)
+	log.Printf("writeExtServ err: %v", err)
 	return err
 }
 
-func removeServerExt(c redis.Conn,  id int) error{
-	key := "ext:" + strconv.Itoa(id)
+func removeServerExt(c redis.Conn, id int) error {
+	key := "ext_s:" + strconv.Itoa(id)
 	log.Printf("removeServerExt id: %d;", id)
 	_, err := c.Do("DEL", key)
 	log.Printf("removeServerExt err: %v;", err)
 	return err
 }
 
-func setNDTPExtFlag(c redis.Conn, id int, flag string) error{
-	key := "ext:" + strconv.Itoa(id)
+func setNDTPExtFlag(c redis.Conn, id int, flag string) error {
+	key := "ext_s:" + strconv.Itoa(id)
 	log.Printf("setServExtFlag key: %s; flag: %s", key, flag)
 	_, err := c.Do("HSET", key, flag, flag)
 	return err
 }
 
-func getServExt(c redis.Conn, id int) (mes []byte, err error){
-	key := "ext:" + strconv.Itoa(id)
+func getServExt(c redis.Conn, id int) (mes []byte, time int64, flag string, err error) {
+	key := "ext_s:" + strconv.Itoa(id)
 	log.Printf("getServExt key: %s", key)
 	res, err := redis.StringMap(c.Do("HGETALL", key))
-	if err != nil{
+	if err != nil {
 		log.Printf("getServExt error: %v", err)
 		return
 	}
-	if res["flag"] == "1"{
-		time, err := strconv.ParseInt(res["time"], 10, 64)
-		if err != nil{
-			fmt.Printf("getServExt parse time error: %v", err)
-		}
-		now := getMill()
-		if now - time > 60000{
-			mes = []byte(res["packet"])
-			return
-		}
+	flag = res["flag"]
+	time, err = strconv.ParseInt(res["time"], 10, 64)
+	if err != nil {
+		log.Printf("getServExt parse time error: %v", err)
 	}
+	mes = []byte(res["packet"])
+
 	return
 }
 
-func setFlagServerExt(c redis.Conn,  id int) error{
-	key := "ext:" + strconv.Itoa(id)
+func setFlagServerExt(c redis.Conn, id int, flag string) error {
+	key := "ext_s:" + strconv.Itoa(id)
 	log.Printf("setFlagServerExt id: %d;", id)
 	exist, err := c.Do("EXISTS", key)
-	if err != nil{
+	if err != nil {
 		log.Printf("setFlagServerExt: error checking existance for key: %v", key)
 		return err
 	}
 	log.Printf("setFlagServerExt id exist: %v;", exist)
-	if exist == "1"{
-		_, err = c.Do("HSETS", key, "flag", "1")
+	if exist == "1" {
+		_, err = c.Do("HSET", key, "flag", flag)
 		log.Printf("setFlagServerExt err2: %v;", err)
 	} else {
 		err = fmt.Errorf("setFlagServerExt: record doesn't exist: %v", err)
-		return err
 	}
 	return err
 }
 
-func removeOldNDTPExt(c redis.Conn,  id int, time int64) error{
-	log.Printf("removeOldNDTPExt: id: %d; time: %d", id, time)
-	n, err := c.Do("ZREMRANGEBYSCORE", id, time, time)
-	log.Printf("removeOldNDTPExt n=%d; err: %v", n, err)
+func removeOldExt(c redis.Conn, id int, time int64) error {
+	key := "ext_c:" + strconv.Itoa(id)
+	log.Printf("removeOldExt: key: %s; time: %d", key, time)
+	n, err := c.Do("ZREMRANGEBYSCORE", key, time, time)
+	log.Printf("removeOldExt n=%d; err: %v", n, err)
 	return err
 }

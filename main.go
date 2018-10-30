@@ -19,7 +19,7 @@ const (
 	defaultBufferSize = 1024
 	headerSize        = 15
 	writeTimeout      = 10 * time.Second
-	readTimeout      = 180 * time.Second
+	readTimeout       = 180 * time.Second
 )
 
 var (

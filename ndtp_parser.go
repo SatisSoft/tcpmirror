@@ -8,7 +8,6 @@ import (
 	"log"
 	"net"
 	"strings"
-	"time"
 )
 
 type ndtpData struct {
@@ -334,8 +333,4 @@ func getIP(c net.Conn) net.IP {
 	ip := ipPort[0]
 	ip1 := net.ParseIP(ip)
 	return ip1.To4()
-}
-
-func getMill() int64 {
-	return time.Now().UnixNano() / 1000000
 }
