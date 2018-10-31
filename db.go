@@ -276,6 +276,7 @@ func getServExt(c redis.Conn, id int) (mes []byte, time int64, flag string, mesI
 		log.Printf("getServExt error: %v", err)
 		return
 	}
+	log.Printf("getServExt: get result: %v", res)
 	flag = res["flag"]
 	time, err = strconv.ParseInt(res["time"], 10, 64)
 	if err != nil {
