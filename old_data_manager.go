@@ -244,4 +244,8 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 			bufOld = []byte(nil)
 		}
 	}
+	if len(bufOld) > 0{
+		log.Printf("checkOldDataEGTS: send rest packets to EGTS server: %v", bufOld)
+		send2egts(bufOld)
+	}
 }
