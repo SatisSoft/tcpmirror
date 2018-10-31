@@ -174,9 +174,9 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 	switch {
 	case numPackets > 1:
 		for _, pack := range packets {
-			log.Printf("deleteEGTS: bytes1: %v; bytes2: %v", id, binary.LittleEndian.Uint64(pack[0:4]))
+			log.Printf("deleteEGTS: bytes1: %v; bytes2: %v", id, binary.LittleEndian.Uint32(pack[0:4]))
 			//if bytes.Compare(pack[0:4], idB.Bytes()) == 0 {
-			if id == binary.LittleEndian.Uint64(pack[0:4]) {
+			if id == uint64(binary.LittleEndian.Uint32(pack[0:4])) {
 				var n int
 				n, err = redis.Int(c.Do("ZREM", "rnis", pack))
 				if err != nil {
