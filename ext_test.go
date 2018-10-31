@@ -45,6 +45,7 @@ func TestExtServ1(t *testing.T) {
 	if flag != "0" {
 		t.Errorf("incorrect flag: %s", flag)
 	}
+	removeServerExt(cR, id)
 }
 
 func TestExtServ2(t *testing.T) {
@@ -84,6 +85,7 @@ func TestExtServ2(t *testing.T) {
 	if flag != "1" {
 		t.Errorf("incorrect flag: %s", flag)
 	}
+	removeServerExt(cR, id)
 }
 
 func TestExtServ3(t *testing.T) {
@@ -131,4 +133,32 @@ func TestExtServ3(t *testing.T) {
 		t.Errorf("removeServerExt failed")
 	}
 
+}
+
+func TestExtClient1(t *testing.T){
+	id := 21
+	var mesID uint16 = 2001
+	mill := getMill()
+	var cR redis.Conn
+	for {
+		var err error
+		cR, err = redis.Dial("tcp", ":6379")
+		if err != nil {
+			log.Printf("serverSession: error connecting to redis in serverSession: %s\n", err)
+		} else {
+			break
+		}
+	}
+	err := writeExtClient(cR, id, mill, packet)
+	if err != nil {
+		t.Errorf("writeExtClient error: %v", err)
+	}
+	err = writeNDTPIdExt(cR, id, mesID, mill)
+	if err != nil {
+		t.Errorf("writeNDTPIdExt error: %v", err)
+	}
+	err = removeFromNDTPExt(cR, id, mesID)
+	if err != nil {
+		t.Errorf("removeFromNDTPExt error: %v", err)
+	}
 }

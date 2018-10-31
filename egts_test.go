@@ -25,7 +25,7 @@ func TestParserEGTS(t *testing.T) {
 		1, 0, 3, 11, 0, 28, 0, 1, 0, 0, 212, 3, 0, 0, 18, 0, 1, 0, 24, 2, 2, 0, 3, 0, 3, 0, 0, 0, 3, 0, 2, 0, 0, 0, 3, 0, 1, 0, 0, 58, 7}
 	reqIdsOrig := []byte{1, 2, 3}
 	reqIdsForm, err := parseEGTS(packet)
-	if err != nil{
+	if err != nil {
 		t.Errorf("parseEGTS error: %s", err)
 	}
 	if !reflect.DeepEqual(reqIdsOrig, reqIdsForm) {

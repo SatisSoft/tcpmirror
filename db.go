@@ -115,8 +115,9 @@ func removeFromNDTPExt(c redis.Conn, id int, mesID uint16) error {
 	if err != nil {
 		return err
 	}
-	log.Printf("removeFromNDTPExt: id: %d; time: %d", id, time)
-	n, err := c.Do("ZREMRANGEBYSCORE", id, time, time)
+	key := "ext_c:" + strconv.Itoa(id)
+	log.Printf("removeFromNDTPExt: key: %s; time: %d", key, time)
+	n, err := c.Do("ZREMRANGEBYSCORE", key, time, time)
 	log.Printf("removeFromNDTPExt n=%d; err: %v", n, err)
 	return err
 }
@@ -276,7 +277,7 @@ func getServExt(c redis.Conn, id int) (mes []byte, time int64, flag string, mesI
 		log.Printf("getServExt error: %v", err)
 		return
 	}
-	if len(res) == 0{
+	if len(res) == 0 {
 		log.Printf("res for %s is empty", key)
 		err = fmt.Errorf("getServExt res is empty for %s", key)
 		return
@@ -303,7 +304,7 @@ func setFlagServerExt(c redis.Conn, id int, flag string) error {
 		return err
 	}
 	log.Printf("setFlagServerExt: id exist: %v;", exist)
-	log.Printf("setFlagServerExt: f: %d %[1]T; f1: %d %[2]T; is equal: %t", exist, 1, exist==1)
+	log.Printf("setFlagServerExt: f: %d %[1]T; f1: %d %[2]T; is equal: %t", exist, 1, exist == 1)
 	if exist == 1 {
 		_, err = c.Do("HSET", key, "flag", flag)
 		log.Printf("setFlagServerExt: err2: %v;", err)
