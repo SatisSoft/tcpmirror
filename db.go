@@ -298,8 +298,8 @@ func setFlagServerExt(c redis.Conn, id int, flag string) error {
 		return err
 	}
 	log.Printf("setFlagServerExt: id exist: %v;", exist)
-	log.Printf("setFlagServerExt: f: %s; f1: %s; is equal: %t", exist, "1", exist=="1")
-	if exist == "1" {
+	log.Printf("setFlagServerExt: f: %d; f1: %s; is equal: %t", exist, 1, exist==1)
+	if exist == 1 {
 		_, err = c.Do("HSET", key, "flag", flag)
 		log.Printf("setFlagServerExt: err2: %v;", err)
 	} else {
