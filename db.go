@@ -160,8 +160,8 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 	log.Printf("deleteEGTS: id: %d, err: %v", id, err)
 	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
 	log.Printf("deleteEGTS: time: %d, err: %v", time, err)
-	idB := new(bytes.Buffer)
-	binary.Write(idB, binary.LittleEndian, id)
+	//idB := new(bytes.Buffer)
+	//binary.Write(idB, binary.LittleEndian, id)
 
 	packets, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", time, time))
 	log.Printf("deleteEGTS 2: key: %s; mssageID: %d", key, time)
@@ -174,8 +174,9 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 	switch {
 	case numPackets > 1:
 		for _, pack := range packets {
-			log.Printf("deleteEGTS: bytes1: %v; bytes2: %v", pack[0:4], idB.Bytes())
-			if bytes.Compare(pack[0:4], idB.Bytes()) == 0 {
+			log.Printf("deleteEGTS: bytes1: %v; bytes2: %v", id, binary.LittleEndian.Uint64(pack[0:4]))
+			//if bytes.Compare(pack[0:4], idB.Bytes()) == 0 {
+			if id == binary.LittleEndian.Uint64(pack[0:4]) {
 				var n int
 				n, err = redis.Int(c.Do("ZREM", "rnis", pack))
 				if err != nil {
