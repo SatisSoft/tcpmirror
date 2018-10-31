@@ -178,8 +178,12 @@ FORLOOP:
 		}
 	}
 	close(ErrNDTPCh)
+	log.Printf("handleConnection: %d close connection to client", connNo)
 	c.Close()
-	ndtpConn.conn.Close()
+	if !ndtpConn.closed{
+		log.Printf("handleConnection: %d close connection to server", connNo)
+		ndtpConn.conn.Close()
+	}
 
 }
 
