@@ -222,10 +222,10 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 				dataNDTP.ToRnis.messageID = strconv.Itoa(int(id)) + ":" + strconv.FormatInt(mill, 10)
 				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID, *egtsReqID)
 				bufOld = append(bufOld, packet...)
-				log.Printf("writeEGTSid in checkOldDataEGTS: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
+				log.Printf("checkOldDataEGTS: writeEGTSid %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
 				err = writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
 				if err != nil {
-					log.Printf("error writeEGTSid in checkOldDataEGTS: %v", err)
+					log.Printf("checkOldDataEGTS: error writeEGTSid in checkOldDataEGTS: %v", err)
 					continue
 				}
 				*egtsMessageID++
@@ -238,9 +238,10 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 			}
 			i++
 		} else {
+			log.Printf("checkOldDataEGTS: send old EGTS packets to EGTS server: %v", bufOld)
 			i = 0
 			send2egts(bufOld)
-			bufOld = nil
+			bufOld = []byte(nil)
 		}
 	}
 }

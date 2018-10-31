@@ -211,9 +211,9 @@ func getOldEGTS(c redis.Conn) (res [][]byte, err error) {
 }
 
 func getEGTSScore(c redis.Conn, mes []byte)(int64, error){
-	log.Printf("getEGTSScore mes: %v", "rnis", mes)
+	log.Printf("getEGTSScore mes: %v", mes)
 	res, err := redis.Int64(c.Do("ZSCORE", "rnis", mes))
-	log.Printf("getEGTSScore res=%d; err: %v", res, mes)
+	log.Printf("getEGTSScore res=%d; err: %v", res, err)
 	return res, err
 }
 
