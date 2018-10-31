@@ -291,17 +291,19 @@ func getServExt(c redis.Conn, id int) (mes []byte, time int64, flag string, mesI
 
 func setFlagServerExt(c redis.Conn, id int, flag string) error {
 	key := "ext_s:" + strconv.Itoa(id)
-	log.Printf("setFlagServerExt id: %d;", id)
+	log.Printf("setFlagServerExt: id %d;", id)
 	exist, err := c.Do("EXISTS", key)
 	if err != nil {
 		log.Printf("setFlagServerExt: error checking existance for key: %v", key)
 		return err
 	}
-	log.Printf("setFlagServerExt id exist: %v;", exist)
+	log.Printf("setFlagServerExt: id exist: %v;", exist)
+	log.Printf("setFlagServerExt: f: %s; f1: %s; is equal: %t", exist, "1", exist=="1")
 	if exist == "1" {
 		_, err = c.Do("HSET", key, "flag", flag)
-		log.Printf("setFlagServerExt err2: %v;", err)
+		log.Printf("setFlagServerExt: err2: %v;", err)
 	} else {
+		log.Printf("setFlagServerExt: packet %s doesn't exist", key)
 		err = fmt.Errorf("setFlagServerExt: record doesn't exist: %v", err)
 	}
 	return err
