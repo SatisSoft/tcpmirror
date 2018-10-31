@@ -150,14 +150,16 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 	messageID, err := redis.String(c.Do("GET", key))
 	log.Printf("deleteEGTS 1: key: %s; mssageID: %s", key, messageID)
 	if err != nil {
-		log.Println("error get EGTS message id from db: ", err)
+		log.Println("deleteEGTS: error get EGTS message id from db: ", err)
 		return
 	}
-	log.Println("get messageID: ", messageID)
+	log.Println("deleteEGTS: get messageID: ", messageID)
 	messageIDSplit := strings.Split(messageID, ":")
-	log.Println("messageIDSplit: ", messageIDSplit)
-	id, err := strconv.ParseUint(messageIDSplit[1], 10, 32)
+	log.Println("deleteEGTS: messageIDSplit: ", messageIDSplit)
+	id, err := strconv.ParseUint(messageIDSplit[0], 10, 32)
+	log.Printf("deleteEGTS: id: %d, err: %v", id, err)
 	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
+	log.Printf("deleteEGTS: time: %d, err: %v", time, err)
 	idB := new(bytes.Buffer)
 	binary.Write(idB, binary.LittleEndian, id)
 
@@ -174,21 +176,21 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 		for _, pack := range packets {
 			log.Printf("deleteEGTS: bytes1: %v; bytes2: %v", pack[0:4], idB.Bytes())
 			if bytes.Compare(pack[0:4], idB.Bytes()) == 0 {
-				_, err = c.Do("ZREM", "rnis", pack)
+				n, err := c.Do("ZREM", "rnis", pack)
 				if err != nil {
 					log.Println("deleteEGTS: error while deleting EGTS packet from db")
 				}
-				log.Println("deleteEGTS: where is no EGTS packets for EGTSMessageID: ", egtsMessageID, "; messageID: ", messageID)
+				log.Printf("deleteEGTS: removed %d records", n)
 				return
 			}
 		}
 	case numPackets == 1:
 		_, err = c.Do("ZREM", "rnis", packets[0])
 		if err != nil {
-			log.Println("error while deleting EGTS packet from db")
+			log.Println("deleteEGTS: error while deleting EGTS packet from db")
 		}
 	default:
-		log.Println("where is no EGTS packets for ", egtsMessageID)
+		log.Println("deleteEGTS: where is no EGTS packets for ", egtsMessageID)
 		return
 	}
 	log.Printf("deleteEGTS err: %v", err)
