@@ -119,7 +119,7 @@ func TestExtServ3(t *testing.T) {
 	if mill != mill1 {
 		t.Errorf("incorrect mill: %d; must be %d", mill1, mill)
 	}
-	if flag != "1" {
+	if flag != "0" {
 		t.Errorf("incorrect flag: %s", flag)
 	}
 	err = removeServerExt(cR, id)
