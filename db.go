@@ -268,9 +268,10 @@ func writeExtServ(c redis.Conn, id int, packet []byte, mill int64, mesID uint16)
 
 func removeServerExt(c redis.Conn, id int) error {
 	key := "ext_s:" + strconv.Itoa(id)
-	log.Printf("removeServerExt id: %d;", id)
-	_, err := c.Do("DEL", key)
-	log.Printf("removeServerExt err: %v;", err)
+	log.Printf("removeServerExt: id: %d;", id)
+	n, err := redis.Int(c.Do("DEL", key))
+	log.Printf("removeServerExt: remove n records: %d;", n)
+	log.Printf("removeServerExt: err: %v;", err)
 	return err
 }
 
