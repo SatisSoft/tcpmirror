@@ -101,11 +101,12 @@ func handleNPHResult(cR redis.Conn, id int, data *ndtpData) (err error) {
 }
 
 func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
-	client.SetWriteDeadline(time.Now().Add(writeTimeout))
 	printPacket("handlePacket: before changing control message: ", packet)
 	reqID, message := changePacketFromServ(packet, s)
+	log.Printf("procNPHResult: old nphReqID: %d; new nphReqID: %d", data.NPH.NPHReqID, reqID)
 	writeControlID(cR, s.id, reqID, data.NPH.NPHReqID)
 	printPacket("handlePacket: send control message to client: ", message)
+	client.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err = client.Write(message)
 	if err != nil {
 		errClientCh <- err
@@ -167,17 +168,6 @@ func handleExtTitleServ(cR redis.Conn, client net.Conn, errClientCh chan error, 
 }
 
 func handleExtResServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
-	packetCopy := copyPack(packet)
-	printPacket("handleExtResServ: send ext device result to server: ", packetCopy)
-	_, message := changePacket(packetCopy, s)
-	client.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err = client.Write(message)
-	if err != nil {
-		log.Printf("handleExtResServ: send ext device message to NDTP server error: %s", err)
-		errClientCh <- err
-		return
-	}
-
 	if data.ext.res == 0 {
 		log.Println("handleExtResServ: received result and remove data from db")
 		err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
@@ -185,11 +175,8 @@ func handleExtResServ(cR redis.Conn, client net.Conn, errClientCh chan error, s 
 			log.Printf("handleExtResServ: removeFromNDTPExt error for id %d : %v", s.id, err)
 		}
 	} else {
-		err = setNDTPExtFlag(cR, s.id, "1")
-		if err != nil {
-			log.Printf("handleExtResServ: setNDTPExtFlag error for id %d : %v", s.id, err)
-		}
-		log.Println("handleExtResServ: received result with error status")
+		err = fmt.Errorf("received ext result message with error status for id %d: %d", s.id, data.ext.res)
+		log.Printf("handleExtResServ: received result with error status for id %d: %d", s.id, data.ext.res)
 	}
 	return
 }

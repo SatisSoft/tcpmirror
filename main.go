@@ -158,7 +158,6 @@ func handleConnection(c net.Conn, connNo uint64) {
 	cN, err := net.Dial("tcp", NDTPAddress)
 	var s session
 	s.id = int(data.NPH.ID)
-	go ndtpRemoveExpired(s.id, ErrNDTPCh)
 	var mu sync.Mutex
 	if err != nil {
 		log.Printf("handleConnection: error while connecting to NDTP server: %s", err)

@@ -120,7 +120,7 @@ func checkOldDataServ(cR redis.Conn, s *session, client net.Conn, id int) {
 		}
 		return
 	}
-	err = setNDTPExtFlag(cR, s.id, "0")
+	err = setFlagServerExt(cR, s.id, "0")
 	if err != nil {
 		log.Printf("checkOldDataNDTPServ: setNDTPExtFlag error: %s", err)
 	}

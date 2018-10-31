@@ -14,7 +14,8 @@ func TestParserNDTP(t *testing.T) {
 		0, 2, 0, 0, 0, 0, 0}
 	rnis := rnisData{1522961700, 37.692578, 55.7890249, 339, 0, false, 0, "", 0, 0, true, true, true}
 	nph := nphData{1, 2, 0, true, 0, false, 0}
-	dataOrig := ndtpData{0x02, 0x00, true, nph, rnis}
+	var ext extDevice
+	dataOrig := ndtpData{0x02, 0x00, true, nph, rnis, ext}
 	dataForm, _, _, _ := parseNDTP(packet)
 	if !reflect.DeepEqual(dataForm, dataOrig) {
 		t.Error("For packet", packet, "\n",
