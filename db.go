@@ -210,6 +210,13 @@ func getOldEGTS(c redis.Conn) (res [][]byte, err error) {
 	return
 }
 
+func getEGTSScore(c redis.Conn, mes []byte)(int64, error){
+	log.Printf("getEGTSScore mes: %v", "rnis", mes)
+	res, err := redis.Int64(c.Do("ZSCORE", "rnis", mes))
+	log.Printf("getEGTSScore res=%d; err: %v", res, mes)
+	return res, err
+}
+
 func writeControlID(c redis.Conn, id, id1 int, id2 uint32) error {
 	key := "gc_s:" + strconv.Itoa(id) + ":" + strconv.Itoa(id1)
 	log.Printf("writeControlID key: %s; val: %v", key, id2)

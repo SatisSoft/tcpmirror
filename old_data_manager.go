@@ -1,9 +1,11 @@
 package main
 
 import (
+	"encoding/binary"
 	"github.com/gomodule/redigo/redis"
 	"log"
 	"net"
+	"strconv"
 	"sync"
 	"time"
 )
@@ -211,12 +213,17 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 		if i < 10 {
 			log.Printf("checkOldDataEGTS: try to send message %v", msg)
 			var dataNDTP ndtpData
-			dataNDTP, _, _, err = parseNDTP(msg)
-			if err != nil {
+			id := binary.LittleEndian.Uint32(msg)
+			msgCopy := copyPack(msg)
+			dataNDTP, _, _, err = parseNDTP(msgCopy)
+			if err == nil {
+				dataNDTP.ToRnis.id = id
+				mill, err := getEGTSScore(cR, msg)
+				dataNDTP.ToRnis.messageID = strconv.Itoa(int(id)) + ":" + strconv.FormatInt(mill, 10)
 				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID, *egtsReqID)
 				bufOld = append(bufOld, packet...)
 				log.Printf("writeEGTSid in checkOldDataEGTS: %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
-				err := writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
+				err = writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
 				if err != nil {
 					log.Printf("error writeEGTSid in checkOldDataEGTS: %v", err)
 					continue
@@ -226,6 +233,8 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 				if err != nil {
 					log.Printf("checkOldDataEGTS: error while write EGTS id %s: %s", dataNDTP.ToRnis.messageID, err)
 				}
+			} else{
+				log.Printf("checkOldDataEGTS: parse NDTP error: %v", err)
 			}
 			i++
 		} else {
