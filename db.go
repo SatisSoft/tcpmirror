@@ -240,16 +240,15 @@ func removeExpiredDataNDTP(c redis.Conn, id int) (err error) {
 	if err != nil {
 		return
 	}
-
 	return
 }
 
-func writeExtServ(c redis.Conn, id int, packet []byte, mill int64) error {
+func writeExtServ(c redis.Conn, id int, packet []byte, mill int64, mesID uint16) error {
 	key := "ext_s:" + strconv.Itoa(id)
 	time := strconv.FormatInt(mill, 10)
 	flag := "0"
 	log.Printf("writeExtServ id: %d; time: %s", id, time)
-	_, err := c.Do("HMSET", key, "time", time, "flag", flag, "packet", packet)
+	_, err := c.Do("HMSET", key, "time", time, "flag", flag, "mesID", mesID, "packet", packet)
 	log.Printf("writeExtServ err: %v", err)
 	return err
 }
@@ -269,7 +268,7 @@ func removeServerExt(c redis.Conn, id int) error {
 //	return err
 //}
 
-func getServExt(c redis.Conn, id int) (mes []byte, time int64, flag string, err error) {
+func getServExt(c redis.Conn, id int) (mes []byte, time int64, flag string, mesID uint64, err error) {
 	key := "ext_s:" + strconv.Itoa(id)
 	log.Printf("getServExt key: %s", key)
 	res, err := redis.StringMap(c.Do("HGETALL", key))
@@ -283,7 +282,10 @@ func getServExt(c redis.Conn, id int) (mes []byte, time int64, flag string, err 
 		log.Printf("getServExt parse time error: %v", err)
 	}
 	mes = []byte(res["packet"])
-
+	mesID, err = strconv.ParseUint(res["mesID"], 10, 16)
+	if err != nil {
+		log.Printf("getServExt parse mesID error: %v", err)
+	}
 	return
 }
 
@@ -324,7 +326,7 @@ func getOldNDTPExt(c redis.Conn, id int) ([][]byte, error) {
 
 func getScoreExt(c redis.Conn, id int, mes []byte) (int64, error) {
 	key := "ext_c:" + strconv.Itoa(id)
-	log.Printf("getScoreExt key=%d; mes: %v", key, mes)
+	log.Printf("getScoreExt key=%s; mes: %v", key, mes)
 	res, err := redis.Int64(c.Do("ZSCORE", key, mes))
 	log.Printf("getScoreExt res=%d; err: %v", res, mes)
 	return res, err

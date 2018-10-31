@@ -137,19 +137,19 @@ func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *ses
 func handleExtServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
 	log.Printf("handleExtServ: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
 	if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA {
-		err = handleExtTitleServ(cR, client, errClientCh, s, packet)
+		err = handleExtTitleServ(cR, client, errClientCh, s, data, packet)
 	} else if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-		err = handleExtResServ(cR, client, errClientCh, s, data, packet)
+		err = handleExtResServ(cR, s, data)
 	} else {
 		err = fmt.Errorf("unknown NPHType: %d, packet %v", data.NPH.NPHType, packet)
 	}
 	return err
 }
 
-func handleExtTitleServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, packet []byte) (err error) {
+func handleExtTitleServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
 	packetCopy := copyPack(packet)
 	mill := getMill()
-	err = writeExtServ(cR, s.id, packetCopy, mill)
+	err = writeExtServ(cR, s.id, packetCopy, mill, data.ext.mesID)
 	if err != nil {
 		log.Println("handleExtTitleServ: send ext error reply to server because of: ", err)
 		return
@@ -167,7 +167,7 @@ func handleExtTitleServ(cR redis.Conn, client net.Conn, errClientCh chan error, 
 	return
 }
 
-func handleExtResServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
+func handleExtResServ(cR redis.Conn, s *session, data *ndtpData) (err error) {
 	if data.ext.res == 0 {
 		log.Println("handleExtResServ: received result and remove data from db")
 		err = removeFromNDTPExt(cR, s.id, data.ext.mesID)

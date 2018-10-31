@@ -106,7 +106,7 @@ func resendExt(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, 
 }
 
 func checkOldDataServ(cR redis.Conn, s *session, client net.Conn, id int) {
-	res, mill, flag, err := getServExt(cR, id)
+	res, mill, flag, _, err := getServExt(cR, id)
 	if err != nil {
 		log.Printf("checkOldDataNDTPServ: error getServExt: %v", err)
 		return
@@ -130,6 +130,41 @@ func checkOldDataServ(cR redis.Conn, s *session, client net.Conn, id int) {
 	_, err = client.Write(message)
 	if err != nil {
 		log.Printf("checkOldDataNDTPServ: send ext device message to NDTP client error: %s", err)
+	}
+}
+
+func ndtpRemoveExpired(id int, ErrNDTPCh chan error) {
+	var cR redis.Conn
+	for {
+		var err error
+		cR, err = redis.Dial("tcp", ":6379")
+		if err != nil {
+			log.Printf("error connecting to redis in ndtpRemoveExpired for id %d: %s\n", id, err)
+		} else {
+			break
+		}
+	}
+	defer cR.Close()
+	for {
+		select {
+		case <-ErrNDTPCh:
+			return
+		default:
+			time.Sleep(1 * time.Hour)
+		}
+		err := removeExpiredDataNDTP(cR, id)
+		if err != nil {
+			log.Printf("error while remove expired data ndtp for id %d: %s", id, err)
+			for {
+				cR, err = redis.Dial("tcp", ":6379")
+				if err != nil {
+					log.Printf("error reconnecting to redis in ndtpRemoveExpired for id %d: %s\n", id, err)
+				} else {
+					break
+				}
+				time.Sleep(1 * time.Minute)
+			}
+		}
 	}
 }
 

@@ -177,18 +177,25 @@ func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, 
 }
 
 func handleExtResClient(cR redis.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, mill int64) (err error) {
-	if data.ext.res == 0 {
-		log.Println("handleExtResClient: received result and remove data from db")
-		err = removeServerExt(cR, s.id)
-		if err != nil {
-			log.Printf("handleExtResClient: removeFromNDTPExt error for id %d : %v", s.id, err)
+	_, _, _, mesID, err := getServExt(cR, s.id)
+	if err != nil {
+		log.Printf("handleExtResClient: error getServExt: %v", err)
+	} else if mesID == uint64(data.ext.mesID) {
+		if data.ext.res == 0 {
+			log.Println("handleExtResClient: received result and remove data from db")
+			err = removeServerExt(cR, s.id)
+			if err != nil {
+				log.Printf("handleExtResClient: removeFromNDTPExt error for id %d : %v", s.id, err)
+			}
+		} else {
+			log.Println("handleExtResClient: received result with error status")
+			err = setFlagServerExt(cR, s.id, "1")
+			if err != nil {
+				log.Printf("handleExtResClient: setFlagServerExt error: %v", err)
+			}
 		}
 	} else {
-		log.Println("handleExtResClient: received result with error status")
-		err = setFlagServerExt(cR, s.id, "1")
-		if err != nil{
-			log.Printf("handleExtResClient: setFlagServerExt error: %v", err)
-		}
+		log.Printf("handleExtResClient: receive reply with mesID: %d; messID stored in DB: %d", data.ext.mesID, mesID)
 	}
 	packetCopy := copyPack(packet)
 	_, message := changePacket(packetCopy, s)

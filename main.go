@@ -158,6 +158,7 @@ func handleConnection(c net.Conn, connNo uint64) {
 	cN, err := net.Dial("tcp", NDTPAddress)
 	var s session
 	s.id = int(data.NPH.ID)
+	go ndtpRemoveExpired(s.id, ErrNDTPCh)
 	var mu sync.Mutex
 	if err != nil {
 		log.Printf("handleConnection: error while connecting to NDTP server: %s", err)
@@ -264,7 +265,7 @@ func clientID(s *session) (uint16, uint32) {
 }
 
 func printPacket(s string, slice []byte) {
-	sliceText := []string{}
+	sliceText := []string(nil)
 	for i := range slice {
 		number := slice[i]
 		text := strconv.Itoa(int(number))
