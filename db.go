@@ -176,7 +176,8 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 		for _, pack := range packets {
 			log.Printf("deleteEGTS: bytes1: %v; bytes2: %v", pack[0:4], idB.Bytes())
 			if bytes.Compare(pack[0:4], idB.Bytes()) == 0 {
-				n, err := c.Do("ZREM", "rnis", pack)
+				var n int
+				n, err = redis.Int(c.Do("ZREM", "rnis", pack))
 				if err != nil {
 					log.Println("deleteEGTS: error while deleting EGTS packet from db")
 				}
