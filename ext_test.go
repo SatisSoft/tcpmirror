@@ -127,11 +127,8 @@ func TestExtServ3(t *testing.T) {
 		t.Errorf("removeServerExt error: %v", err)
 	}
 	_, mill1, _, _, err = getServExt(cR, id)
-	if err != nil {
-		t.Errorf("removeServerExt error 1: %v", err)
-	}
-	if mill1 != 0 {
-		t.Errorf("incorrect mill: %d; must be %d", mill1, 0)
+	if err == nil {
+		t.Errorf("removeServerExt failed")
 	}
 
 }
