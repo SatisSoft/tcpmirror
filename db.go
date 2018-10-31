@@ -172,12 +172,13 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
 	switch {
 	case numPackets > 1:
 		for _, pack := range packets {
+			log.Printf("deleteEGTS: bytes1: %v; bytes2: %v", pack[0:4], idB.Bytes())
 			if bytes.Compare(pack[0:4], idB.Bytes()) == 0 {
 				_, err = c.Do("ZREM", "rnis", pack)
 				if err != nil {
-					log.Println("error while deleting EGTS packet from db")
+					log.Println("deleteEGTS: error while deleting EGTS packet from db")
 				}
-				log.Println("where is no EGTS packets for EGTSMessageID: ", egtsMessageID, "; messageID: ", messageID)
+				log.Println("deleteEGTS: where is no EGTS packets for EGTSMessageID: ", egtsMessageID, "; messageID: ", messageID)
 				return
 			}
 		}
