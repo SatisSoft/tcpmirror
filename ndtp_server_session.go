@@ -103,7 +103,7 @@ func handleNPHResult(cR redis.Conn, id int, data *ndtpData) (err error) {
 func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
 	printPacket("handlePacket: before changing control message: ", packet)
 	reqID, message := changePacketFromServ(packet, s)
-	log.Printf("procNPHResult: old nphReqID: %d; new nphReqID: %d", data.NPH.NPHReqID, reqID)
+	log.Printf("handlePacket: old nphReqID: %d; new nphReqID: %d", data.NPH.NPHReqID, reqID)
 	writeControlID(cR, s.id, reqID, data.NPH.NPHReqID)
 	printPacket("handlePacket: send control message to client: ", message)
 	client.SetWriteDeadline(time.Now().Add(writeTimeout))

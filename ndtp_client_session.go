@@ -142,11 +142,11 @@ func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, 
 	packetCopy := copyPack(packet)
 	err = writeExtClient(cR, s.id, mill, packet)
 	if err != nil {
-		log.Println("procExtDevice: send ext error reply to client because of: ", err)
+		log.Println("handleExtTitleClient: send ext error reply to client because of: ", err)
 		errorReplyExt(client, data.ext.mesID, data.ext.packNum, packetCopy)
 		return
 	}
-	log.Println("procExtDevice: start to send ext device message to NDTP server")
+	log.Println("handleExtTitleClient: start to send ext device message to NDTP server")
 	if ndtpConn.closed != true {
 		packetCopyNDTP := copyPack(packet)
 		_, message := changePacket(packetCopyNDTP, s)
@@ -154,11 +154,11 @@ func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, 
 		if err != nil {
 			log.Printf("error writeNDTPIdExt: %v", err)
 		} else {
-			printPacket("procExtDevice: send ext device message to server: ", message)
+			printPacket("handleExtTitleClient: send ext device message to server: ", message)
 			ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 			_, err = ndtpConn.conn.Write(message)
 			if err != nil {
-				log.Printf("procExtDevice: send ext device message to NDTP server error: %s", err)
+				log.Printf("handleExtTitleClient: send ext device message to NDTP server error: %s", err)
 				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 			} else {
 				if enableMetrics {
@@ -167,10 +167,10 @@ func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, 
 			}
 		}
 	}
-	log.Println("procExtDevice: start to reply to ext device message")
+	log.Println("handleExtTitleClient: start to reply to ext device message")
 	err = replyExt(client, data.ext.mesID, data.ext.packNum, packet)
 	if err != nil {
-		log.Println("procExtDevice: error replying to ext device message: ", err)
+		log.Println("handleExtTitleClient: error replying to ext device message: ", err)
 		errClientCh <- err
 	}
 	return
