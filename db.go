@@ -131,7 +131,7 @@ func getScore(c redis.Conn, id int, mes []byte) (int64, error) {
 
 func getOldNDTP(c redis.Conn, id int) ([][]byte, error) {
 	max := getMill() - 60000
-	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", id, 0, max, "LIMIT", 0, 10))
+	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", id, 0, max, "LIMIT", 0, 1000))
 	log.Printf("getOldNDTP: id: %d; max: %d; len(res): %d", id, max, len(res))
 	log.Printf("getOldNDTP err: %v", err)
 	return res, err
