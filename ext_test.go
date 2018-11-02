@@ -135,7 +135,7 @@ func TestExtServ3(t *testing.T) {
 
 }
 
-func TestExtClient1(t *testing.T){
+func TestExtClient1(t *testing.T) {
 	id := 21
 	var mesID uint16 = 2001
 	mill := getMill()

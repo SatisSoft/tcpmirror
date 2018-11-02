@@ -233,7 +233,7 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 				if err != nil {
 					log.Printf("checkOldDataEGTS: error while write EGTS id %s: %s", dataNDTP.ToRnis.messageID, err)
 				}
-			} else{
+			} else {
 				log.Printf("checkOldDataEGTS: parse NDTP error: %v", err)
 			}
 			i++
@@ -244,7 +244,7 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 			bufOld = []byte(nil)
 		}
 	}
-	if len(bufOld) > 0{
+	if len(bufOld) > 0 {
 		log.Printf("checkOldDataEGTS: send rest packets to EGTS server: %v", bufOld)
 		send2egts(bufOld)
 	}

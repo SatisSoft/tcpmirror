@@ -113,25 +113,6 @@ func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *ses
 		return
 	}
 	return
-	//client.SetWriteDeadline(time.Now().Add(writeTimeout))
-	//printPacket("handlePacket: before changing control message: ", packet)
-	//mill := getMill()
-	//packetCopy := make([]byte, len(packet))
-	//copy(packetCopy, packet)
-	////err = write2DBServer(cR, s, packetCopy, mill)
-	////if err != nil {
-	////	log.Printf("handlePacket: error write2DBServer: %v", err)
-	////	return
-	////}
-	//NPHReqID, message := changePacketFromServ(packet, s)
-	//err = writeNDTPidServ(cR, s.id, uint32(NPHReqID), mill)
-	//printPacket("handlePacket: send control message to client: ", message)
-	//_, err = client.Write(message)
-	//if err != nil {
-	//	errClientCh <- err
-	//	return
-	//}
-	//return
 }
 
 func handleExtServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {

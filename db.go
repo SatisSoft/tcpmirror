@@ -215,7 +215,7 @@ func getOldEGTS(c redis.Conn) (res [][]byte, err error) {
 	return
 }
 
-func getEGTSScore(c redis.Conn, mes []byte)(int64, error){
+func getEGTSScore(c redis.Conn, mes []byte) (int64, error) {
 	log.Printf("getEGTSScore mes: %v", mes)
 	res, err := redis.Int64(c.Do("ZSCORE", "rnis", mes))
 	log.Printf("getEGTSScore res=%d; err: %v", res, err)
@@ -274,13 +274,6 @@ func removeServerExt(c redis.Conn, id int) error {
 	log.Printf("removeServerExt: err: %v;", err)
 	return err
 }
-
-//func setNDTPExtFlag(c redis.Conn, id int, flag string) error {
-//	key := "ext_s:" + strconv.Itoa(id)
-//	log.Printf("setServExtFlag key: %s; flag: %s", key, flag)
-//	_, err := c.Do("HSET", key, flag, flag)
-//	return err
-//}
 
 func getServExt(c redis.Conn, id int) (mes []byte, time int64, flag string, mesID uint64, err error) {
 	key := "ext_s:" + strconv.Itoa(id)

@@ -102,13 +102,6 @@ func procNPHResult(cR redis.Conn, ndtpConn *connection, s *session, data *ndtpDa
 		log.Printf("procNPHResult: send to NDTP server error: %s", err)
 	}
 	return
-	//if NPHResult == 0 {
-	//	log.Println("procNPHResult receive result ok")
-	//	err = removeFromNDTPServ(cR, s.id, NPHReqID)
-	//} else {
-	//	log.Printf("procNPHResult: nph result error for id %d : %d", s.id, NPHResult)
-	//}
-	//return
 }
 
 func procNoNeedReply(cR redis.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, ErrNDTPCh chan error, mu *sync.Mutex) (err error) {
