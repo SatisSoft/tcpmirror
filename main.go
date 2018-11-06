@@ -7,10 +7,8 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/shirou/gopsutil/load"
 	"github.com/shirou/gopsutil/mem"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net"
-	"strconv"
-	"strings"
 	"sync"
 	"time"
 )
@@ -47,6 +45,7 @@ type session struct {
 	muC            sync.Mutex
 	muS            sync.Mutex
 	id             int
+	logger *logrus.Entry
 }
 
 var (
@@ -63,6 +62,7 @@ var (
 )
 
 func main() {
+	logrus.SetReportCaller(true)
 	flag.StringVar(&listenAddress, "l", "", "listen address (e.g. 'localhost:8080')")
 	flag.StringVar(&NDTPAddress, "n", "", "send NDTP to address (e.g. 'localhost:8081')")
 	flag.StringVar(&EGTSAddress, "e", "", "send EGTS to address (e.g. 'localhost:8082')")
@@ -73,18 +73,18 @@ func main() {
 		return
 	}
 	if graphiteAddress == "" {
-		log.Println("don't send metrics to graphite")
+		logrus.Println("don't send metrics to graphite")
 	} else {
 		startMetrics(graphiteAddress)
 	}
 	l, err := net.Listen("tcp", listenAddress)
 	if err != nil {
-		log.Fatalf("error while listening: %s", err)
+		logrus.Fatalf("error while listening: %s", err)
 	}
 	egtsConn = connection{EGTSAddress, nil, true, false}
 	cE, err := net.Dial("tcp", EGTSAddress)
 	if err != nil {
-		log.Printf("error while connecting to EGTS server: %s", err)
+		logrus.Errorf("error while connecting to EGTS server: %s", err)
 	} else {
 		egtsConn.conn = cE
 		egtsConn.closed = false
@@ -92,7 +92,7 @@ func main() {
 	egtsCr, err := redis.Dial("tcp", ":6379")
 	defer egtsCr.Close()
 	if err != nil {
-		log.Printf("error while connect to redis 1: %s\n", err)
+		logrus.Errorf("error while connect to redis: %s\n", err)
 		return
 	}
 	go egtsSession()
@@ -102,66 +102,70 @@ func main() {
 	for {
 		c, err := l.Accept()
 		if err != nil {
-			log.Fatalf("error while accepting: %s", err)
+			logrus.Errorf("error while accepting: %s", err)
 		}
-		log.Printf("accepted connection %d (%s <-> %s)", connNo, c.RemoteAddr(), c.LocalAddr())
+		logrus.Printf("accepted connection %d (%s <-> %s)", connNo, c.RemoteAddr(), c.LocalAddr())
 		go handleConnection(c, connNo)
 		connNo += 1
 	}
 }
 
 func handleConnection(c net.Conn, connNo uint64) {
+	logger := logrus.WithFields(logrus.Fields{"connNum" : connNo})
 	ndtpConn := connection{NDTPAddress, nil, true, false}
 	defer c.Close()
 	cR, err := redis.Dial("tcp", ":6379")
 	defer cR.Close()
 	if err != nil {
-		log.Printf("handleConnection: error connecting to redis in handleConnection: %s\n", err)
+		logger.Errorf("can't connect to redis: %s\n", err)
 		return
 	}
 	var b [defaultBufferSize]byte
 	c.SetReadDeadline(time.Now().Add(readTimeout))
 	n, err := c.Read(b[:])
 	if err != nil {
-		log.Printf("handleConnection: %d error while getting first message from client %s", connNo, c.RemoteAddr())
+		logger.Warningf("can't get first message from client: %s", err)
 		return
 	}
 	if enableMetrics {
 		countClientNDTP.Inc(1)
 	}
-	log.Printf("handleConnection: %d got first message from client %s", connNo, c.RemoteAddr())
+	logger.Debugf("got first message from client %s", c.RemoteAddr())
 	firstMessage := b[:n]
 	data, packet, _, err := parseNDTP(firstMessage)
 	if err != nil {
-		log.Printf("handleConnection: error: first message is incorrect: %s", err)
+		logger.Warningf("first message is incorrect: %s", err)
 		return
 	}
 	if data.NPH.ServiceID != NPH_SRV_GENERIC_CONTROLS || data.NPH.NPHType != NPH_SGC_CONN_REQUEST {
-		log.Printf("handleConnection: error first message is not conn request. Service: %d, Type %d", data.NPH.ServiceID, data.NPH.NPHType)
+		logger.Warningf("first message is not conn request. Service: %d, Type %d", data.NPH.ServiceID, data.NPH.NPHType)
 	}
 	ip := getIP(c)
-	log.Printf("handleConnection: conn %d: ip: %s\n", connNo, ip)
-	printPacket("handleConnection: before change first packet: ", packet)
+	logger.Printf("ip: %s\n", ip)
+	printPacket(logger,"before change first packet: ", packet)
 	changeAddress(packet, ip)
-	printPacket("handleConnection: after change first packet: ", packet)
+	printPacket(logger,"after change first packet: ", packet)
 	err = writeConnDB(cR, data.NPH.ID, packet)
 	replyCopy := make([]byte, len(packet))
 	copy(replyCopy, packet)
+	var s session
+	s.logger = logger
 	if err != nil {
-		errorReply(c, replyCopy)
+		errorReply(c, replyCopy, &s)
 		return
 	} else {
-		reply(c, data.NPH, replyCopy)
+		reply(c, data.NPH, replyCopy, &s)
 	}
 	errClientCh := make(chan error)
 	ErrNDTPCh := make(chan error)
 	cN, err := net.Dial("tcp", NDTPAddress)
-	var s session
 	s.id = int(data.NPH.ID)
-	go ndtpRemoveExpired(s.id, ErrNDTPCh)
+	logger = logger.WithField("id", s.id)
+	s.logger = logger
+	go ndtpRemoveExpired(&s, ErrNDTPCh)
 	var mu sync.Mutex
 	if err != nil {
-		log.Printf("handleConnection: error while connecting to NDTP server: %s", err)
+		logger.Warningf("can't connect to NDTP server: %s", err)
 	} else {
 		ndtpConn.conn = cN
 		ndtpConn.closed = false
@@ -173,23 +177,23 @@ FORLOOP:
 	for {
 		select {
 		case err := <-errClientCh:
-			log.Printf("handleConnection: %d error from client: %s", connNo, err)
+			logger.Printf("msg from errClientCh: %s", err)
 			break FORLOOP
 		}
 	}
 	close(ErrNDTPCh)
-	log.Printf("handleConnection: %d close connection to client", connNo)
+	logger.Printf("close connection to client")
 	c.Close()
 	if !ndtpConn.closed {
-		log.Printf("handleConnection: %d close connection to server", connNo)
+		logger.Printf("close connection to server")
 		ndtpConn.conn.Close()
 	}
 
 }
 
 func sendFirstMessage(cR redis.Conn, ndtpConn *connection, s *session, firstMessage []byte, ErrNDTPCh chan error, mu *sync.Mutex) {
+	printPacket(s.logger,"sending first packet: ", firstMessage)
 	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-	printPacket("sending first packet: ", firstMessage)
 	_, err := ndtpConn.conn.Write(firstMessage)
 	if err != nil {
 		ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
@@ -203,42 +207,24 @@ func connect(origin net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan 
 	go serverSession(origin, ndtpConn, ErrNDTPCh, errClientCh, s, mu)
 }
 
-func reply(c net.Conn, data nphData, packet []byte) error {
+func reply(c net.Conn, data nphData, packet []byte, s*session) error {
 	if data.isResult {
 		return nil
 	} else {
 		ans := answer(packet)
 		c.SetWriteDeadline(time.Now().Add(writeTimeout))
-		printPacket("reply: send answer: ", ans)
+		printPacket(s.logger,"reply: send answer: ", ans)
 		_, err := c.Write(ans)
 		return err
 	}
 }
-func errorReply(c net.Conn, packet []byte) error {
+func errorReply(c net.Conn, packet []byte, s *session) error {
 	ans := errorAnswer(packet)
 	c.SetWriteDeadline(time.Now().Add(writeTimeout))
-	printPacket("errorReply: send error reply: ", ans)
+	printPacket(s.logger,"errorReply: send error reply: ", ans)
 	_, err := c.Write(ans)
 	return err
 
-}
-func replyExt(c net.Conn, mesID, packNum uint16, packet []byte) error {
-	log.Printf("replyExt: packet: %v", packet)
-	ans := answerExt(packet, mesID, packNum)
-	log.Printf("replyExt: length = %d; ans: %v", len(ans), ans)
-	printPacket("replyExt: send answer: ", ans)
-	c.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err := c.Write(ans)
-	return err
-}
-func errorReplyExt(c net.Conn, mesID, packNum uint16, packet []byte) error {
-	log.Printf("errorReplyExt: packet: %v", packet)
-	ans := errorAnswerExt(packet, mesID, packNum)
-	log.Printf("errorReplyExt: length = %d; ans: %v", len(ans), ans)
-	printPacket("errorReplyExt: send error reply: ", ans)
-	c.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err := c.Write(ans)
-	return err
 }
 
 func serverNPLID(s *session) uint16 {
@@ -268,21 +254,10 @@ func clientID(s *session) (uint16, uint32) {
 	return nplID, nphID
 }
 
-func printPacket(s string, slice []byte) {
-	sliceText := []string(nil)
-	for i := range slice {
-		number := slice[i]
-		text := strconv.Itoa(int(number))
-		sliceText = append(sliceText, text)
-	}
-	result := strings.Join(sliceText, ",")
-	log.Printf("%s {%s}\n", s, result)
-}
-
 func startMetrics(graphiteAddress string) {
 	addr, err := net.ResolveTCPAddr("tcp", graphiteAddress)
 	if err != nil {
-		log.Printf("error while connection to graphite: %s\n", err)
+		logrus.Errorf("error while connection to graphite: %s\n", err)
 	} else {
 		countClientNDTP = metrics.NewCustomCounter()
 		countToServerNDTP = metrics.NewCustomCounter()
@@ -303,7 +278,7 @@ func startMetrics(graphiteAddress string) {
 		metrics.Register("cpu15", cpu15)
 		metrics.Register("cpu1", cpu1)
 		enableMetrics = true
-		log.Println("start sending metrics to graphite")
+		logrus.Println("start sending metrics to graphite")
 		go graphite.Graphite(metrics.DefaultRegistry, 10*10e8, "ndtpserv.metrics", addr)
 		go periodicSysMon()
 	}
@@ -313,7 +288,7 @@ func periodicSysMon() {
 	for {
 		v, err := mem.VirtualMemory()
 		if err != nil {
-			log.Printf("periodic mem mon error: %s", err)
+			logrus.Errorf("periodic mem mon error: %s", err)
 		} else {
 			memFree.Update(int64(v.Free))
 			memUsed.Update(int64(v.Used))
@@ -321,7 +296,7 @@ func periodicSysMon() {
 		}
 		c, err := load.Avg()
 		if err != nil {
-			log.Printf("periodic cpu mon error: %s", err)
+			logrus.Errorf("periodic cpu mon error: %s", err)
 		} else {
 			cpu1.Update(c.Load1)
 			cpu15.Update(c.Load15)

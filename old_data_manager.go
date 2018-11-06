@@ -3,7 +3,7 @@ package main
 import (
 	"encoding/binary"
 	"github.com/gomodule/redigo/redis"
-	"log"
+	"github.com/sirupsen/logrus"
 	"net"
 	"strconv"
 	"sync"
@@ -11,46 +11,48 @@ import (
 )
 
 func checkOldDataClient(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, id int, ErrNDTPCh chan error) {
+	logger := s.logger
 	res, err := getOldNDTP(cR, id)
 	if err != nil {
-		log.Printf("checkOldDataNDTP: getOldNDTP error for if %d : %v", id, err)
+		logger.Warningf("getOldNDTP %d : %v", id, err)
 	} else {
 		resendNav(cR, s, ndtpConn, mu, id, ErrNDTPCh, res)
 	}
 	res, err = getOldNDTPExt(cR, id)
 	if err != nil {
-		log.Printf("checkOldDataNDTP: getOldNDTPExt error for if %d : %v", id, err)
+		logger.Warningf("can't getOldNDTPExt: %v", err)
 	} else {
 		resendExt(cR, s, ndtpConn, mu, id, ErrNDTPCh, res)
 	}
 }
 
 func resendNav(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, id int, ErrNDTPCh chan error, res [][]byte) {
+	logger := s.logger
 	for _, mes := range res {
 		data, _, _, _ := parseNDTP(mes)
 		if ndtpConn.closed != true {
 			mill, err := getScore(cR, id, mes)
 			if err != nil {
-				log.Printf("resendNav: error getting score for %v : %v", mes, err)
+				logger.Warningf("can't get score for %v : %v", mes, err)
 				continue
 			}
 			NPHReqID, message := changePacketHistory(mes, data, s)
 			err = writeNDTPid(cR, s.id, NPHReqID, mill)
 			if err != nil {
-				log.Printf("resendNav: error writeNDTPid: %v", err)
+				logger.Errorf("error writeNDTPid: %v", err)
 			} else {
 				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-				printPacket("resendNav: send message: ", message)
+				printPacket(logger,"send message: ", message)
 				_, err = ndtpConn.conn.Write(message)
 				if err != nil {
-					log.Printf("resendNav: send to NDTP server error: %s", err)
+					logger.Warningf("can't send to NDTP server: %s", err)
 					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 				} else if enableMetrics {
 					countToServerNDTP.Inc(1)
 				}
 			}
 		} else {
-			log.Printf("resendNav: connection to server closed")
+			logger.Debugf("connection to server closed")
 			return
 		}
 		time.Sleep(1 * time.Millisecond)
@@ -58,25 +60,26 @@ func resendNav(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, 
 }
 
 func resendExt(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, id int, ErrNDTPCh chan error, res [][]byte) {
+	logger := s.logger
 	for _, mes := range res {
 		var data ndtpData
 		data, _, _, _ = parseNDTP(mes)
 		if ndtpConn.closed != true {
 			mill, err := getScoreExt(cR, id, mes)
 			if err != nil {
-				log.Printf("resendExt: error getting score for ext %v : %v", mes, err)
+				logger.Warningf("can't get score for ext %v : %v", mes, err)
 				continue
 			}
 			if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
 				_, message := changePacket(mes, s)
-				printPacket("resendExt: send message: ", message)
+				printPacket(logger,"resendExt: send message: ", message)
 				ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 				_, err = ndtpConn.conn.Write(message)
 				if err != nil {
-					log.Printf("resendExt: send to NDTP server error: %s", err)
+					logger.Warningf("can't send to NDTP server: %s", err)
 					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 				} else {
-					log.Printf("resendExt: remove old data for id: %d", id)
+					logger.Debugln("remove old data")
 					removeOldExt(cR, id, mill)
 					if enableMetrics {
 						countToServerNDTP.Inc(1)
@@ -84,16 +87,16 @@ func resendExt(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, 
 				}
 			} else if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA {
 				_, message := changePacket(mes, s)
-				printPacket("resendExt: packet after changing ext device message: ", message)
+				printPacket(logger,"resendExt: packet after changing ext device message: ", message)
 				err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
 				if err != nil {
-					log.Printf("error writeNDTPIdExt: %v", err)
+					logger.Warningf("can't writeNDTPIdExt: %v", err)
 				} else {
-					printPacket("resendExt: send ext device message to server: ", message)
+					printPacket(logger,"send ext device message to server: ", message)
 					ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 					_, err = ndtpConn.conn.Write(message)
 					if err != nil {
-						log.Printf("resendExt: send ext device message to NDTP server error: %s", err)
+						logger.Warningf("can't send ext device message to NDTP server: %s", err)
 						ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 					} else if enableMetrics {
 						countToServerNDTP.Inc(1)
@@ -101,47 +104,49 @@ func resendExt(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, 
 				}
 			}
 		} else {
-			log.Printf("resendExt: connection to server closed")
+			logger.Debugf("connection to server closed")
 			return
 		}
 	}
 }
 
 func checkOldDataServ(cR redis.Conn, s *session, client net.Conn, id int) {
+	logger := s.logger
 	res, mill, flag, _, err := getServExt(cR, id)
 	if err != nil {
-		log.Printf("checkOldDataNDTPServ: error getServExt: %v", err)
+		logger.Warningf("can't getServExt: %v", err)
 		return
 	}
-	log.Printf("checkOldDataNDTPServ: id: %d; mill: %d; flag: %s; res: %v", s.id, mill, flag, res)
+	logger.Debugf("mill: %d; flag: %s; res: %v", mill, flag, res)
 	now := getMill()
 	if now-mill > 60000 && flag == "0" {
 		err = removeServerExt(cR, s.id)
 		if err != nil {
-			log.Printf("checkOldDataNDTPServ: error removing old ext data for id %d : %v", s.id, err)
+			logger.Warningf("can't remove old ext data: %v", err)
 		}
 		return
 	}
 	err = setFlagServerExt(cR, s.id, "0")
 	if err != nil {
-		log.Printf("checkOldDataNDTPServ: setNDTPExtFlag error: %s", err)
+		logger.Warningf("can't setNDTPExtFlag: %s", err)
 	}
 	_, message := changePacketFromServ(res, s)
-	printPacket("checkOldDataNDTPServ: send ext device message to client: ", message)
+	printPacket(logger,"send ext device message to client: ", message)
 	client.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err = client.Write(message)
 	if err != nil {
-		log.Printf("checkOldDataNDTPServ: send ext device message to NDTP client error: %s", err)
+		logger.Warningf("can't send ext device message to NDTP client: %s", err)
 	}
 }
 
-func ndtpRemoveExpired(id int, ErrNDTPCh chan error) {
+func ndtpRemoveExpired(s * session, ErrNDTPCh chan error) {
+	logger := s.logger
 	var cR redis.Conn
 	for {
 		var err error
 		cR, err = redis.Dial("tcp", ":6379")
 		if err != nil {
-			log.Printf("error connecting to redis in ndtpRemoveExpired for id %d: %s\n", id, err)
+			logger.Errorf("can't connect to redis: %s", err)
 		} else {
 			break
 		}
@@ -154,13 +159,13 @@ func ndtpRemoveExpired(id int, ErrNDTPCh chan error) {
 		default:
 			time.Sleep(1 * time.Hour)
 		}
-		err := removeExpiredDataNDTP(cR, id)
+		err := removeExpiredDataNDTP(cR, s.id)
 		if err != nil {
-			log.Printf("error while remove expired data ndtp for id %d: %s", id, err)
+			logger.Warning("can't remove expired data ndtp: %s", err)
 			for {
 				cR, err = redis.Dial("tcp", ":6379")
 				if err != nil {
-					log.Printf("error reconnecting to redis in ndtpRemoveExpired for id %d: %s\n", id, err)
+					logger.Errorf("can't reconnect to redis: %s", err)
 				} else {
 					break
 				}
@@ -171,12 +176,13 @@ func ndtpRemoveExpired(id int, ErrNDTPCh chan error) {
 }
 
 func egtsRemoveExpired() {
+	logger := logrus.WithField("egts", "expired")
 	var cR redis.Conn
 	for {
 		var err error
 		cR, err = redis.Dial("tcp", ":6379")
 		if err != nil {
-			log.Printf("error connecting to redis in egtsRemoveExpired: %s\n", err)
+			logger.Warningf("error connecting to redis in egtsRemoveExpired: %s", err)
 		} else {
 			break
 		}
@@ -185,11 +191,11 @@ func egtsRemoveExpired() {
 	for {
 		err := removeExpiredDataEGTS(cR)
 		if err != nil {
-			log.Printf("error while remove expired data EGTS %s", err)
+			logger.Warningf("can't remove expired EGTS data: %s", err)
 			for {
 				cR, err = redis.Dial("tcp", ":6379")
 				if err != nil {
-					log.Printf("error reconnecting to redis in egtsRemoveExpired: %s\n", err)
+					logger.Warningf("can't reconnect to redis: %s", err)
 				} else {
 					break
 				}
@@ -201,17 +207,18 @@ func egtsRemoveExpired() {
 }
 
 func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
-	log.Println("checkOldDataEGTS: start")
+	logger := logrus.WithField("egts", "old")
+	logger.Debugf("start checking old data")
 	messages, err := getOldEGTS(cR)
 	if err != nil {
-		log.Printf("can't get old EGTS %s", err)
+		logger.Warningf("can't get old EGTS %s", err)
 		return
 	}
 	var bufOld []byte
 	var i int
 	for _, msg := range messages {
 		if i < 10 {
-			log.Printf("checkOldDataEGTS: try to send message %v", msg)
+			logger.Debugf("try to send message %v", msg)
 			var dataNDTP ndtpData
 			id := binary.LittleEndian.Uint32(msg)
 			msgCopy := copyPack(msg)
@@ -222,30 +229,27 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 				dataNDTP.ToRnis.messageID = strconv.Itoa(int(id)) + ":" + strconv.FormatInt(mill, 10)
 				packet := formEGTS(dataNDTP.ToRnis, *egtsMessageID, *egtsReqID)
 				bufOld = append(bufOld, packet...)
-				log.Printf("checkOldDataEGTS: writeEGTSid %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
+				logger.Debugf("writeEGTSid %d : %s", *egtsMessageID, dataNDTP.ToRnis.messageID)
 				err = writeEGTSid(cR, *egtsMessageID, dataNDTP.ToRnis.messageID)
 				if err != nil {
-					log.Printf("checkOldDataEGTS: error writeEGTSid in checkOldDataEGTS: %v", err)
+					logger.Warningf("can't writeEGTSid: %v", err)
 					continue
 				}
 				*egtsMessageID++
 				*egtsReqID++
-				if err != nil {
-					log.Printf("checkOldDataEGTS: error while write EGTS id %s: %s", dataNDTP.ToRnis.messageID, err)
-				}
 			} else {
-				log.Printf("checkOldDataEGTS: parse NDTP error: %v", err)
+				logger.Errorf("parse NDTP error: %v", err)
 			}
 			i++
 		} else {
-			log.Printf("checkOldDataEGTS: send old EGTS packets to EGTS server: %v", bufOld)
+			logger.Debugf("send old EGTS packets to EGTS server: %v", bufOld)
 			i = 0
-			send2egts(bufOld)
+			send2egts(bufOld, logger)
 			bufOld = []byte(nil)
 		}
 	}
 	if len(bufOld) > 0 {
-		log.Printf("checkOldDataEGTS: send rest packets to EGTS server: %v", bufOld)
-		send2egts(bufOld)
+		logger.Debugf("checkOldDataEGTS: send rest packets to EGTS server: %v", bufOld)
+		send2egts(bufOld, logger)
 	}
 }

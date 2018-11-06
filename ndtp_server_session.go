@@ -3,7 +3,6 @@ package main
 import (
 	"fmt"
 	"github.com/gomodule/redigo/redis"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -11,13 +10,14 @@ import (
 
 //session with NDTP server
 func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
+	logger := s.logger
 	//connect to redis
 	var cR redis.Conn
 	for {
 		var err error
 		cR, err = redis.Dial("tcp", ":6379")
 		if err != nil {
-			log.Printf("serverSession: error connecting to redis in serverSession: %s\n", err)
+			logger.Errorf("can't connect to redis: %s", err)
 		} else {
 			break
 		}
@@ -43,23 +43,23 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 				var b [defaultBufferSize]byte
 				ndtpConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
 				n, err := ndtpConn.conn.Read(b[:])
-				log.Printf("serverSession: ndtpConn.closed = %t; ndtpConn.recon = %t", ndtpConn.closed, ndtpConn.recon)
-				log.Printf("serverSession: received %d bytes from server", n)
-				printPacket("serverSession: packet from server: ", b[:n])
+				logger.Debugf("ndtpConn.closed = %t; ndtpConn.recon = %t", ndtpConn.closed, ndtpConn.recon)
+				logger.Debugf("received %d bytes from server", n)
+				printPacket(logger,"packet from server: ", b[:n])
 				if err != nil {
-					log.Printf("serverSession: error while getting data from server: %v", err)
+					logger.Warningf("can't get data from server: %v", err)
 					ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
 					time.Sleep(5 * time.Second)
 					continue
 				}
 				restBuf = append(restBuf, b[:n]...)
-				log.Printf("serverSession: len(restBuf) = %d", len(restBuf))
+				logger.Debugf("len(restBuf) = %d", len(restBuf))
 				for {
 					var data ndtpData
 					var packet []byte
 					data, packet, restBuf, err = parseNDTP(restBuf)
 					if err != nil {
-						log.Printf("serverSession: error while parsing NDTP from server: %v", err)
+						logger.Warningf(" error while parsing NDTP from server: %v", err)
 						restBuf = []byte{}
 						break
 					}
@@ -68,14 +68,14 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 						continue
 					}
 					if data.NPH.isResult {
-						err = handleNPHResult(cR, s.id, &data)
+						err = handleNPHResult(cR, s, &data)
 					} else if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
 						err = handleExtServ(cR, client, errClientCh, s, &data, packet)
 					} else {
 						err = handlePacket(cR, client, errClientCh, s, &data, packet)
 					}
 					if err != nil {
-						log.Printf("serverSession: error: %s", err)
+						logger.Warningf("error: %s", err)
 						restBuf = []byte{}
 						break
 					}
@@ -91,21 +91,22 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 	}
 }
 
-func handleNPHResult(cR redis.Conn, id int, data *ndtpData) (err error) {
+func handleNPHResult(cR redis.Conn, s *session, data *ndtpData) (err error) {
 	if data.NPH.NPHResult == 0 {
-		err = removeFromNDTP(cR, id, data.NPH.NPHReqID)
+		err = removeFromNDTP(cR, s.id, data.NPH.NPHReqID)
 	} else {
-		log.Printf("handeNPHResult: nph result error for id %d : %d", id, data.NPH.NPHResult)
+		s.logger.Warningf("nph result error: %d", data.NPH.NPHResult)
 	}
 	return
 }
 
 func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
-	printPacket("handlePacket: before changing control message: ", packet)
+	logger := s.logger
+	printPacket(logger,"before changing control message: ", packet)
 	reqID, message := changePacketFromServ(packet, s)
-	log.Printf("handlePacket: old nphReqID: %d; new nphReqID: %d", data.NPH.NPHReqID, reqID)
+	logger.Debugf("old nphReqID: %d; new nphReqID: %d", data.NPH.NPHReqID, reqID)
 	writeControlID(cR, s.id, reqID, data.NPH.NPHReqID)
-	printPacket("handlePacket: send control message to client: ", message)
+	printPacket(logger,"send control message to client: ", message)
 	client.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err = client.Write(message)
 	if err != nil {
@@ -116,7 +117,8 @@ func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *ses
 }
 
 func handleExtServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
-	log.Printf("handleExtServ: handle NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
+	logger := s.logger
+	logger.Debugf("NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
 	if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA {
 		err = handleExtTitleServ(cR, client, errClientCh, s, data, packet)
 	} else if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
@@ -128,36 +130,38 @@ func handleExtServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *se
 }
 
 func handleExtTitleServ(cR redis.Conn, client net.Conn, errClientCh chan error, s *session, data *ndtpData, packet []byte) (err error) {
+	logger := s.logger
 	packetCopy := copyPack(packet)
 	mill := getMill()
 	err = writeExtServ(cR, s.id, packetCopy, mill, data.ext.mesID)
 	if err != nil {
-		log.Println("handleExtTitleServ: send ext error reply to server because of: ", err)
+		logger.Errorf("can't writeExtServ: %s", err)
 		return
 	}
-	log.Println("handleExtTitleServ: start to send ext device message to NDTP server")
+	logger.Debugf("start to send ext device message to NDTP server")
 	packetCopy1 := copyPack(packet)
 	_, message := changePacketFromServ(packetCopy1, s)
-	printPacket("handleExtTitleServ: send ext device message to client: ", message)
+	printPacket(logger,"send ext device message to client: ", message)
 	client.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err = client.Write(message)
 	if err != nil {
-		log.Printf("handleExtTitleServ: send ext device message to NDTP server error: %s", err)
+		logger.Warningf("can't send ext device message to NDTP server: %s", err)
 		errClientCh <- err
 	}
 	return
 }
 
 func handleExtResServ(cR redis.Conn, s *session, data *ndtpData) (err error) {
+	logger := s.logger
 	if data.ext.res == 0 {
-		log.Println("handleExtResServ: received result and remove data from db")
+		logger.Debugln("received result and remove data from db")
 		err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
 		if err != nil {
-			log.Printf("handleExtResServ: removeFromNDTPExt error for id %d : %v", s.id, err)
+			logger.Errorf("can't removeFromNDTPExt: %v", err)
 		}
 	} else {
 		err = fmt.Errorf("received ext result message with error status for id %d: %d", s.id, data.ext.res)
-		log.Printf("handleExtResServ: received result with error status for id %d: %d", s.id, data.ext.res)
+		logger.Warningf("received result with failed status: %d", data.ext.res)
 	}
 	return
 }
@@ -185,35 +189,36 @@ func ndtpConStatus(cR redis.Conn, ndtpConn *connection, s *session, mu *sync.Mut
 }
 
 func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh chan error) {
-	log.Printf("reconnectNDTP: start reconnect NDTP for id %d", s.id)
+	logger := s.logger
+	logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {
 			if conClosed(ErrNDTPCh) {
-				log.Println("reconnectNDTP: close because of client connection is closed")
+				logger.Println("close because of client connection is closed")
 				return
 			}
 			cN, err := net.Dial("tcp", NDTPAddress)
 			if err != nil {
-				log.Printf("reconnectNDTP: error while reconnecting to NDPT server: %s", err)
+				logger.Warningf("can't reconnect to NDTP server: %s", err)
 			} else {
-				log.Printf("reconnectNDTP: send first message again to %d", s.id)
+				logger.Printf("start sending first message again")
 				firstMessage, err := readConnDB(cR, s.id)
 				if err != nil {
-					log.Printf("error readConnDB: %v", err)
+					logger.Errorf("can't readConnDB: %v", err)
 					return
 				}
+				printPacket(logger,"send first message again: ", firstMessage)
 				cN.SetWriteDeadline(time.Now().Add(writeTimeout))
-				printPacket("reconnectNDTP: send first message again: ", firstMessage)
 				_, err = cN.Write(firstMessage)
 				if err == nil {
-					log.Printf("reconnectNDTP: id %d reconnected", s.id)
+					logger.Printf("reconnected", s.id)
 					ndtpConn.conn = cN
 					ndtpConn.closed = false
 					time.Sleep(1 * time.Minute)
 					ndtpConn.recon = false
 					return
 				} else {
-					log.Printf("reconnectNDTP: error while send first message again to NDTP server: %s", err)
+					logger.Warningf("failed sending first message again to NDTP server: %s", err)
 				}
 			}
 		}
