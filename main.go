@@ -63,6 +63,7 @@ var (
 
 func main() {
 	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
 	flag.StringVar(&listenAddress, "l", "", "listen address (e.g. 'localhost:8080')")
 	flag.StringVar(&NDTPAddress, "n", "", "send NDTP to address (e.g. 'localhost:8081')")
 	flag.StringVar(&EGTSAddress, "e", "", "send EGTS to address (e.g. 'localhost:8082')")
