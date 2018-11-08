@@ -146,7 +146,7 @@ func handleConnection(c net.Conn, connNo uint64) {
 	printPacket(logger,"before change first packet: ", packet)
 	changeAddress(packet, ip)
 	printPacket(logger,"after change first packet: ", packet)
-	err = writeConnDB(cR, data.NPH.ID, packet)
+	err = writeConnDB(cR, data.NPH.ID, packet, logger)
 	replyCopy := make([]byte, len(packet))
 	copy(replyCopy, packet)
 	var s session

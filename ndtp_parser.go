@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"net"
 	"strings"
 )
@@ -58,7 +57,6 @@ type extDevice struct {
 
 func parseNDTP(message []byte) (data ndtpData, packet, restBuf []byte, err error) {
 	index1 := bytes.Index(message, nplSignature)
-	log.Printf("message length: %d; index1: %d", len(message), index1)
 	if index1 == -1 {
 		err = errors.New("NPL signature not found")
 		return
@@ -239,7 +237,7 @@ func changePacketHistory(b []byte, data ndtpData, s *session) (uint32, []byte) {
 	binary.LittleEndian.PutUint16(b[13:], NPLReqID)
 	binary.LittleEndian.PutUint32(b[NPL_HEADER_LEN+6:], NPHReqID)
 	if data.NPH.ServiceID == NPH_SRV_NAVDATA && data.NPH.NPHType == NPH_SND_REALTIME {
-		log.Println("changePacketHistory: change packet type to history")
+		s.logger.Infoln("change packet type to history")
 		b[NPL_HEADER_LEN+2] = byte(NPH_SND_HISTORY)
 	}
 	crc := crc16(b[NPL_HEADER_LEN:])

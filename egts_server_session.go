@@ -36,7 +36,7 @@ func egtsSession() {
 			buf = append(buf, packet...)
 			logger.Debugf("writeEGTSid in egtsSession: %d : %s", egtsRecID, message.messageID)
 			printPacket(logger,"egts packet: ", packet)
-			err := writeEGTSid(cR, egtsMessageID, message.messageID)
+			err := writeEGTSid(cR, egtsMessageID, message.messageID, logger)
 			if err != nil {
 				for {
 					cR, err = redis.Dial("tcp", ":6379")
@@ -104,7 +104,7 @@ func waitReplyEGTS() {
 				logger.Errorf("error while parsing reply from EGTS %v: %s", b[:n], err)
 			}
 			for _, id := range egtsMsgIDs {
-				err := deleteEGTS(cR, id)
+				err := deleteEGTS(cR, id, logger)
 				if err != nil {
 					logger.Warningf("can't deleteEGTS: %s", err)
 					for {

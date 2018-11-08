@@ -26,14 +26,14 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 	//close redis connection
 	defer cR.Close()
 	//remove ext message if it exists
-	removeServerExt(cR, s.id)
+	removeServerExt(cR, s)
 	var restBuf []byte
 	checkTicker := time.NewTicker(60 * time.Second)
 	defer checkTicker.Stop()
 	for {
 		select {
 		case <-checkTicker.C:
-			checkOldDataClient(cR, s, ndtpConn, mu, s.id, ErrNDTPCh)
+			checkOldDataClient(cR, s, ndtpConn, mu, ErrNDTPCh)
 		default:
 			var b [defaultBufferSize]byte
 			logger.Debug("start reading from client")
@@ -92,7 +92,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 
 func procNPHResult(cR redis.Conn, ndtpConn *connection, s *session, data *ndtpData, packet []byte) (err error) {
 	logger := s.logger
-	controlReplyID, err := readControlID(cR, s.id, int(data.NPH.NPHReqID))
+	controlReplyID, err := readControlID(cR, s, int(data.NPH.NPHReqID))
 	logger.Debugf("old nphReqID: %d; new nphReqID: %d", data.NPH.NPHReqID, controlReplyID)
 	printPacket(logger,"control message before changing: ", packet)
 	message := changeContolResult(packet, controlReplyID, s)
@@ -136,7 +136,7 @@ func handleExtClient(cR redis.Conn, client net.Conn, ndtpConn *connection, data 
 func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, ErrNDTPCh, errClientCh chan error, mu *sync.Mutex, mill int64) (err error) {
 	logger := s.logger
 	packetCopy := copyPack(packet)
-	err = writeExtClient(cR, s.id, mill, packet)
+	err = writeExtClient(cR, s, mill, packet)
 	if err != nil {
 		logger.Errorf("handleExtTitleClient: send ext error reply to client because of: ", err)
 		errorReplyExt(client, data.ext.mesID, data.ext.packNum, packetCopy, s)
@@ -146,7 +146,7 @@ func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, 
 	if ndtpConn.closed != true {
 		packetCopyNDTP := copyPack(packet)
 		_, message := changePacket(packetCopyNDTP, s)
-		err = writeNDTPIdExt(cR, s.id, data.ext.mesID, mill)
+		err = writeNDTPIdExt(cR, s, data.ext.mesID, mill)
 		if err != nil {
 			logger.Errorf("error writeNDTPIdExt: %v", err)
 		} else {
@@ -174,19 +174,19 @@ func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, 
 
 func handleExtResClient(cR redis.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, mill int64) (err error) {
 	logger := s.logger
-	_, _, _, mesID, err := getServExt(cR, s.id)
+	_, _, _, mesID, err := getServExt(cR, s)
 	if err != nil {
 		logger.Warningf("can't getServExt: %v", err)
 	} else if mesID == uint64(data.ext.mesID) {
 		if data.ext.res == 0 {
 			logger.Debugf("received result and remove data from db")
-			err = removeServerExt(cR, s.id)
+			err = removeServerExt(cR, s)
 			if err != nil {
 				logger.Warningf("can't removeFromNDTPExt : %v", err)
 			}
 		} else {
 			logger.Println("received result with error status")
-			err = setFlagServerExt(cR, s.id, "1")
+			err = setFlagServerExt(cR, s, "1")
 			if err != nil {
 				logger.Warningf("can't setFlagServerExt: %v", err)
 			}
@@ -201,7 +201,7 @@ func handleExtResClient(cR redis.Conn, ndtpConn *connection, data *ndtpData, s *
 	_, err = ndtpConn.conn.Write(message)
 	if err != nil {
 		logger.Warningf("can't write ext device result to server: %v", err)
-		err = writeExtClient(cR, s.id, mill, packet)
+		err = writeExtClient(cR, s, mill, packet)
 		if err != nil {
 			logger.Errorf("can't write2DB ext device result: %v", err)
 		}
@@ -226,7 +226,7 @@ func procMes(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpDat
 		copy(packetCopyNDTP, packet)
 		NPHReqID, message := changePacket(packetCopyNDTP, s)
 		printPacket(logger,"packet after changing: ", message)
-		err = writeNDTPid(cR, s.id, NPHReqID, mill)
+		err = writeNDTPid(cR, s, NPHReqID, mill)
 		if err != nil {
 			logger.Errorf("error writingNDTPid: %v", err)
 		} else {

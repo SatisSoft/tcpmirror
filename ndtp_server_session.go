@@ -32,7 +32,7 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 	for {
 		select {
 		case <-checkTicker.C:
-			checkOldDataServ(cR, s, client, s.id)
+			checkOldDataServ(cR, s, client)
 		default:
 			//check if connection with client is closed
 			if conClosed(ErrNDTPCh) {
@@ -93,7 +93,7 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 
 func handleNPHResult(cR redis.Conn, s *session, data *ndtpData) (err error) {
 	if data.NPH.NPHResult == 0 {
-		err = removeFromNDTP(cR, s.id, data.NPH.NPHReqID)
+		err = removeFromNDTP(cR, s, data.NPH.NPHReqID)
 	} else {
 		s.logger.Warningf("nph result error: %d", data.NPH.NPHResult)
 	}
@@ -105,7 +105,7 @@ func handlePacket(cR redis.Conn, client net.Conn, errClientCh chan error, s *ses
 	printPacket(logger,"before changing control message: ", packet)
 	reqID, message := changePacketFromServ(packet, s)
 	logger.Debugf("old nphReqID: %d; new nphReqID: %d", data.NPH.NPHReqID, reqID)
-	writeControlID(cR, s.id, reqID, data.NPH.NPHReqID)
+	writeControlID(cR, s, reqID, data.NPH.NPHReqID)
 	printPacket(logger,"send control message to client: ", message)
 	client.SetWriteDeadline(time.Now().Add(writeTimeout))
 	_, err = client.Write(message)
@@ -133,7 +133,7 @@ func handleExtTitleServ(cR redis.Conn, client net.Conn, errClientCh chan error, 
 	logger := s.logger
 	packetCopy := copyPack(packet)
 	mill := getMill()
-	err = writeExtServ(cR, s.id, packetCopy, mill, data.ext.mesID)
+	err = writeExtServ(cR, s, packetCopy, mill, data.ext.mesID)
 	if err != nil {
 		logger.Errorf("can't writeExtServ: %s", err)
 		return
@@ -155,7 +155,7 @@ func handleExtResServ(cR redis.Conn, s *session, data *ndtpData) (err error) {
 	logger := s.logger
 	if data.ext.res == 0 {
 		logger.Debugln("received result and remove data from db")
-		err = removeFromNDTPExt(cR, s.id, data.ext.mesID)
+		err = removeFromNDTPExt(cR, s, data.ext.mesID)
 		if err != nil {
 			logger.Errorf("can't removeFromNDTPExt: %v", err)
 		}
@@ -202,7 +202,7 @@ func reconnectNDTP(cR redis.Conn, ndtpConn *connection, s *session, ErrNDTPCh ch
 				logger.Warningf("can't reconnect to NDTP server: %s", err)
 			} else {
 				logger.Printf("start sending first message again")
-				firstMessage, err := readConnDB(cR, s.id)
+				firstMessage, err := readConnDB(cR, s)
 				if err != nil {
 					logger.Errorf("can't readConnDB: %v", err)
 					return

@@ -5,7 +5,6 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"log"
 	"math"
 )
 
@@ -47,7 +46,6 @@ func formRecord(data rnisData, numRec uint16) (record []byte) {
 	binary.LittleEndian.PutUint16(headerRec[0:2], subRecLen)
 	binary.LittleEndian.PutUint16(headerRec[2:4], numRec)
 	headerRec[4] = 0x01
-	log.Printf("formRecord id: %d", data.id)
 	binary.LittleEndian.PutUint32(headerRec[5:9], data.id)
 	headerRec = append(headerRec[:9], byte(EGTS_TELEDATA_SERVICE), byte(EGTS_TELEDATA_SERVICE))
 	record = append(headerRec, subrec...)
@@ -152,8 +150,6 @@ func parsePacketEGTS(message []byte) (reqID uint16, restBuf []byte, err error) {
 	}
 	var res uint
 	reqID, res = parseResp(message[startBody : startBody+int(bodyLen)])
-	log.Printf("EGTS: bodyLen: %d, startBody: %d, startHeader: %d", bodyLen, startBody, startHeader)
-	log.Printf("EGTS: received recID: %d, procRes: %d, err: %v", reqID, res, err)
 	if err != nil {
 		return
 	}

@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"github.com/gomodule/redigo/redis"
-	"log"
+	"github.com/sirupsen/logrus"
 	"strconv"
 	"strings"
 )
@@ -20,336 +20,329 @@ import (
 //id, nid:id1:id2 - NPH_SRV_NAVDATA for NDTP Server
 //rnis - NPH_SRV_NAVDATA for EGTS Server
 
-func writeConnDB(c redis.Conn, id uint32, message []byte) error {
+func writeConnDB(c redis.Conn, id uint32, message []byte, logger *logrus.Entry) error {
 	key := "conn:" + strconv.Itoa(int(id))
-	log.Printf("writeConnDB key: %s; message: %v", key, message)
+	logger.Tracef("key: %s; message: %v", key, message)
 	_, err := c.Do("SET", key, message)
-	log.Printf("writeConnDB err: %v", err)
+	logger.Tracef("err: %v", err)
 	return err
 }
 
-func readConnDB(c redis.Conn, id int) ([]byte, error) {
-	key := "conn:" + strconv.Itoa(id)
+func readConnDB(c redis.Conn, s *session) ([]byte, error) {
+	key := "conn:" + strconv.Itoa(s.id)
 	res, err := redis.Bytes(c.Do("GET", key))
-	log.Printf("readConnDB key: %s; message: %v", key, res)
-	log.Printf("readConnDB err: %v", err)
+	s.logger.Tracef("key: %s; message: %v", key, res)
+	s.logger.Tracef("err: %v", err)
 	return res, err
 }
 
-func writeNDTPid(c redis.Conn, id int, nphID uint32, mill int64) error {
-	key := "nid:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(nphID), 10)
-	log.Printf("writeNDTPid key: %s; val: %d", key, mill)
+func writeNDTPid(c redis.Conn, s *session, nphID uint32, mill int64) error {
+	key := "nid:" + strconv.Itoa(s.id) + ":" + strconv.FormatUint(uint64(nphID), 10)
+	s.logger.Tracef("key: %s; val: %d", key, mill)
 	_, err := c.Do("SET", key, mill, "ex", 50)
-	log.Printf("writeNDTPid err: %v", err)
+	s.logger.Tracef("err: %v", err)
 	return err
 }
 
-func readNDTPid(c redis.Conn, id int, nphID uint32) (int64, error) {
-	key := "nid:" + strconv.FormatUint(uint64(id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
+func readNDTPid(c redis.Conn, s *session, nphID uint32) (int64, error) {
+	key := "nid:" + strconv.FormatUint(uint64(s.id), 10) + ":" + strconv.FormatUint(uint64(nphID), 10)
 	res, err := redis.Int64(c.Do("GET", key))
-	log.Printf("readNDTPid key: %s; res: %d", key, res)
-	log.Printf("readNDTPid err: %v", err)
+	s.logger.Tracef("key: %s; res: %d", key, res)
+	s.logger.Tracef("err: %v", err)
 	return res, err
 }
 
-func writeNDTPIdExt(c redis.Conn, id int, mesID uint16, mill int64) error {
-	key := "ext_id_c:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
-	log.Printf("writeNDTPIdExt key: %s; val: %d", key, mill)
+func writeNDTPIdExt(c redis.Conn, s *session, mesID uint16, mill int64) error {
+	key := "ext_id_c:" + strconv.Itoa(s.id) + ":" + strconv.FormatUint(uint64(mesID), 10)
+	s.logger.Tracef("key: %s; val: %d", key, mill)
 	_, err := c.Do("SET", key, mill, "ex", 50)
-	log.Printf("writeNDTPIdExt err: %v", err)
+	s.logger.Tracef("err: %v", err)
 	return err
 }
 
-func readNDTPIdExt(c redis.Conn, id int, mesID uint16) (int64, error) {
-	key := "ext_id_c:" + strconv.Itoa(id) + ":" + strconv.FormatUint(uint64(mesID), 10)
+func readNDTPIdExt(c redis.Conn, s *session, mesID uint16) (int64, error) {
+	key := "ext_id_c:" + strconv.Itoa(s.id) + ":" + strconv.FormatUint(uint64(mesID), 10)
 	res, err := redis.Int64(c.Do("GET", key))
-	log.Printf("readNDTPIdExt key: %s; res: %d", key, res)
-	log.Printf("readNDTPIdExt err: %v", err)
+	s.logger.Tracef("key: %s; res: %d", key, res)
+	s.logger.Tracef("err: %v", err)
 	return res, err
 }
 
 func write2DB(c redis.Conn, data ndtpData, s *session, packet []byte, time int64) (err error) {
-	err = write2NDTP(c, s.id, time, packet)
-	log.Printf("write2DB packet: %v", packet)
-	log.Printf("write2NDTP id: %d, time: %d, err: %v", s.id, time, err)
+	err = write2NDTP(c, s, time, packet)
+	s.logger.Tracef("packet: %v", packet)
+	s.logger.Tracef("time: %d, err: %v", time, err)
 	if err != nil {
 		return
 	}
 	if data.ToRnis.time != 0 {
-		err = write2EGTS(c, s.id, time, packet)
-		log.Printf("write2DB id: %d, time: %d, err: %v", s.id, time, err)
+		err = write2EGTS(c, s, time, packet)
+		s.logger.Tracef("time: %d, err: %v", time, err)
 	}
 	return
 }
 
-func write2NDTP(c redis.Conn, id int, time int64, packet []byte) error {
-	log.Printf("write2NDTP id: %d; time: %d", id, time)
-	_, err := c.Do("ZADD", id, time, packet)
-	log.Printf("write2NDTP err: %v", err)
+func write2NDTP(c redis.Conn, s *session, time int64, packet []byte) error {
+	s.logger.Tracef("time: %d", time)
+	_, err := c.Do("ZADD", s.id, time, packet)
+	s.logger.Tracef("write2NDTP err: %v", err)
 	return err
 }
 
-func write2EGTS(c redis.Conn, id int, time int64, packet []byte) error {
+func write2EGTS(c redis.Conn, s *session, time int64, packet []byte) error {
 	idB := new(bytes.Buffer)
-	binary.Write(idB, binary.LittleEndian, uint32(id))
+	binary.Write(idB, binary.LittleEndian, uint32(s.id))
 	packet = append(idB.Bytes(), packet...)
-	//log.Printf("write2EGTS id: %d; time: %d; packet: %v", id, time, packet)
-	log.Printf("write2EGTS id: %d; time: %d", id, time)
+	s.logger.Tracef("time: %d", time)
 	_, err := c.Do("ZADD", "rnis", time, packet)
 	return err
 }
 
-func removeFromNDTP(c redis.Conn, id int, NPHReqID uint32) error {
-	time, err := readNDTPid(c, id, NPHReqID)
+func removeFromNDTP(c redis.Conn, s *session, NPHReqID uint32) error {
+	time, err := readNDTPid(c, s, NPHReqID)
 	if err != nil {
 		return err
 	}
-	log.Printf("removeFromNDTP: id: %d; time: %d", id, time)
-	n, err := c.Do("ZREMRANGEBYSCORE", id, time, time)
-	log.Printf("removeFromNDTP n=%d; err: %v", n, err)
+	s.logger.Tracef("id: %d; time: %d", s.id, time)
+	n, err := c.Do("ZREMRANGEBYSCORE", s.id, time, time)
+	s.logger.Tracef("n=%d; err: %v", n, err)
 	return err
 }
 
-func removeFromNDTPExt(c redis.Conn, id int, mesID uint16) error {
-	time, err := readNDTPIdExt(c, id, mesID)
+func removeFromNDTPExt(c redis.Conn, s *session, mesID uint16) error {
+	time, err := readNDTPIdExt(c, s, mesID)
 	if err != nil {
 		return err
 	}
-	key := "ext_c:" + strconv.Itoa(id)
-	log.Printf("removeFromNDTPExt: key: %s; time: %d", key, time)
+	key := "ext_c:" + strconv.Itoa(s.id)
+	s.logger.Tracef("key: %s; time: %d", key, time)
 	n, err := c.Do("ZREMRANGEBYSCORE", key, time, time)
-	log.Printf("removeFromNDTPExt n=%d; err: %v", n, err)
+	s.logger.Tracef("n=%d; err: %v", n, err)
 	return err
 }
 
-func getScore(c redis.Conn, id int, mes []byte) (int64, error) {
-	log.Printf("getScore id=%d; mes: %v", id, mes)
-	res, err := redis.Int64(c.Do("ZSCORE", id, mes))
-	log.Printf("getScore res=%d; err: %v", res, mes)
+func getScore(c redis.Conn, s *session, mes []byte) (int64, error) {
+	s.logger.Tracef("mes: %v", mes)
+	res, err := redis.Int64(c.Do("ZSCORE", s.id, mes))
+	s.logger.Tracef("res=%d; err: %v", res, mes)
 	return res, err
 }
 
-func getOldNDTP(c redis.Conn, id int) ([][]byte, error) {
+func getOldNDTP(c redis.Conn, s *session) ([][]byte, error) {
 	max := getMill() - 60000
-	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", id, 0, max, "LIMIT", 0, 1000))
-	log.Printf("getOldNDTP: id: %d; max: %d; len(res): %d", id, max, len(res))
-	log.Printf("getOldNDTP err: %v", err)
+	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", s.id, 0, max, "LIMIT", 0, 1000))
+	s.logger.Tracef("max: %d; len(res): %d", max, len(res))
+	s.logger.Tracef("err: %v", err)
 	return res, err
 }
 
-func writeEGTSid(c redis.Conn, egtsMessageID uint16, messageID string) (err error) {
+func writeEGTSid(c redis.Conn, egtsMessageID uint16, messageID string, logger *logrus.Entry) (err error) {
 	key := "egts:" + strconv.Itoa(int(egtsMessageID))
-	//log.Printf("writeEGTSid: key: %s; messageID: %s", key, messageID)
 	_, err = c.Do("SET", key, messageID, "ex", 50)
-	log.Printf("writeEGTSid err: %v", err)
+	logger.Tracef("key: %v; messageID: %v", key, messageID)
+	logger.Tracef("err: %v", err)
 	return
 }
 
-func deleteEGTS(c redis.Conn, egtsMessageID uint16) (err error) {
+func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err error) {
 	key := "egts:" + strconv.Itoa(int(egtsMessageID))
 	messageID, err := redis.String(c.Do("GET", key))
-	log.Printf("deleteEGTS 1: key: %s; mssageID: %s", key, messageID)
+	logger.Tracef("key: %s; messageID: %s", key, messageID)
 	if err != nil {
-		log.Println("deleteEGTS: error get EGTS message id from db: ", err)
+		logger.Tracef("can't get EGTS message id from db: ", err)
 		return
 	}
-	log.Println("deleteEGTS: get messageID: ", messageID)
+	logger.Tracef("get messageID: ", messageID)
 	messageIDSplit := strings.Split(messageID, ":")
-	log.Println("deleteEGTS: messageIDSplit: ", messageIDSplit)
+	logger.Tracef("messageIDSplit: ", messageIDSplit)
 	id, err := strconv.ParseUint(messageIDSplit[0], 10, 32)
-	log.Printf("deleteEGTS: id: %d, err: %v", id, err)
+	logger.Tracef("id: %d, err: %v", id, err)
 	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
-	log.Printf("deleteEGTS: time: %d, err: %v", time, err)
-	//idB := new(bytes.Buffer)
-	//binary.Write(idB, binary.LittleEndian, id)
-
+	logger.Tracef("time: %d, err: %v", time, err)
 	packets, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", time, time))
-	log.Printf("deleteEGTS 2: key: %s; mssageID: %d", key, time)
+	logger.Tracef("key: %s; mssageID: %d", key, time)
 	if err != nil {
-		log.Println("error get EGTS packets from db: ", err)
+		logger.Tracef("can't get EGTS packets from db: ", err)
 		return
 	}
 	numPackets := len(packets)
-	log.Printf("deleteEGTS 3: len(packets) = %d", numPackets)
+	logger.Tracef("len(packets) = %d", numPackets)
 	switch {
 	case numPackets > 1:
 		for _, pack := range packets {
-			log.Printf("deleteEGTS: bytes1: %v; bytes2: %v", id, binary.LittleEndian.Uint32(pack[0:4]))
+			logger.Tracef("bytes1: %v; bytes2: %v", id, binary.LittleEndian.Uint32(pack[0:4]))
 			//if bytes.Compare(pack[0:4], idB.Bytes()) == 0 {
 			if id == uint64(binary.LittleEndian.Uint32(pack[0:4])) {
 				var n int
 				n, err = redis.Int(c.Do("ZREM", "rnis", pack))
 				if err != nil {
-					log.Println("deleteEGTS: error while deleting EGTS packet from db")
+					logger.Tracef("can't delete EGTS packet from db")
 				}
-				log.Printf("deleteEGTS: removed %d records", n)
+				logger.Tracef("removed %d records", n)
 				return
 			}
 		}
 	case numPackets == 1:
 		_, err = c.Do("ZREM", "rnis", packets[0])
 		if err != nil {
-			log.Println("deleteEGTS: error while deleting EGTS packet from db")
+			logger.Tracef("can't delete EGTS packet from db")
 		}
 	default:
-		log.Println("deleteEGTS: where is no EGTS packets for ", egtsMessageID)
+		logger.Tracef("where is no EGTS packets for ", egtsMessageID)
 		return
 	}
-	log.Printf("deleteEGTS err: %v", err)
+	logger.Tracef("err: %v", err)
 	return
 }
 
-func removeExpiredDataEGTS(c redis.Conn) (err error) {
+func removeExpiredDataEGTS(c redis.Conn, logger *logrus.Entry) (err error) {
 	max := getMill() - 259200000 //3*24*60*60*1000
 	_, err = c.Do("ZREMRANGEBYSCORE", "rnis", 0, max)
-	log.Printf("removeExpiredDataEGTS: max: %d", max)
-	log.Printf("removeExpiredDataEGTS err: %v", err)
+	logger.Tracef("max: %d", max)
+	logger.Tracef("err: %v", err)
 	return
 }
 
-func getOldEGTS(c redis.Conn) (res [][]byte, err error) {
+func getOldEGTS(c redis.Conn, logger *logrus.Entry) (res [][]byte, err error) {
 	max := getMill() - 60000
 	res, err = redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, "LIMIT", 0, 10000))
-	log.Printf("getOldEGTS: max: %d; len(res): %d", max, len(res))
-	log.Printf("getOldEGTS err: %v", err)
+	logger.Tracef("max: %d; len(res): %d", max, len(res))
+	logger.Tracef("err: %v", err)
 	return
 }
 
-func getEGTSScore(c redis.Conn, mes []byte) (int64, error) {
-	log.Printf("getEGTSScore mes: %v", mes)
+func getEGTSScore(c redis.Conn, mes []byte, logger *logrus.Entry) (int64, error) {
+	logger.Tracef("mes: %v", mes)
 	res, err := redis.Int64(c.Do("ZSCORE", "rnis", mes))
-	log.Printf("getEGTSScore res=%d; err: %v", res, err)
+	logger.Tracef("res=%d; err: %v", res, err)
 	return res, err
 }
 
-func writeControlID(c redis.Conn, id, id1 int, id2 uint32) error {
-	key := "gc_s:" + strconv.Itoa(id) + ":" + strconv.Itoa(id1)
-	log.Printf("writeControlID key: %s; val: %v", key, id2)
+func writeControlID(c redis.Conn, s *session, id1 int, id2 uint32) error {
+	key := "gc_s:" + strconv.Itoa(s.id) + ":" + strconv.Itoa(id1)
+	s.logger.Tracef("key: %s; val: %v", key, id2)
 	val := strconv.Itoa(int(id2))
 	_, err := c.Do("SET", key, val, "ex", 50)
-	log.Printf("writeControlID err: %v", err)
+	s.logger.Tracef("err: %v", err)
 	return err
 }
 
-func readControlID(c redis.Conn, id, id1 int) (int, error) {
-	key := "gc_s:" + strconv.Itoa(id) + ":" + strconv.Itoa(id1)
+func readControlID(c redis.Conn, s *session, id1 int) (int, error) {
+	key := "gc_s:" + strconv.Itoa(s.id) + ":" + strconv.Itoa(id1)
 	res, err := redis.Int(c.Do("GET", key))
-	log.Printf("readControlID key: %s; res: %d", key, res)
-	log.Printf("readControlID err: %v", err)
+	s.logger.Tracef("key: %s; res: %d", key, res)
+	s.logger.Tracef("err: %v", err)
 	return res, err
 }
 
-func removeExpiredDataNDTP(c redis.Conn, id int) (err error) {
+func removeExpiredDataNDTP(c redis.Conn, s *session) (err error) {
 	max := getMill() - 259200000 //3*24*60*60*1000
-	_, err = c.Do("ZREMRANGEBYSCORE", id, 0, max)
-	log.Printf("removeExpiredDataNDTP err: %v", err)
+	_, err = c.Do("ZREMRANGEBYSCORE", s.id, 0, max)
+	s.logger.Tracef("err: %v", err)
 	if err != nil {
 		return
 	}
-	key := "ext_s:" + strconv.Itoa(id)
+	key := "ext_s:" + strconv.Itoa(s.id)
 	_, err = c.Do("ZREMRANGEBYSCORE", key, 0, max)
-	log.Printf("removeExpiredDataNDTP: max: %d", max)
-	log.Printf("removeExpiredDataNDTP err1: %v", err)
+	s.logger.Tracef(" max: %d", max)
+	s.logger.Tracef("err: %v", err)
 	if err != nil {
 		return
 	}
 	return
 }
 
-func writeExtServ(c redis.Conn, id int, packet []byte, mill int64, mesID uint16) error {
-	key := "ext_s:" + strconv.Itoa(id)
+func writeExtServ(c redis.Conn, s *session, packet []byte, mill int64, mesID uint16) error {
+	key := "ext_s:" + strconv.Itoa(s.id)
 	time := strconv.FormatInt(mill, 10)
 	flag := "0"
-	log.Printf("writeExtServ id: %d; time: %s", id, time)
+	s.logger.Tracef("time: %s", time)
 	_, err := c.Do("HMSET", key, "time", time, "flag", flag, "mesID", mesID, "packet", packet)
-	log.Printf("writeExtServ err: %v", err)
+	s.logger.Tracef("err: %v", err)
 	return err
 }
 
-func removeServerExt(c redis.Conn, id int) error {
-	key := "ext_s:" + strconv.Itoa(id)
-	log.Printf("removeServerExt: id: %d;", id)
+func removeServerExt(c redis.Conn, s *session) error {
+	key := "ext_s:" + strconv.Itoa(s.id)
 	n, err := redis.Int(c.Do("DEL", key))
-	log.Printf("removeServerExt: remove n records: %d;", n)
-	log.Printf("removeServerExt: err: %v;", err)
+	s.logger.Tracef("remove n records: %d;", n)
+	s.logger.Tracef("err: %v;", err)
 	return err
 }
 
-func getServExt(c redis.Conn, id int) (mes []byte, time int64, flag string, mesID uint64, err error) {
-	key := "ext_s:" + strconv.Itoa(id)
-	log.Printf("getServExt key: %s", key)
+func getServExt(c redis.Conn, s *session) (mes []byte, time int64, flag string, mesID uint64, err error) {
+	key := "ext_s:" + strconv.Itoa(s.id)
+	s.logger.Tracef("key: %s", key)
 	res, err := redis.StringMap(c.Do("HGETALL", key))
 	if err != nil {
-		log.Printf("getServExt error: %v", err)
+		s.logger.Tracef("err: %v", err)
 		return
 	}
 	if len(res) == 0 {
-		log.Printf("res for %s is empty", key)
-		err = fmt.Errorf("getServExt res is empty for %s", key)
+		s.logger.Tracef("res for %s is empty", key)
+		err = fmt.Errorf("res is empty for %s", key)
 		return
 	}
 	flag = res["flag"]
 	time, err = strconv.ParseInt(res["time"], 10, 64)
 	if err != nil {
-		log.Printf("getServExt parse time error: %v", err)
+		s.logger.Tracef("parse time err: %v", err)
 	}
 	mes = []byte(res["packet"])
 	mesID, err = strconv.ParseUint(res["mesID"], 10, 16)
 	if err != nil {
-		log.Printf("getServExt parse mesID error: %v", err)
+		s.logger.Tracef("parse mesID err: %v", err)
 	}
 	return
 }
 
-func setFlagServerExt(c redis.Conn, id int, flag string) error {
-	key := "ext_s:" + strconv.Itoa(id)
-	log.Printf("setFlagServerExt: id %d;", id)
+func setFlagServerExt(c redis.Conn, s *session, flag string) error {
+	key := "ext_s:" + strconv.Itoa(s.id)
 	exist, err := redis.Int(c.Do("EXISTS", key))
 	if err != nil {
-		log.Printf("setFlagServerExt: error checking existance for key: %v", key)
+		s.logger.Tracef("can't check existence of key: %v", key)
 		return err
 	}
-	log.Printf("setFlagServerExt: id exist: %v;", exist)
-	log.Printf("setFlagServerExt: f: %d %[1]T; f1: %d %[2]T; is equal: %t", exist, 1, exist == 1)
+	s.logger.Tracef("id exists: %v;", exist)
 	if exist == 1 {
 		_, err = c.Do("HSET", key, "flag", flag)
-		log.Printf("setFlagServerExt: err2: %v;", err)
+		s.logger.Tracef("err: %v;", err)
 	} else {
-		log.Printf("setFlagServerExt: packet %s doesn't exist", key)
-		err = fmt.Errorf("setFlagServerExt: record doesn't exist: %v", err)
+		s.logger.Tracef("packet %s doesn't exist", key)
+		err = fmt.Errorf("record doesn't exist: %v", err)
 	}
 	return err
 }
 
-func writeExtClient(c redis.Conn, id int, time int64, packet []byte) error {
-	key := "ext_c:" + strconv.Itoa(id)
-	log.Printf("writeExtClient id: %s; time: %d", key, time)
+func writeExtClient(c redis.Conn, s *session, time int64, packet []byte) error {
+	key := "ext_c:" + strconv.Itoa(s.id)
+	s.logger.Tracef("id: %s; time: %d", key, time)
 	_, err := c.Do("ZADD", key, time, packet)
-	log.Printf("writeExtClient err: %v", err)
+	s.logger.Tracef("err: %v", err)
 	return err
 }
 
-func getOldNDTPExt(c redis.Conn, id int) ([][]byte, error) {
-	key := "ext_c:" + strconv.Itoa(id)
+func getOldNDTPExt(c redis.Conn, s *session) ([][]byte, error) {
+	key := "ext_c:" + strconv.Itoa(s.id)
 	max := getMill() - 60000
 	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", key, 0, max, "LIMIT", 0, 10))
-	log.Printf("getOldNDTPExt: id: %s; max: %d; len(res): %d", key, max, len(res))
-	log.Printf("getOldNDTPExt err: %v", err)
+	s.logger.Tracef("id: %s; max: %d; len(res): %d", key, max, len(res))
+	s.logger.Tracef("err: %v", err)
 	return res, err
 }
 
-func getScoreExt(c redis.Conn, id int, mes []byte) (int64, error) {
-	key := "ext_c:" + strconv.Itoa(id)
-	log.Printf("getScoreExt key=%s; mes: %v", key, mes)
+func getScoreExt(c redis.Conn, s *session, mes []byte) (int64, error) {
+	key := "ext_c:" + strconv.Itoa(s.id)
+	s.logger.Tracef("key=%s; mes: %v", key, mes)
 	res, err := redis.Int64(c.Do("ZSCORE", key, mes))
-	log.Printf("getScoreExt res=%d; err: %v", res, mes)
+	s.logger.Tracef("res=%d; err: %v", res, mes)
 	return res, err
 }
 
-func removeOldExt(c redis.Conn, id int, time int64) error {
-	key := "ext_c:" + strconv.Itoa(id)
-	log.Printf("removeOldExt: key: %s; time: %d", key, time)
+func removeOldExt(c redis.Conn, s *session, time int64) error {
+	key := "ext_c:" + strconv.Itoa(s.id)
+	s.logger.Tracef("key: %s; time: %d", key, time)
 	n, err := c.Do("ZREMRANGEBYSCORE", key, time, time)
-	log.Printf("removeOldExt n=%d; err: %v", n, err)
+	s.logger.Tracef("n=%d; err: %v", n, err)
 	return err
 }
