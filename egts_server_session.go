@@ -4,6 +4,7 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 	"net"
+	"sync"
 	"time"
 )
 
@@ -22,6 +23,7 @@ func egtsSession() {
 	defer cR.Close()
 	var buf []byte
 	var egtsMessageID, egtsRecID uint16
+	var muOld sync.Mutex
 	count := 0
 	sendTicker := time.NewTicker(100 * time.Millisecond)
 	checkTicker := time.NewTicker(60 * time.Second)
@@ -68,7 +70,7 @@ func egtsSession() {
 				buf = nil
 			}
 		case <-checkTicker.C:
-			checkOldDataEGTS(cR, &egtsMessageID, &egtsRecID)
+			go oldEGTS(cR, &muOld, &egtsMessageID, &egtsRecID)
 		}
 	}
 }

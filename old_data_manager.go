@@ -10,7 +10,8 @@ import (
 	"time"
 )
 
-func checkOldDataClient(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, ErrNDTPCh chan error) {
+func oldFromClient(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, ErrNDTPCh chan error) {
+	s.muOldc.Lock()
 	logger := s.logger
 	res, err := getOldNDTP(cR, s)
 	if err != nil {
@@ -24,10 +25,12 @@ func checkOldDataClient(cR redis.Conn, s *session, ndtpConn *connection, mu *syn
 	} else {
 		resendExt(cR, s, ndtpConn, mu, ErrNDTPCh, res)
 	}
+	s.muOldc.Unlock()
 }
 
 func resendNav(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, ErrNDTPCh chan error, res [][]byte) {
 	logger := s.logger
+	res = reverceSlice(res)
 	for _, mes := range res {
 		data, _, _, _ := parseNDTP(mes)
 		if ndtpConn.closed != true {
@@ -61,6 +64,7 @@ func resendNav(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, 
 
 func resendExt(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, ErrNDTPCh chan error, res [][]byte) {
 	logger := s.logger
+	res = reverceSlice(res)
 	for _, mes := range res {
 		var data ndtpData
 		data, _, _, _ = parseNDTP(mes)
@@ -110,7 +114,17 @@ func resendExt(cR redis.Conn, s *session, ndtpConn *connection, mu *sync.Mutex, 
 	}
 }
 
-func checkOldDataServ(cR redis.Conn, s *session, client net.Conn) {
+func reverceSlice(res [][]byte) [][]byte{
+	for i := len(res)/2-1; i >= 0; i-- {
+		opp := len(res)-1-i
+		res[i], res[opp] = res[opp], res[i]
+	}
+	return res
+}
+
+func oldFromServer(cR redis.Conn, s *session, client net.Conn) {
+	s.muOlds.Lock()
+	defer s.muOlds.Unlock()
 	logger := s.logger
 	res, mill, flag, _, err := getServExt(cR, s)
 	if err != nil {
@@ -206,7 +220,9 @@ func egtsRemoveExpired() {
 	}
 }
 
-func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
+func oldEGTS(cR redis.Conn, mu *sync.Mutex, egtsMessageID, egtsReqID *uint16) {
+	mu.Lock()
+	defer mu.Unlock()
 	logger := logrus.WithField("egts", "old")
 	logger.Debugf("start checking old data")
 	messages, err := getOldEGTS(cR, logger)
@@ -249,7 +265,7 @@ func checkOldDataEGTS(cR redis.Conn, egtsMessageID, egtsReqID *uint16) {
 		}
 	}
 	if len(bufOld) > 0 {
-		logger.Debugf("checkOldDataEGTS: send rest packets to EGTS server: %v", bufOld)
+		logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", bufOld)
 		send2egts(bufOld, logger)
 	}
 }

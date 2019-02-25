@@ -44,6 +44,8 @@ type session struct {
 	serverNPHReqID uint32
 	muC            sync.Mutex
 	muS            sync.Mutex
+	muOldc sync.Mutex
+	muOlds sync.Mutex
 	id             int
 	logger *logrus.Entry
 }

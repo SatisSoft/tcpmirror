@@ -32,7 +32,7 @@ func serverSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 	for {
 		select {
 		case <-checkTicker.C:
-			checkOldDataServ(cR, s, client)
+			oldFromServer(cR, s, client)
 		default:
 			//check if connection with client is closed
 			if conClosed(ErrNDTPCh) {

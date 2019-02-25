@@ -33,7 +33,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 	for {
 		select {
 		case <-checkTicker.C:
-			checkOldDataClient(cR, s, ndtpConn, mu, ErrNDTPCh)
+			go oldFromClient(cR, s, ndtpConn, mu, ErrNDTPCh)
 		default:
 			var b [defaultBufferSize]byte
 			logger.Debug("start reading from client")
