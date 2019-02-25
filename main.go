@@ -9,6 +9,7 @@ import (
 	"github.com/shirou/gopsutil/mem"
 	"github.com/sirupsen/logrus"
 	"net"
+	"strings"
 	"sync"
 	"time"
 )
@@ -28,6 +29,8 @@ var (
 	egtsConn        connection
 	egtsCh          = make(chan rnisData, 10000)
 	egtsMu          sync.Mutex
+	egtsKey string
+	egtsIDKey string
 )
 
 type connection struct {
@@ -75,6 +78,10 @@ func main() {
 		flag.Usage()
 		return
 	}
+	listenPort := strings.Split(listenAddress, ":")
+	egtsIDKey = "egts_" + listenPort[1]
+	egtsKey = "rnis_" + listenPort[1]
+	logrus.Infof("egtsKey : %s", egtsKey)
 	if graphiteAddress == "" {
 		logrus.Println("don't send metrics to graphite")
 	} else {

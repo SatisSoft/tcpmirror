@@ -94,7 +94,7 @@ func write2EGTS(c redis.Conn, s *session, time int64, packet []byte) error {
 	binary.Write(idB, binary.LittleEndian, uint32(s.id))
 	packet = append(idB.Bytes(), packet...)
 	s.logger.Tracef("time: %d", time)
-	_, err := c.Do("ZADD", "rnis", time, packet)
+	_, err := c.Do("ZADD", egtsKey, time, packet)
 	return err
 }
 
@@ -137,7 +137,7 @@ func getOldNDTP(c redis.Conn, s *session) ([][]byte, error) {
 }
 
 func writeEGTSid(c redis.Conn, egtsMessageID uint16, messageID string, logger *logrus.Entry) (err error) {
-	key := "egts:" + strconv.Itoa(int(egtsMessageID))
+	key := egtsIDKey + strconv.Itoa(int(egtsMessageID))
 	_, err = c.Do("SET", key, messageID, "ex", 50)
 	logger.Tracef("key: %v; messageID: %v", key, messageID)
 	logger.Tracef("err: %v", err)
@@ -145,7 +145,7 @@ func writeEGTSid(c redis.Conn, egtsMessageID uint16, messageID string, logger *l
 }
 
 func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err error) {
-	key := "egts:" + strconv.Itoa(int(egtsMessageID))
+	key := egtsIDKey + strconv.Itoa(int(egtsMessageID))
 	messageID, err := redis.String(c.Do("GET", key))
 	logger.Tracef("key: %s; messageID: %s", key, messageID)
 	if err != nil {
@@ -159,7 +159,7 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err e
 	logger.Tracef("id: %d, err: %v", id, err)
 	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
 	logger.Tracef("time: %d, err: %v", time, err)
-	packets, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", time, time))
+	packets, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", egtsKey, time, time))
 	logger.Tracef("key: %s; mssageID: %d", key, time)
 	if err != nil {
 		logger.Tracef("can't get EGTS packets from db: ", err)
@@ -174,7 +174,7 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err e
 			//if bytes.Compare(pack[0:4], idB.Bytes()) == 0 {
 			if id == uint64(binary.LittleEndian.Uint32(pack[0:4])) {
 				var n int
-				n, err = redis.Int(c.Do("ZREM", "rnis", pack))
+				n, err = redis.Int(c.Do("ZREM", egtsKey, pack))
 				if err != nil {
 					logger.Tracef("can't delete EGTS packet from db")
 				}
@@ -183,7 +183,7 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err e
 			}
 		}
 	case numPackets == 1:
-		_, err = c.Do("ZREM", "rnis", packets[0])
+		_, err = c.Do("ZREM", egtsKey, packets[0])
 		if err != nil {
 			logger.Tracef("can't delete EGTS packet from db")
 		}
@@ -197,7 +197,7 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err e
 
 func removeExpiredDataEGTS(c redis.Conn, logger *logrus.Entry) (err error) {
 	max := getMill() - 259200000 //3*24*60*60*1000
-	_, err = c.Do("ZREMRANGEBYSCORE", "rnis", 0, max)
+	_, err = c.Do("ZREMRANGEBYSCORE", egtsKey, 0, max)
 	logger.Tracef("max: %d", max)
 	logger.Tracef("err: %v", err)
 	return
@@ -205,7 +205,7 @@ func removeExpiredDataEGTS(c redis.Conn, logger *logrus.Entry) (err error) {
 
 func getOldEGTS(c redis.Conn, logger *logrus.Entry) (res [][]byte, err error) {
 	max := getMill() - 60000
-	res, err = redis.ByteSlices(c.Do("ZRANGEBYSCORE", "rnis", 0, max, "LIMIT", 0, 10000))
+	res, err = redis.ByteSlices(c.Do("ZRANGEBYSCORE", egtsKey, 0, max, "LIMIT", 0, 10000))
 	logger.Tracef("max: %d; len(res): %d", max, len(res))
 	logger.Tracef("err: %v", err)
 	return
@@ -213,7 +213,7 @@ func getOldEGTS(c redis.Conn, logger *logrus.Entry) (res [][]byte, err error) {
 
 func getEGTSScore(c redis.Conn, mes []byte, logger *logrus.Entry) (int64, error) {
 	logger.Tracef("mes: %v", mes)
-	res, err := redis.Int64(c.Do("ZSCORE", "rnis", mes))
+	res, err := redis.Int64(c.Do("ZSCORE", egtsKey, mes))
 	logger.Tracef("res=%d; err: %v", res, err)
 	return res, err
 }
