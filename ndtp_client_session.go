@@ -60,7 +60,7 @@ func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh
 					if len(restBuf) > defaultBufferSize {
 						restBuf = []byte{}
 					}
-					logger.Debugf("error parseNDTP: %v", err)
+					logger.Debugf("can't parse NDTP: %v", err)
 					break
 				}
 				if enableMetrics {
@@ -248,7 +248,12 @@ func procMes(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpDat
 		if toEGTS(data) {
 			logger.Debugln("start to send to EGTS server")
 			data.ToRnis.id = uint32(s.id)
-			egtsCh <- data.ToRnis
+			select {
+			case egtsCh <- data.ToRnis:
+			default:
+				logger.Errorln("egtsCh is full")
+			}
+
 		}
 	}
 	logger.Debugln("start to reply")
