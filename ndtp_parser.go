@@ -182,12 +182,11 @@ func parseNavData(message []byte) (rnis rnisData, err error) {
 			if message[index+14]&128 != 0 {
 				rnis.valid = true
 			}
-			avgSpeed := binary.LittleEndian.Uint16(message[index+17 : index+19])
-			if avgSpeed > 0 {
+			rnis.speed = binary.LittleEndian.Uint16(message[index+16 : index+18])
+			if rnis.speed > 0 {
 				rnis.mv = true
 			}
-			rnis.speed = binary.LittleEndian.Uint16(message[index+16 : index+18])
-			rnis.bearing = binary.LittleEndian.Uint16(message[index+22 : index+24])
+			rnis.bearing = binary.LittleEndian.Uint16(message[index+20 : index+22])
 		} else {
 			err = errors.New("NavData type 0 is too short")
 			return

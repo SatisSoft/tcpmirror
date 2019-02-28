@@ -94,7 +94,7 @@ func waitReplyEGTS() {
 			logger.Debugf("start reading data from EGTS server")
 			egtsConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
 			n, err := egtsConn.conn.Read(b[:])
-			logger.Debugf("received %d bytes; packet: %v", n, b[:n])
+			printPacket(logger,"received packet: ", b[:n])
 			if err != nil {
 				logger.Warningf("can't get reply from egts server %s", err)
 				go egtsConStatus()
@@ -102,6 +102,7 @@ func waitReplyEGTS() {
 				continue
 			}
 			egtsMsgIDs, err := parseEGTS(b[:n])
+			logger.Tracef("egtsMsgID: %v", egtsMsgIDs)
 			if err != nil {
 				logger.Errorf("error while parsing reply from EGTS %v: %s", b[:n], err)
 			}
