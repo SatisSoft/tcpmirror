@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/sirupsen/logrus"
+	"net"
 	"strconv"
 	"strings"
 	"time"
@@ -26,4 +27,11 @@ func printPacket(logger *logrus.Entry, s string, slice []byte) {
 	}
 	result := strings.Join(sliceText, ",")
 	logger.Debugf("%s {%s}\n", s, result)
+}
+
+func getIP(c net.Conn) net.IP {
+	ipPort := strings.Split(c.RemoteAddr().String(), ":")
+	ip := ipPort[0]
+	ip1 := net.ParseIP(ip)
+	return ip1.To4()
 }

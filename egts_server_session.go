@@ -4,54 +4,52 @@ import (
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 	"net"
-	"sync"
 	"time"
 )
 
-func egtsSession() {
+import nav "github.com/ashirko/navprot"
+
+func egtsServerSession() {
 	logger := logrus.WithField("egts", "new")
-	var cR redis.Conn
-	for {
-		var err error
-		cR, err = redis.Dial("tcp", ":6379")
-		if err != nil {
-			logger.Errorf("error connecting to redis: %s\n", err)
-		} else {
-			break
-		}
+	s := new(egtsSession)
+	egtsConn = connection{egtsServer, nil, true, false}
+	cE, err := net.Dial("tcp", egtsServer)
+	if err != nil {
+		logrus.Errorf("error while connecting to EGTS server: %s", err)
+	} else {
+		egtsConn.conn = cE
+		egtsConn.closed = false
 	}
+	cR := connRedis()
 	defer cR.Close()
 	var buf []byte
-	var egtsMessageID, egtsRecID uint16
-	var muOld sync.Mutex
 	count := 0
 	sendTicker := time.NewTicker(100 * time.Millisecond)
-	checkTicker := time.NewTicker(60 * time.Second)
 	defer sendTicker.Stop()
-	defer checkTicker.Stop()
+	go oldEGTS(s)
+	go waitReplyEGTS()
+	go egtsRemoveExpired()
 	for {
 		select {
 		case message := <-egtsCh:
-			logger.Debugf("form egtsMessage: %d; egtsRecID: %d", egtsMessageID, egtsRecID)
-			packet := formEGTS(message, egtsMessageID, egtsRecID)
+			egts := message.msg
+			egtsMessageID, egtsRecID := s.ids()
+			egts.PacketID = egtsMessageID
+			egts.Data.(*nav.EgtsRecord).RecNum = egtsRecID
+			packet, err := egts.Form()
+			if err != nil {
+				logger.Errorf("error forming egts: %s", err)
+				break
+			}
 			count += 1
 			buf = append(buf, packet...)
-			logger.Debugf("writeEGTSid in egtsSession: %d : %s", egtsRecID, message.messageID)
-			printPacket(logger,"egts packet: ", packet)
-			err := writeEGTSid(cR, egtsMessageID, message.messageID, logger)
+			logger.Debugf("writeEGTSid in egtsServerSession: %d : %s", egtsRecID, message.msgID)
+			printPacket(logger, "egts packet: ", packet)
+			err = writeEGTSid(cR, egtsMessageID, message.msgID, logger)
 			if err != nil {
-				for {
-					cR, err = redis.Dial("tcp", ":6379")
-					if err != nil {
-						logger.Errorf("error reconnecting to redis: %s\n", err)
-					} else {
-						break
-					}
-					time.Sleep(5 * time.Second)
-				}
+				logger.Errorf("error wrinteEGTSid: %s", err)
+				cR = connRedis()
 			}
-			egtsMessageID++
-			egtsRecID++
 			if count == 10 {
 				send2egts(buf, logger)
 				if enableMetrics {
@@ -69,24 +67,14 @@ func egtsSession() {
 				count = 0
 				buf = nil
 			}
-		case <-checkTicker.C:
-			go oldEGTS(cR, &muOld, &egtsMessageID, &egtsRecID)
 		}
 	}
 }
 
 func waitReplyEGTS() {
-	logger := logrus.WithField("egts", "new")
-	var cR redis.Conn
-	for {
-		var err error
-		cR, err = redis.Dial("tcp", ":6379")
-		if err != nil {
-			logger.Errorf("error connecting to redis: %s", err)
-		} else {
-			break
-		}
-	}
+	logger := logrus.WithField("egts", "waitReply")
+	var restBuf []byte
+	cR := connRedis()
 	defer cR.Close()
 	for {
 		var b [defaultBufferSize]byte
@@ -94,44 +82,57 @@ func waitReplyEGTS() {
 			logger.Debugf("start reading data from EGTS server")
 			egtsConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
 			n, err := egtsConn.conn.Read(b[:])
-			printPacket(logger,"received packet: ", b[:n])
+			printPacket(logger, "received packet: ", b[:n])
 			if err != nil {
 				logger.Warningf("can't get reply from egts server %s", err)
 				go egtsConStatus()
 				time.Sleep(5 * time.Second)
 				continue
 			}
-			egtsMsgIDs, err := parseEGTS(b[:n])
-			logger.Tracef("egtsMsgID: %v", egtsMsgIDs)
-			if err != nil {
-				logger.Errorf("error while parsing reply from EGTS %v: %s", b[:n], err)
-			}
-			for _, id := range egtsMsgIDs {
-				err := deleteEGTS(cR, id, logger)
+			restBuf = append(restBuf, b[:n]...)
+			for {
+				egts := new(nav.EGTS)
+				restBuf, err = egts.Parse(b[:n])
+				if err != nil {
+					logger.Errorf("error while parsing reply from EGTS %v: %s", b[:n], err)
+				}
+				data := egts.Data.(*nav.EgtsResponce)
+				if data.ProcRes != 0 {
+					logger.Warningf("received egts responce with not zero result: %d", data.ProcRes)
+					continue
+				}
+				err := deleteEGTS(cR, data.RecID, logger)
 				if err != nil {
 					logger.Warningf("can't deleteEGTS: %s", err)
-					for {
-						cR, err = redis.Dial("tcp", ":6379")
-						if err != nil {
-							logger.Errorf("error reconnecting to redis: %s", err)
-						} else {
-							break
-						}
-						time.Sleep(5 * time.Second)
-					}
+					cR = connRedis()
 				}
 			}
 		} else {
-			logger.Infoln("EGTS server closed")
+			logger.Warningf("EGTS server closed")
 			time.Sleep(5 * time.Second)
 		}
 	}
 }
 
-func send2egts(buf []byte, logger * logrus.Entry) {
+func connRedis() redis.Conn {
+	var cR redis.Conn
+	for {
+		var err error
+		cR, err = redis.Dial("tcp", ":6379")
+		if err != nil {
+			logrus.Errorf("error connecting to redis: %s\n", err)
+		} else {
+			break
+		}
+		time.Sleep(5 * time.Second)
+	}
+	return cR
+}
+
+func send2egts(buf []byte, logger *logrus.Entry) {
 	if !egtsConn.closed {
+		printPacket(logger, "send2egts: sending packet: ", buf)
 		egtsConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-		printPacket(logger,"send2egts: sending packet: ", buf)
 		_, err := egtsConn.conn.Write(buf)
 		if err != nil {
 			egtsConStatus()
@@ -155,12 +156,12 @@ func egtsConStatus() {
 	}
 }
 
-func reconnectEGTS(logger * logrus.Entry) {
+func reconnectEGTS(logger *logrus.Entry) {
 	logger.Println("start reconnectEGTS")
 	for {
 		for i := 0; i < 3; i++ {
 			logger.Printf("try to reconnect to EGTS server: %d", i)
-			cE, err := net.Dial("tcp", EGTSAddress)
+			cE, err := net.Dial("tcp", egtsServer)
 			if err == nil {
 				egtsConn.conn = cE
 				egtsConn.closed = false

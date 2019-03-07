@@ -20,15 +20,19 @@ import (
 //id, nid:id1:id2 - NPH_SRV_NAVDATA for NDTP Server
 //rnis - NPH_SRV_NAVDATA for EGTS Server
 
-func writeConnDB(c redis.Conn, id uint32, message []byte, logger *logrus.Entry) error {
-	key := "conn:" + strconv.Itoa(int(id))
-	logger.Tracef("key: %s; message: %v", key, message)
+func writeConnDB(s *session, message []byte) error {
+	c := pool.Get()
+	defer c.Close()
+	key := "c:" + strconv.Itoa(s.id)
+	s.logger.Tracef("key: %s; message: %v", key, message)
 	_, err := c.Do("SET", key, message)
-	logger.Tracef("err: %v", err)
+	s.logger.Tracef("err: %v", err)
 	return err
 }
 
-func readConnDB(c redis.Conn, s *session) ([]byte, error) {
+func readConnDB(s *session) ([]byte, error) {
+	c := pool.Get()
+	defer c.Close()
 	key := "conn:" + strconv.Itoa(s.id)
 	res, err := redis.Bytes(c.Do("GET", key))
 	s.logger.Tracef("key: %s; message: %v", key, res)
@@ -68,14 +72,14 @@ func readNDTPIdExt(c redis.Conn, s *session, mesID uint16) (int64, error) {
 	return res, err
 }
 
-func write2DB(c redis.Conn, data ndtpData, s *session, packet []byte, time int64) (err error) {
+func write2DB(c redis.Conn, s *session, packet []byte, time int64, toEgts bool) (err error) {
 	err = write2NDTP(c, s, time, packet)
 	s.logger.Tracef("packet: %v", packet)
 	s.logger.Tracef("time: %d, err: %v", time, err)
 	if err != nil {
 		return
 	}
-	if data.ToRnis.time != 0 {
+	if toEgts {
 		err = write2EGTS(c, s, time, packet)
 		s.logger.Tracef("time: %d, err: %v", time, err)
 	}
@@ -98,25 +102,29 @@ func write2EGTS(c redis.Conn, s *session, time int64, packet []byte) error {
 	return err
 }
 
-func removeFromNDTP(c redis.Conn, s *session, NPHReqID uint32) error {
-	time, err := readNDTPid(c, s, NPHReqID)
+func removeFromNDTP(s *session, NPHReqID uint32) error {
+	c := pool.Get()
+	defer c.Close()
+	t, err := readNDTPid(c, s, NPHReqID)
 	if err != nil {
 		return err
 	}
-	s.logger.Tracef("id: %d; time: %d", s.id, time)
-	n, err := c.Do("ZREMRANGEBYSCORE", s.id, time, time)
+	s.logger.Tracef("id: %d; t: %d", s.id, t)
+	n, err := c.Do("ZREMRANGEBYSCORE", s.id, t, t)
 	s.logger.Tracef("n=%d; err: %v", n, err)
 	return err
 }
 
-func removeFromNDTPExt(c redis.Conn, s *session, mesID uint16) error {
-	time, err := readNDTPIdExt(c, s, mesID)
+func removeFromNDTPExt(s *session, mesID uint16) error {
+	c := pool.Get()
+	defer c.Close()
+	t, err := readNDTPIdExt(c, s, mesID)
 	if err != nil {
 		return err
 	}
 	key := "ext_c:" + strconv.Itoa(s.id)
-	s.logger.Tracef("key: %s; time: %d", key, time)
-	n, err := c.Do("ZREMRANGEBYSCORE", key, time, time)
+	s.logger.Tracef("key: %s; t: %d", key, t)
+	n, err := c.Do("ZREMRANGEBYSCORE", key, t, t)
 	s.logger.Tracef("n=%d; err: %v", n, err)
 	return err
 }
@@ -195,7 +203,9 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err e
 	return
 }
 
-func removeExpiredDataEGTS(c redis.Conn, logger *logrus.Entry) (err error) {
+func removeExpiredDataEGTS(logger *logrus.Entry) (err error) {
+	c := pool.Get()
+	defer c.Close()
 	max := getMill() - 259200000 //3*24*60*60*1000
 	_, err = c.Do("ZREMRANGEBYSCORE", egtsKey, 0, max)
 	logger.Tracef("max: %d", max)
@@ -218,7 +228,9 @@ func getEGTSScore(c redis.Conn, mes []byte, logger *logrus.Entry) (int64, error)
 	return res, err
 }
 
-func writeControlID(c redis.Conn, s *session, id1 int, id2 uint32) error {
+func writeControlID(s *session, id1 int, id2 uint32) error {
+	c := pool.Get()
+	defer c.Close()
 	key := "gc_s:" + strconv.Itoa(s.id) + ":" + strconv.Itoa(id1)
 	s.logger.Tracef("key: %s; val: %v", key, id2)
 	val := strconv.Itoa(int(id2))
@@ -227,7 +239,9 @@ func writeControlID(c redis.Conn, s *session, id1 int, id2 uint32) error {
 	return err
 }
 
-func readControlID(c redis.Conn, s *session, id1 int) (int, error) {
+func readControlID(s *session, id1 int) (int, error) {
+	c := pool.Get()
+	defer c.Close()
 	key := "gc_s:" + strconv.Itoa(s.id) + ":" + strconv.Itoa(id1)
 	res, err := redis.Int(c.Do("GET", key))
 	s.logger.Tracef("key: %s; res: %d", key, res)
@@ -235,7 +249,9 @@ func readControlID(c redis.Conn, s *session, id1 int) (int, error) {
 	return res, err
 }
 
-func removeExpiredDataNDTP(c redis.Conn, s *session) (err error) {
+func removeExpiredDataNDTP(s *session) (err error) {
+	c := pool.Get()
+	defer c.Close()
 	max := getMill() - 259200000 //3*24*60*60*1000
 	_, err = c.Do("ZREMRANGEBYSCORE", s.id, 0, max)
 	s.logger.Tracef("err: %v", err)
@@ -252,17 +268,30 @@ func removeExpiredDataNDTP(c redis.Conn, s *session) (err error) {
 	return
 }
 
-func writeExtServ(c redis.Conn, s *session, packet []byte, mill int64, mesID uint16) error {
+func writeExtServ(s *session, packet []byte, mill int64, mesID uint16) error {
+	c := pool.Get()
+	defer c.Close()
 	key := "ext_s:" + strconv.Itoa(s.id)
-	time := strconv.FormatInt(mill, 10)
+	t := strconv.FormatInt(mill, 10)
 	flag := "0"
-	s.logger.Tracef("time: %s", time)
-	_, err := c.Do("HMSET", key, "time", time, "flag", flag, "mesID", mesID, "packet", packet)
+	s.logger.Tracef("t: %s", t)
+	_, err := c.Do("HMSET", key, "t", t, "flag", flag, "mesID", mesID, "packet", packet)
 	s.logger.Tracef("err: %v", err)
 	return err
 }
 
-func removeServerExt(c redis.Conn, s *session) error {
+// remove NPH_SED_DEVICE_TITLE_DATA message from server if it exists
+func removeServerExt(s *session) error {
+	c := pool.Get()
+	defer c.Close()
+	key := "ext_s:" + strconv.Itoa(s.id)
+	n, err := redis.Int(c.Do("DEL", key))
+	s.logger.Tracef("remove n records: %d;", n)
+	s.logger.Tracef("err: %v;", err)
+	return err
+}
+
+func removeServerExtOld(c redis.Conn, s *session) error {
 	key := "ext_s:" + strconv.Itoa(s.id)
 	n, err := redis.Int(c.Do("DEL", key))
 	s.logger.Tracef("remove n records: %d;", n)

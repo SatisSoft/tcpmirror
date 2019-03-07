@@ -2,160 +2,142 @@ package main
 
 import (
 	"fmt"
-	"github.com/gomodule/redigo/redis"
-	"net"
 	"strconv"
-	"sync"
 	"time"
 )
 
+import nav "github.com/ashirko/navprot"
+
 //session with NDTP client
-func clientSession(client net.Conn, ndtpConn *connection, ErrNDTPCh, errClientCh chan error, s *session, mu *sync.Mutex) {
-	logger := s.logger
-	//connect to redis
-	var cR redis.Conn
-	for {
-		var err error
-		cR, err = redis.Dial("tcp", ":6379")
-		if err != nil {
-			logger.Errorf("can't connect to redis: %s", err)
-		} else {
-			break
-		}
-	}
-	//close redis connection
-	defer cR.Close()
-	//remove ext message if it exists
-	removeServerExt(cR, s)
+func clientSession(s *session) {
+	removeServerExt(s)
+	go oldFromClient(s)
+	go ndtpRemoveExpired(s)
 	var restBuf []byte
-	checkTicker := time.NewTicker(60 * time.Second)
-	defer checkTicker.Stop()
 	for {
-		select {
-		case <-checkTicker.C:
-			go oldFromClient(cR, s, ndtpConn, mu, ErrNDTPCh)
-		default:
-			var b [defaultBufferSize]byte
-			logger.Debug("start reading from client")
-			client.SetReadDeadline(time.Now().Add(readTimeout))
-			n, err := client.Read(b[:])
-			logger.Debugf("received %d from client", n)
-			printPacket(logger, "packet from client: ", b[:n])
-			if err != nil {
-				errClientCh <- err
-				return
+		var b [defaultBufferSize]byte
+		s.logger.Debug("start reading from client")
+		s.clientConn.SetReadDeadline(time.Now().Add(readTimeout))
+		n, err := s.clientConn.Read(b[:])
+		s.logger.Debugf("received %d from client", n)
+		printPacket(s.logger, "packet from client: ", b[:n])
+		if err != nil {
+			s.errClientCh <- err
+			return
+		}
+		if enableMetrics {
+			countFromServerNDTP.Inc(1)
+		}
+		restBuf = append(restBuf, b[:n]...)
+		s.logger.Debugf("len(restBuf) = %d", len(restBuf))
+		for len(restBuf) > 0 {
+			ndtp := new(nav.NDTP)
+			s.logger.Tracef("before parsing len(restBuf) = %d", len(restBuf))
+			printPacket(s.logger, "before parsing restBuf", restBuf)
+			restBuf, err = ndtp.Parse(restBuf)
+			if restBuf, err = ndtp.Parse(restBuf); err != nil {
+				if len(restBuf) > defaultBufferSize {
+					restBuf = []byte{}
+				}
+				break
 			}
 			if enableMetrics {
-				countFromServerNDTP.Inc(1)
+				countClientNDTP.Inc(1)
 			}
-			restBuf = append(restBuf, b[:n]...)
-			logger.Debugf("len(restBuf) = %d", len(restBuf))
-			for {
-				var data ndtpData
-				var packet []byte
-				logger.Debugf("before parsing len(restBuf) = %d", len(restBuf))
-				logger.Debugf("before parsing restBuf: %v", restBuf)
-				data, packet, restBuf, err = parseNDTP(restBuf)
-				if err != nil {
-					if len(restBuf) > defaultBufferSize {
-						restBuf = []byte{}
-					}
-					logger.Debugf("can't parse NDTP: %v", err)
-					break
-				}
-				if enableMetrics {
-					countClientNDTP.Inc(1)
-				}
-				mill := getMill()
-				if data.NPH.isResult {
-					err = procNPHResult(cR, ndtpConn, s, &data, packet)
-				} else if data.NPH.ServiceID == NPH_SRV_EXTERNAL_DEVICE {
-					err = handleExtClient(cR, client, ndtpConn, &data, s, packet, ErrNDTPCh, errClientCh, mu, mill)
-				} else if !data.NPH.needReply {
-					err = procNoNeedReply(cR, ndtpConn, &data, s, packet, ErrNDTPCh, mu)
-				} else {
-					err = procMes(cR, client, ndtpConn, &data, s, packet, ErrNDTPCh, errClientCh, mu, mill)
-				}
-				if err != nil {
-					logger.Warningf("can't process message: %s", err)
-					restBuf = []byte{}
-					break
-				}
-				time.Sleep(1 * time.Millisecond)
-				if len(restBuf) == 0 {
-					break
-				}
+			err = processNdtp(s, ndtp)
+			if err != nil {
+				s.logger.Warningf("can't process message from client: %s", err)
+				restBuf = []byte{}
+				break
 			}
+			time.Sleep(1 * time.Millisecond)
 		}
 	}
 }
 
-func procNPHResult(cR redis.Conn, ndtpConn *connection, s *session, data *ndtpData, packet []byte) (err error) {
-	logger := s.logger
-	controlReplyID, err := readControlID(cR, s, int(data.NPH.NPHReqID))
-	logger.Debugf("old nphReqID: %d; new nphReqID: %d", data.NPH.NPHReqID, controlReplyID)
-	printPacket(logger,"control message before changing: ", packet)
-	message := changeContolResult(packet, controlReplyID, s)
-	printPacket(logger,"control message after changing: ", message)
-	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err = ndtpConn.conn.Write(message)
-	if err != nil {
-		logger.Warningf("can't send to NDTP server: %s", err)
-	}
-	return
-}
-
-func procNoNeedReply(cR redis.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, ErrNDTPCh chan error, mu *sync.Mutex) (err error) {
-	logger := s.logger
-	logger.Debugf("no need to reply on message servId: %d, type: %d", data.NPH.ServiceID, data.NPH.NPHType)
-	packetCopyNDTP := make([]byte, len(packet))
-	copy(packetCopyNDTP, packet)
-	_, message := changePacket(packetCopyNDTP, s)
-	printPacket(logger,"procNoNeedReply: send message to server (no reply): ", message)
-	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err = ndtpConn.conn.Write(message)
-	if err != nil {
-		logger.Warningf("procNoNeedReply: send to NDTP server error (no reply): %s", err)
-		ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
-	}
-	return
-}
-
-func handleExtClient(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, ErrNDTPCh, errClientCh chan error, mu *sync.Mutex, mill int64) (err error) {
-	s.logger.Debugf("NPH_SRV_EXTERNAL_DEVICE type: %d, id: %d, packetNum: %d, res: %d", data.NPH.NPHType, data.ext.mesID, data.ext.packNum, data.ext.res)
-	if data.NPH.NPHType == NPH_SED_DEVICE_TITLE_DATA {
-		err = handleExtTitleClient(cR, client, ndtpConn, data, s, packet, ErrNDTPCh, errClientCh, mu, mill)
-	} else if data.NPH.NPHType == NPH_SED_DEVICE_RESULT {
-		err = handleExtResClient(cR, ndtpConn, data, s, packet, mill)
+func processNdtp(s *session, ndtp *nav.NDTP) (err error) {
+	if ndtp.IsResult() {
+		err = nphResultFromClient(s, ndtp)
+	} else if ndtp.Service() == nav.NphSrvExternalDevice {
+		err = extFromClient(s, ndtp)
+	} else if !ndtp.NeedReply() {
+		err = noNeedReplyFromClient(s, ndtp)
 	} else {
-		err = fmt.Errorf("unknown NPHType: %d, packet %v", data.NPH.NPHType, packet)
+		err = ndtpFromClient(s, ndtp)
 	}
 	return
 }
 
-func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, ErrNDTPCh, errClientCh chan error, mu *sync.Mutex, mill int64) (err error) {
-	logger := s.logger
-	packetCopy := copyPack(packet)
-	err = writeExtClient(cR, s, mill, packet)
+// nphResultFromClient processes client response to NPH_ SRV_GENERIC_CONTROLS message from server
+func nphResultFromClient(s *session, ndtp *nav.NDTP) (err error) {
+	controlReplyID, err := readControlID(s, int(ndtp.Nph.ReqID))
 	if err != nil {
-		logger.Errorf("handleExtTitleClient: send ext error reply to client because of: ", err)
-		errorReplyExt(client, data.ext.mesID, data.ext.packNum, packetCopy, s)
+		s.logger.Warningf("can't find controlReplyID: %s", err)
 		return
 	}
-	logger.Println("handleExtTitleClient: start to send ext device message to NDTP server")
-	if ndtpConn.closed != true {
-		packetCopyNDTP := copyPack(packet)
-		_, message := changePacket(packetCopyNDTP, s)
-		err = writeNDTPIdExt(cR, s, data.ext.mesID, mill)
+	s.logger.Debugf("old nphReqID: %d; new nphReqID: %d", ndtp.Nph.ReqID, controlReplyID)
+	printPacket(s.logger, "control message before changing: ", ndtp.Packet)
+	changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: controlReplyID}
+	ndtp.ChangePacket(changes)
+	printPacket(s.logger, "control message after changing: ", ndtp.Packet)
+	err = sendToServer(s, ndtp)
+	return
+}
+
+// noNeedReplyFromClient processes messages from client to server which do not need reply
+func noNeedReplyFromClient(s *session, ndtp *nav.NDTP) (err error) {
+	s.logger.Debugf("no need to reply on message ServiceID: %d, NPHReqID: %d", ndtp.Nph.ServiceID, ndtp.Nph.ReqID)
+	changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
+	ndtp.ChangePacket(changes)
+	printPacket(s.logger, "send message to server (no reply): ", ndtp.Packet)
+	err = sendToServer(s, ndtp)
+	return
+}
+
+// extFromClient processes NPH_SRV_EXTERNAL_DEVICE messages from client to server
+func extFromClient(s *session, ndtp *nav.NDTP) (err error) {
+	mill := getMill()
+	s.logger.Debugf("handle NPH_SRV_EXTERNAL_DEVICE")
+	pType := ndtp.PacketType()
+	if pType == nav.NphSedDeviceTitleData {
+		err = extTitleFromClient(s, ndtp, mill)
+	} else if pType == nav.NphSedDeviceResult {
+		err = extResFromClient(s, ndtp, mill)
+	} else {
+		err = fmt.Errorf("unknown NPHType: packet %v", ndtp.Packet)
+	}
+	return
+}
+
+// extTitleFromClient processes NPH_SED_DEVICE_TITLE_DATA messages from client to server
+func extTitleFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
+	c := pool.Get()
+	defer c.Close()
+	packetCopy := append([]byte(nil), ndtp.Packet...)
+	err = writeExtClient(c, s, mill, packetCopy)
+	if err != nil {
+		s.logger.Errorf("extTitleFromClient: send ext error reply to client because of: %s", err)
+		err1 := replyExt(s, ndtp, nphResultError)
+		if err1 != nil {
+			return err1
+		}
+		return
+	}
+	s.logger.Println("send ext device message to server")
+	if s.servConn.closed != true {
+		err = writeNDTPIdExt(c, s, ndtp.Nph.Data.(nav.ExtDevice).MesID, mill)
 		if err != nil {
-			logger.Errorf("error writeNDTPIdExt: %v", err)
+			s.logger.Errorf("error writeNDTPIdExt: %v", err)
 		} else {
-			printPacket(logger,"handleExtTitleClient: send ext device message to server: ", message)
-			ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			_, err = ndtpConn.conn.Write(message)
+			packetCopy1 := append([]byte(nil), ndtp.Packet...)
+			changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
+			ndtp.ChangePacket(changes)
+			printPacket(s.logger, "ext device message to server after change: ", ndtp.Packet)
+			err = sendToServer(s, ndtp)
+			ndtp.Packet = packetCopy1
 			if err != nil {
-				logger.Warningf("can't send ext device message to NDTP server: %s", err)
-				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+				s.logger.Warningf("can't send ext device message to NDTP server: %s", err)
+				ndtpConStatus(s)
 			} else {
 				if enableMetrics {
 					countToServerNDTP.Inc(1)
@@ -163,79 +145,82 @@ func handleExtTitleClient(cR redis.Conn, client net.Conn, ndtpConn *connection, 
 			}
 		}
 	}
-	logger.Debugln("start to reply to ext device message")
-	err = replyExt(client, data.ext.mesID, data.ext.packNum, packet, s)
+	s.logger.Debugln("start to reply to ext device message")
+	err = replyExt(s, ndtp, nphResultOk)
 	if err != nil {
-		logger.Warningf("can't reply to ext device message: ", err)
-		errClientCh <- err
+		s.logger.Warningf("can't reply to ext device message: ", err)
+		s.errClientCh <- err
 	}
 	return
 }
 
-func handleExtResClient(cR redis.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, mill int64) (err error) {
-	logger := s.logger
-	_, _, _, mesID, err := getServExt(cR, s)
+// extResFromClient processes NPH_SED_DEVICE_RESULT messages from client to server
+func extResFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
+	c := pool.Get()
+	defer c.Close()
+	_, _, _, mesID, err := getServExt(c, s)
 	if err != nil {
-		logger.Warningf("can't getServExt: %v", err)
-	} else if mesID == uint64(data.ext.mesID) {
-		if data.ext.res == 0 {
-			logger.Debugf("received result and remove data from db")
-			err = removeServerExt(cR, s)
+		s.logger.Warningf("can't getServExt: %v", err)
+	} else if mesID == uint64(ndtp.Nph.Data.(nav.ExtDevice).MesID) {
+		if ndtp.Nph.Data.(nav.ExtDevice).Res == 0 {
+			s.logger.Debugf("received result and remove data from db")
+			err = removeServerExt(s)
 			if err != nil {
-				logger.Warningf("can't removeFromNDTPExt : %v", err)
+				s.logger.Warningf("can't removeFromNDTPExt : %v", err)
 			}
 		} else {
-			logger.Println("received result with error status")
-			err = setFlagServerExt(cR, s, "1")
+			s.logger.Println("received result with error status")
+			err = setFlagServerExt(c, s, "1")
 			if err != nil {
-				logger.Warningf("can't setFlagServerExt: %v", err)
+				s.logger.Warningf("can't setFlagServerExt: %v", err)
 			}
 		}
 	} else {
-		logger.Warningf("receive reply with mesID: %d; messID stored in DB: %d", data.ext.mesID, mesID)
+		s.logger.Warningf("receive reply with mesID: %d; messID stored in DB: %d", ndtp.Nph.Data.(nav.ExtDevice).MesID, mesID)
 	}
-	packetCopy := copyPack(packet)
-	_, message := changePacket(packetCopy, s)
-	printPacket(logger,"send ext device message to server: ", message)
-	ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err = ndtpConn.conn.Write(message)
+	packetCopy := append([]byte(nil), ndtp.Packet...)
+	changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
+	ndtp.ChangePacket(changes)
+	printPacket(s.logger, "send ext device message to server: ", ndtp.Packet)
+	err = sendToServer(s, ndtp)
 	if err != nil {
-		logger.Warningf("can't write ext device result to server: %v", err)
-		err = writeExtClient(cR, s, mill, packet)
+		s.logger.Warningf("can't write ext device result to server: %v", err)
+		err = writeExtClient(c, s, mill, packetCopy)
 		if err != nil {
-			logger.Errorf("can't write2DB ext device result: %v", err)
+			s.logger.Errorf("can't write2DB ext device result: %v", err)
 		}
 	}
 	return
 }
 
-func procMes(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpData, s *session, packet []byte, ErrNDTPCh, errClientCh chan error, mu *sync.Mutex, mill int64) (err error) {
-	logger := s.logger
-	data.NPH.ID = uint32(s.id)
-	packetCopy := make([]byte, len(packet))
-	copy(packetCopy, packet)
-	err = write2DB(cR, *data, s, packetCopy, mill)
+func ndtpFromClient(s *session, ndtp *nav.NDTP) (err error) {
+	c := pool.Get()
+	defer c.Close()
+	mill := getMill()
+	packetCopy := append([]byte(nil), ndtp.Packet...)
+	err = write2DB(c, s, packetCopy, mill, toEGTS(ndtp))
 	if err != nil {
-		logger.Errorf("can't write2DB: ", err)
-		errorReply(client, packetCopy, s)
+		s.logger.Errorf("can't write2DB: ", err)
+		err1 := reply(s, ndtp, nphResultError)
+		if err1 != nil {
+			return err1
+		}
 		return
 	}
-	logger.Debugf("start to send to NDTP server")
-	if ndtpConn.closed != true {
-		packetCopyNDTP := make([]byte, len(packet))
-		copy(packetCopyNDTP, packet)
-		NPHReqID, message := changePacket(packetCopyNDTP, s)
-		printPacket(logger,"packet after changing: ", message)
-		err = writeNDTPid(cR, s, NPHReqID, mill)
+	s.logger.Debugf("start send to NDTP server")
+	if s.servConn.closed != true {
+		changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
+		ndtp.ChangePacket(changes)
+		printPacket(s.logger, "packet after changing: ", ndtp.Packet)
+		err = writeNDTPid(c, s, ndtp.Nph.ReqID, mill)
 		if err != nil {
-			logger.Errorf("error writingNDTPid: %v", err)
+			s.logger.Errorf("error writingNDTPid: %v", err)
 		} else {
-			ndtpConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-			printPacket(logger,"send message to server: ", message)
-			_, err = ndtpConn.conn.Write(message)
+			printPacket(s.logger, "send message to server: ", ndtp.Packet)
+			err = sendToServer(s, ndtp)
 			if err != nil {
-				logger.Warningf("can't send to NDTP server: %s", err)
-				ndtpConStatus(cR, ndtpConn, s, mu, ErrNDTPCh)
+				s.logger.Warningf("can't send to NDTP server: %s", err)
+				ndtpConStatus(s)
 			} else {
 				if enableMetrics {
 					countToServerNDTP.Inc(1)
@@ -243,55 +228,76 @@ func procMes(cR redis.Conn, client net.Conn, ndtpConn *connection, data *ndtpDat
 			}
 		}
 	}
-	data.ToRnis.messageID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
 	if egtsConn.closed != true {
-		if toEGTS(data) {
-			logger.Debugln("start to send to EGTS server")
-			data.ToRnis.id = uint32(s.id)
+		if toEGTS(ndtp) {
+			m := new(egtsMsg)
+			m.msgID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
+			m.msg, err = nav.NDTPtoEGTS(*ndtp, uint32(s.id))
+			if err != nil {
+				s.logger.Errorf("error converting to egts: %s", err)
+			}
+			s.logger.Debugln("start to send to EGTS goroutine")
 			select {
-			case egtsCh <- data.ToRnis:
+			case egtsCh <- m:
 			default:
-				logger.Errorln("egtsCh is full")
+				s.logger.Errorln("egtsCh is full")
 			}
 
 		}
 	}
-	logger.Debugln("start to reply")
-	packetCopyNDTP1 := make([]byte, len(packet))
-	copy(packetCopyNDTP1, packet)
-	err = reply(client, data.NPH, packetCopyNDTP1, s)
+	s.logger.Debugln("start to reply")
+	err = reply(s, ndtp, nphResultOk)
 	if err != nil {
-		logger.Warningf("procMes: error replying to att: ", err)
-		errClientCh <- err
-		return
+		s.logger.Warningf("ndtpFromClient: error replying to att: ", err)
+		s.errClientCh <- err
 	}
 	return
 }
 
-func toEGTS(data *ndtpData) bool {
-	if data.ToRnis.time != 0 {
+func toEGTS(ndtp *nav.NDTP) bool {
+	switch ndtp.Nph.Data.(type) {
+	case *nav.NavData:
 		return true
+	default:
+		return false
 	}
-	return false
 }
 
-func replyExt(c net.Conn, mesID, packNum uint16, packet []byte, s *session) error {
-	logger := s.logger
-	logger.Debugf("packet: %v", packet)
-	ans := answerExt(packet, mesID, packNum)
-	logger.Debugf("length = %d; ans: %v", len(ans), ans)
-	printPacket(logger,"send answer: ", ans)
-	c.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err := c.Write(ans)
+func reply(s *session, ndtp *nav.NDTP, result uint32) error {
+	if ndtp.IsResult() {
+		return nil
+	}
+	reply := ndtp.Reply(result)
+	printPacket(s.logger, "reply: send answer: ", reply)
+	err := sendToClient(s, ndtp)
 	return err
 }
-func errorReplyExt(c net.Conn, mesID, packNum uint16, packet []byte, s *session) error {
-	logger := s.logger
-	logger.Debugf("packet: %v", packet)
-	ans := errorAnswerExt(packet, mesID, packNum)
-	logger.Debugf("length = %d; ans: %v", len(ans), ans)
-	printPacket(logger,"send err reply: ", ans)
-	c.SetWriteDeadline(time.Now().Add(writeTimeout))
-	_, err := c.Write(ans)
+
+func replyExt(s *session, ndtp *nav.NDTP, result uint32) error {
+	ans, err := ndtp.ReplyExt(result)
+	if err != nil {
+		s.logger.Errorf("ReplyExt error: %s", err)
+		return err
+	}
+	printPacket(s.logger, "send answer: ", ans)
+	err = sendToClient(s, ndtp)
+	return err
+}
+
+func sendToClient(s *session, ndtp *nav.NDTP) error {
+	err := s.clientConn.SetWriteDeadline(time.Now().Add(writeTimeout))
+	if err != nil {
+		return err
+	}
+	_, err = s.clientConn.Write(ndtp.Packet)
+	return err
+}
+
+func sendToServer(s *session, ndtp *nav.NDTP) error {
+	err := s.servConn.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+	if err != nil {
+		return err
+	}
+	_, err = s.servConn.conn.Write(ndtp.Packet)
 	return err
 }
