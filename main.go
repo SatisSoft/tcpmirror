@@ -172,7 +172,7 @@ func handleConnection(c net.Conn, connNo uint64) {
 
 func sendFirstMessage(s *session, ndtp *nav.NDTP) {
 	printPacket(s.logger, "sending first packet: ", ndtp.Packet)
-	err := sendToClient(s, ndtp)
+	err := sendToServer(s, ndtp)
 	if err != nil {
 		s.logger.Warningf("can't send first packet: %v", err)
 		ndtpConStatus(s)
