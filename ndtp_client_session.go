@@ -17,7 +17,10 @@ func clientSession(s *session) {
 	for {
 		var b [defaultBufferSize]byte
 		s.logger.Debug("start reading from client")
-		s.clientConn.SetReadDeadline(time.Now().Add(readTimeout))
+		err := s.clientConn.SetReadDeadline(time.Now().Add(readTimeout))
+		if err != nil {
+			s.logger.Warningf("can't set read dead line: %s", err)
+		}
 		n, err := s.clientConn.Read(b[:])
 		s.logger.Debugf("received %d from client", n)
 		printPacket(s.logger, "packet from client: ", b[:n])

@@ -21,7 +21,10 @@ func serverSession(s *session) {
 		//if connection to client is not closed, reading data from server
 		if !s.servConn.closed {
 			var b [defaultBufferSize]byte
-			s.servConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
+			err := s.servConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
+			if err != nil {
+				s.logger.Warningf("can't set read dead line: %s", err)
+			}
 			n, err := s.servConn.conn.Read(b[:])
 			s.logger.Debugf("servConn.closed = %t; servConn.recon = %t", s.servConn.closed, s.servConn.recon)
 			s.logger.Debugf("received %d bytes from server", n)
