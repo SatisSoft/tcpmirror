@@ -17,7 +17,6 @@ const (
 	defaultBufferSize = 1024
 	writeTimeout      = 10 * time.Second
 	readTimeout       = 180 * time.Second
-	redisServer       = ":6379"
 )
 
 const nphResultOk uint32 = 0
@@ -28,6 +27,7 @@ var (
 	ndtpServer      string
 	egtsServer      string
 	graphiteAddress string
+	redisServer     string
 	egtsConn        connection
 	egtsCh          = make(chan *egtsMsg, 10000)
 	egtsMu          sync.Mutex
@@ -77,6 +77,7 @@ func main() {
 	flag.StringVar(&ndtpServer, "n", "", "send NDTP to address (e.g. 'localhost:8081')")
 	flag.StringVar(&egtsServer, "e", "", "send EGTS to address (e.g. 'localhost:8082')")
 	flag.StringVar(&graphiteAddress, "g", "", "graphite address (e.g. 'localhost:8083')")
+	flag.StringVar(&redisServer, "r", ":6379", "redis server address (e.g. 'localhost:6379')")
 	flag.Parse()
 	if listenAddress == "" || ndtpServer == "" || egtsServer == "" {
 		flag.Usage()
