@@ -23,7 +23,7 @@ import (
 func writeConnDB(s *session, message []byte) error {
 	c := pool.Get()
 	defer c.Close()
-	key := "c:" + strconv.Itoa(s.id)
+	key := "conn:" + strconv.Itoa(s.id)
 	s.logger.Tracef("key: %s; message: %v", key, message)
 	_, err := c.Do("SET", key, message)
 	s.logger.Tracef("err: %v", err)
