@@ -87,7 +87,7 @@ func controlFromServer(s *session, ndtp *nav.NDTP) (err error) {
 	s.logger.Debugf("old nphReqID: %d; new nphReqID: %d", ndtp.Nph.ReqID, nphReqID)
 	writeControlID(s, nphReqID, ndtp.Nph.ReqID)
 	printPacket(s.logger, "send control message to client: ", ndtp.Packet)
-	err = sendToClient(s, ndtp)
+	err = sendToClient(s, ndtp.Packet)
 	if err != nil {
 		s.errClientCh <- err
 		return
@@ -120,7 +120,7 @@ func extTitleFromServer(s *session, ndtp *nav.NDTP) (err error) {
 	changes := map[string]int{nav.NplReqID: int(s.clientNplID()), nav.NphReqID: int(s.clientNphID())}
 	ndtp.ChangePacket(changes)
 	printPacket(s.logger, "send ext device message to client: ", ndtp.Packet)
-	err = sendToClient(s, ndtp)
+	err = sendToClient(s, ndtp.Packet)
 	if err != nil {
 		s.logger.Warningf("can't send ext device message to NDTP server: %s", err)
 		s.errClientCh <- err
@@ -185,7 +185,7 @@ func reconnectNDTP(s *session) {
 				cN.SetWriteDeadline(time.Now().Add(writeTimeout))
 				_, err = cN.Write(firstMessage)
 				if err == nil {
-					s.logger.Printf("reconnected", s.id)
+					s.logger.Printf("reconnected")
 					s.servConn.conn = cN
 					s.servConn.closed = false
 					time.Sleep(1 * time.Minute)

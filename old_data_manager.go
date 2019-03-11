@@ -192,7 +192,7 @@ func oldExtFromServer(s *session) {
 	ndtp.Packet = res
 	ndtp.ChangePacket(changes)
 	printPacket(s.logger, "send ext device message to client: ", ndtp.Packet)
-	err = sendToClient(s, ndtp)
+	err = sendToClient(s, ndtp.Packet)
 	if err != nil {
 		s.logger.Warningf("can't send ext device message to NDTP client: %s", err)
 	}

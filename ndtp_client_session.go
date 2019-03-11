@@ -37,7 +37,6 @@ func clientSession(s *session) {
 			ndtp := new(nav.NDTP)
 			s.logger.Tracef("before parsing len(restBuf) = %d", len(restBuf))
 			printPacket(s.logger, "before parsing restBuf", restBuf)
-			restBuf, err = ndtp.Parse(restBuf)
 			if restBuf, err = ndtp.Parse(restBuf); err != nil {
 				if len(restBuf) > defaultBufferSize {
 					restBuf = []byte{}
@@ -272,7 +271,7 @@ func reply(s *session, ndtp *nav.NDTP, result uint32) error {
 	}
 	reply := ndtp.Reply(result)
 	printPacket(s.logger, "reply: send answer: ", reply)
-	err := sendToClient(s, ndtp)
+	err := sendToClient(s, reply)
 	return err
 }
 
@@ -283,16 +282,16 @@ func replyExt(s *session, ndtp *nav.NDTP, result uint32) error {
 		return err
 	}
 	printPacket(s.logger, "send answer: ", ans)
-	err = sendToClient(s, ndtp)
+	err = sendToClient(s, ans)
 	return err
 }
 
-func sendToClient(s *session, ndtp *nav.NDTP) error {
+func sendToClient(s *session, packet []byte) error {
 	err := s.clientConn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	if err != nil {
 		return err
 	}
-	_, err = s.clientConn.Write(ndtp.Packet)
+	_, err = s.clientConn.Write(packet)
 	return err
 }
 
