@@ -15,15 +15,24 @@ func startMetrics(graphiteAddress string) {
 	if err != nil {
 		logrus.Errorf("error while connection to graphite: %s\n", err)
 	} else {
-		registerMetric("clNDTP", metrics.NewCustomCounter())
-		registerMetric("toServNDTP", metrics.NewCustomCounter())
-		registerMetric("fromServNDTP", metrics.NewCustomCounter())
-		registerMetric("servEGTS", metrics.NewCustomCounter())
-		registerMetric("memFree", metrics.NewGauge())
-		registerMetric("memUsed", metrics.NewGauge())
-		registerMetric("UsedPercent", metrics.NewGaugeFloat64())
-		registerMetric("cpu15", metrics.NewGaugeFloat64())
-		registerMetric("cpu1", metrics.NewGaugeFloat64())
+		countClientNDTP = metrics.NewCustomCounter()
+		countToServerNDTP = metrics.NewCustomCounter()
+		countFromServerNDTP = metrics.NewCustomCounter()
+		countServerEGTS = metrics.NewCustomCounter()
+		memFree = metrics.NewGauge()
+		memUsed = metrics.NewGauge()
+		cpu15 = metrics.NewGaugeFloat64()
+		cpu1 = metrics.NewGaugeFloat64()
+		usedPercent = metrics.NewGaugeFloat64()
+		registerMetric("clNDTP", countClientNDTP)
+		registerMetric("toServNDTP", countToServerNDTP)
+		registerMetric("fromServNDTP", countFromServerNDTP)
+		registerMetric("servEGTS", countServerEGTS)
+		registerMetric("memFree", memFree)
+		registerMetric("memUsed", memUsed)
+		registerMetric("UsedPercent", usedPercent)
+		registerMetric("cpu15", cpu15)
+		registerMetric("cpu1", cpu1)
 		enableMetrics = true
 		logrus.Println("start sending metrics to graphite")
 		go graphite.Graphite(metrics.DefaultRegistry, 10*10e8, "ndtpserv.metrics", addr)
@@ -32,7 +41,7 @@ func startMetrics(graphiteAddress string) {
 	return
 }
 
-func registerMetric(name string, metric interface{}){
+func registerMetric(name string, metric interface{}) {
 	err := metrics.Register(name, metric)
 	if err != nil {
 		logrus.Errorf("can't registe metric %s : %s", name, err)
