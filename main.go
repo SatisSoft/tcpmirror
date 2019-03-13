@@ -100,15 +100,12 @@ func main() {
 	}
 	go egtsServerSession()
 	connNo := uint64(1)
-	for {
-		c, err := l.Accept()
-		if err != nil {
-			logrus.Errorf("error while accepting: %s", err)
-		}
-		logrus.Printf("accepted connection %d (%s <-> %s)", connNo, c.RemoteAddr(), c.LocalAddr())
-		go handleConnection(c, connNo)
-		connNo += 1
+	c, err := l.Accept()
+	if err != nil {
+		logrus.Errorf("error while accepting: %s", err)
 	}
+	logrus.Printf("accepted connection %d (%s <-> %s)", connNo, c.RemoteAddr(), c.LocalAddr())
+	handleConnection(c, connNo)
 }
 
 func handleConnection(c net.Conn, connNo uint64) {
