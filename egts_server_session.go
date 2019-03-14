@@ -109,6 +109,9 @@ func waitReplyEGTS() {
 					logger.Warningf("can't deleteEGTS: %s", err)
 					cR = connRedis()
 				}
+				if len(restBuf) == 0 {
+					break
+				}
 			}
 		} else {
 			logger.Warningf("EGTS server closed")
