@@ -92,7 +92,7 @@ func waitReplyEGTS() {
 			restBuf = append(restBuf, b[:n]...)
 			for {
 				egts := new(nav.EGTS)
-				restBuf, err = egts.Parse(b[:n])
+				restBuf, err = egts.Parse(restBuf)
 				if err != nil {
 					logger.Errorf("error while parsing reply from EGTS %v: %s", b[:n], err)
 				}
