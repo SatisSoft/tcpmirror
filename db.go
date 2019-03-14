@@ -157,20 +157,13 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err e
 	messageID, err := redis.String(c.Do("GET", key))
 	logger.Tracef("key: %s; messageID: %s", key, messageID)
 	if err != nil {
-		logger.Tracef("can't get EGTS message id from db: ", err)
 		return
 	}
-	logger.Tracef("get messageID: ", messageID)
 	messageIDSplit := strings.Split(messageID, ":")
-	logger.Tracef("messageIDSplit: %s", messageIDSplit)
 	id, err := strconv.ParseUint(messageIDSplit[0], 10, 32)
-	logger.Tracef("id: %d, err: %v", id, err)
 	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
-	logger.Tracef("time: %d, err: %v", time, err)
 	packets, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", egtsKey, time, time))
-	logger.Tracef("key: %s; mssageID: %d", key, time)
 	if err != nil {
-		logger.Tracef("can't get EGTS packets from db: ", err)
 		return
 	}
 	numPackets := len(packets)
