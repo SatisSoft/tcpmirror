@@ -94,7 +94,10 @@ func waitReplyEGTS() {
 				egts := new(nav.EGTS)
 				restBuf, err = egts.Parse(restBuf)
 				if err != nil {
-					logger.Errorf("error while parsing reply from EGTS %v: %s", b[:n], err)
+					logger.Errorf("error while parsing reply from EGTS %v: %s", restBuf, err)
+					restBuf = []byte{}
+					break
+
 				}
 				data := egts.Data.(*nav.EgtsResponce)
 				if data.ProcRes != 0 {
