@@ -84,7 +84,7 @@ func main() {
 		return
 	}
 	listenPort := strings.Split(listenAddress, ":")
-	egtsIDKey = "egts_" + listenPort[1]
+	egtsIDKey = "egts_" + listenPort[1] + "_"
 	egtsKey = "rnis_" + listenPort[1]
 	logrus.Infof("egtsIDKey: %s; egtsKey : %s", egtsIDKey, egtsKey)
 	pool = newPool(redisServer)

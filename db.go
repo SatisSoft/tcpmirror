@@ -162,7 +162,7 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err e
 	}
 	logger.Tracef("get messageID: ", messageID)
 	messageIDSplit := strings.Split(messageID, ":")
-	logger.Tracef("messageIDSplit: ", messageIDSplit)
+	logger.Tracef("messageIDSplit: %s", messageIDSplit)
 	id, err := strconv.ParseUint(messageIDSplit[0], 10, 32)
 	logger.Tracef("id: %d, err: %v", id, err)
 	time, err := strconv.ParseInt(messageIDSplit[1], 10, 64)
