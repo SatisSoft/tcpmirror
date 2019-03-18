@@ -57,14 +57,14 @@ func resendNav(conn redis.Conn, s *session, res [][]byte) {
 				s.logger.Warningf("can't get score for %v : %v", mes, err)
 				continue
 			}
-			nphReqId := s.serverNPHReqID
-			changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(nphReqId)}
+			nphReqID := s.serverNPHReqID
+			changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(nphReqID)}
 			if ndtp.Service() == nav.NphSrvNavdata && ndtp.PacketType() == nav.NphSndRealtime {
 				s.logger.Infoln("change packet type to history")
 				changes[nav.PacketType] = 100
 			}
 			ndtp.ChangePacket(changes)
-			err = writeNDTPid(conn, s, nphReqId, mill)
+			err = writeNDTPid(conn, s, nphReqID, mill)
 			if err != nil {
 				s.logger.Errorf("error writeNDTPid: %s", err)
 			} else {
@@ -246,37 +246,8 @@ func oldEGTS(s *egtsSession) {
 		var i int
 		for _, msg := range messages {
 			if i < 10 {
-				logger.Debugf("forming egts packet %v", msg)
-				id := binary.LittleEndian.Uint32(msg)
-				ndtp := new(nav.NDTP)
-				msgCopy := append([]byte(nil), msg...)
-				_, err = ndtp.Parse(msgCopy)
-				if err != nil {
-					logger.Errorf("error parsing old ndtp : %s", err)
-					continue
-				}
-				egts, err := nav.NDTPtoEGTS(*ndtp, uint32(id))
-				if err == nil {
-					mill, err := getEGTSScore(cR, msg, logger)
-					messageID := strconv.Itoa(int(id)) + ":" + strconv.FormatInt(mill, 10)
-					egtsMessageID, egtsRecID := s.ids()
-					egts.PacketID = egtsMessageID
-					egts.Data.(*nav.EgtsRecord).RecNum = egtsRecID
-					packet, err := egts.Form()
-					if err != nil {
-						logger.Errorf("error forming egts: %s", err)
-						continue
-					}
-					bufOld = append(bufOld, packet...)
-					logger.Debugf("writeEGTSid %d : %s", egtsMessageID, messageID)
-					err = writeEGTSid(cR, egtsMessageID, messageID, logger)
-					if err != nil {
-						logger.Errorf("can't writeEGTSid: %v", err)
-						cR = connRedis()
-					}
-				} else {
-					logger.Errorf("parse NDTP error: %v", err)
-				}
+				bufOld = formEGTS(cR, s, bufOld, msg, logger)
+
 				i++
 			} else {
 				logger.Debugf("send old EGTS packets to EGTS server: %v", bufOld)
@@ -291,4 +262,43 @@ func oldEGTS(s *egtsSession) {
 		}
 
 	}
+}
+
+func formEGTS(cR redis.Conn, s *egtsSession, bufOld []byte, msg []byte, logger *logrus.Entry) []byte {
+	logger.Debugf("forming egts packet %v", msg)
+	id := binary.LittleEndian.Uint32(msg)
+	ndtp := new(nav.NDTP)
+	msgCopy := append([]byte(nil), msg...)
+	_, err := ndtp.Parse(msgCopy)
+	if err != nil {
+		logger.Errorf("error parsing old ndtp : %s", err)
+		return bufOld
+	}
+	egts, err := nav.NDTPtoEGTS(*ndtp, uint32(id))
+	if err == nil {
+		mill, err := getEGTSScore(cR, msg, logger)
+		if err != nil {
+			logger.Errorf("error getEGTSScore: %s", err)
+			return bufOld
+		}
+		messageID := strconv.Itoa(int(id)) + ":" + strconv.FormatInt(mill, 10)
+		egtsMessageID, egtsRecID := s.ids()
+		egts.PacketID = egtsMessageID
+		egts.Data.(*nav.EgtsRecord).RecNum = egtsRecID
+		packet, err := egts.Form()
+		if err != nil {
+			logger.Errorf("error forming egts: %s", err)
+			return bufOld
+		}
+		bufOld = append(bufOld, packet...)
+		logger.Debugf("writeEGTSid %d : %s", egtsMessageID, messageID)
+		err = writeEGTSid(cR, egtsMessageID, messageID, logger)
+		if err != nil {
+			logger.Errorf("can't writeEGTSid: %v", err)
+			cR = connRedis()
+		}
+	} else {
+		logger.Errorf("parse NDTP error: %v", err)
+	}
+	return bufOld
 }
