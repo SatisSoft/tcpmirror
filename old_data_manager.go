@@ -246,7 +246,7 @@ func oldEGTS(s *egtsSession) {
 		var i int
 		for _, msg := range messages {
 			if i < 10 {
-				bufOld = formEGTS(cR, s, bufOld, msg, logger)
+				cR, bufOld = formEGTS(cR, s, bufOld, msg, logger)
 
 				i++
 			} else {
@@ -264,7 +264,7 @@ func oldEGTS(s *egtsSession) {
 	}
 }
 
-func formEGTS(cR redis.Conn, s *egtsSession, bufOld []byte, msg []byte, logger *logrus.Entry) []byte {
+func formEGTS(cR redis.Conn, s *egtsSession, bufOld []byte, msg []byte, logger *logrus.Entry) (redis.Conn, []byte) {
 	logger.Debugf("forming egts packet %v", msg)
 	id := binary.LittleEndian.Uint32(msg)
 	ndtp := new(nav.NDTP)
@@ -272,14 +272,14 @@ func formEGTS(cR redis.Conn, s *egtsSession, bufOld []byte, msg []byte, logger *
 	_, err := ndtp.Parse(msgCopy)
 	if err != nil {
 		logger.Errorf("error parsing old ndtp : %s", err)
-		return bufOld
+		return cR, bufOld
 	}
 	egts, err := nav.NDTPtoEGTS(*ndtp, uint32(id))
 	if err == nil {
 		mill, err := getEGTSScore(cR, msg, logger)
 		if err != nil {
 			logger.Errorf("error getEGTSScore: %s", err)
-			return bufOld
+			return cR, bufOld
 		}
 		messageID := strconv.Itoa(int(id)) + ":" + strconv.FormatInt(mill, 10)
 		egtsMessageID, egtsRecID := s.ids()
@@ -288,7 +288,7 @@ func formEGTS(cR redis.Conn, s *egtsSession, bufOld []byte, msg []byte, logger *
 		packet, err := egts.Form()
 		if err != nil {
 			logger.Errorf("error forming egts: %s", err)
-			return bufOld
+			return cR, bufOld
 		}
 		bufOld = append(bufOld, packet...)
 		logger.Debugf("writeEGTSid %d : %s", egtsMessageID, messageID)
@@ -300,5 +300,5 @@ func formEGTS(cR redis.Conn, s *egtsSession, bufOld []byte, msg []byte, logger *
 	} else {
 		logger.Errorf("parse NDTP error: %v", err)
 	}
-	return bufOld
+	return cR, bufOld
 }

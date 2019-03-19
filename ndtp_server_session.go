@@ -182,7 +182,10 @@ func reconnectNDTP(s *session) {
 					return
 				}
 				printPacket(s.logger, "send first message again: ", firstMessage)
-				cN.SetWriteDeadline(time.Now().Add(writeTimeout))
+				err = cN.SetWriteDeadline(time.Now().Add(writeTimeout))
+				if err != nil {
+					s.logger.Errorf("can't setWriteDeadline")
+				}
 				_, err = cN.Write(firstMessage)
 				if err == nil {
 					s.logger.Printf("reconnected")

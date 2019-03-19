@@ -32,24 +32,8 @@ func egtsServerSession() {
 	for {
 		select {
 		case message := <-egtsCh:
-			egts := message.msg
-			egtsMessageID, egtsRecID := s.ids()
-			egts.PacketID = egtsMessageID
-			egts.Data.(*nav.EgtsRecord).RecNum = egtsRecID
-			packet, err := egts.Form()
-			if err != nil {
-				logger.Errorf("error forming egts: %s", err)
-				break
-			}
-			count += 1
-			buf = append(buf, packet...)
-			logger.Debugf("writeEGTSid in egtsServerSession: %d : %s", egtsRecID, message.msgID)
-			printPacket(logger, "egts packet: ", packet)
-			err = writeEGTSid(cR, egtsMessageID, message.msgID, logger)
-			if err != nil {
-				logger.Errorf("error wrinteEGTSid: %s", err)
-				cR = connRedis()
-			}
+			buf = processMessage(s, cR, message, buf, logger)
+			count++
 			if count == 10 {
 				send2egts(buf, logger)
 				if enableMetrics {
@@ -69,6 +53,27 @@ func egtsServerSession() {
 			}
 		}
 	}
+}
+
+func processMessage(s *egtsSession, cR redis.Conn, message *egtsMsg, buf []byte, logger *logrus.Entry) []byte {
+	egts := message.msg
+	egtsMessageID, egtsRecID := s.ids()
+	egts.PacketID = egtsMessageID
+	egts.Data.(*nav.EgtsRecord).RecNum = egtsRecID
+	packet, err := egts.Form()
+	if err != nil {
+		logger.Errorf("error forming egts: %s", err)
+		return buf
+	}
+	buf = append(buf, packet...)
+	logger.Debugf("writeEGTSid in egtsServerSession: %d : %s", egtsRecID, message.msgID)
+	printPacket(logger, "egts packet: ", packet)
+	err = writeEGTSid(cR, egtsMessageID, message.msgID, logger)
+	if err != nil {
+		logger.Errorf("error wrinteEGTSid: %s", err)
+		cR = connRedis()
+	}
+	return buf
 }
 
 func waitReplyEGTS() {

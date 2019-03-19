@@ -107,7 +107,7 @@ func main() {
 		}
 		logrus.Printf("accepted connection %d (%s <-> %s)", connNo, c.RemoteAddr(), c.LocalAddr())
 		go handleConnection(c, connNo)
-		connNo += 1
+		connNo++
 	}
 }
 
