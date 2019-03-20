@@ -32,7 +32,7 @@ func egtsServerSession() {
 	for {
 		select {
 		case message := <-egtsCh:
-			buf = processMessage(s, cR, message, buf, logger)
+			cR, buf = processMessage(s, cR, message, buf, logger)
 			count++
 			if count == 10 {
 				send2egts(buf, logger)
@@ -55,7 +55,7 @@ func egtsServerSession() {
 	}
 }
 
-func processMessage(s *egtsSession, cR redis.Conn, message *egtsMsg, buf []byte, logger *logrus.Entry) []byte {
+func processMessage(s *egtsSession, cR redis.Conn, message *egtsMsg, buf []byte, logger *logrus.Entry) (redis.Conn, []byte) {
 	egts := message.msg
 	egtsMessageID, egtsRecID := s.ids()
 	egts.PacketID = egtsMessageID
@@ -63,7 +63,7 @@ func processMessage(s *egtsSession, cR redis.Conn, message *egtsMsg, buf []byte,
 	packet, err := egts.Form()
 	if err != nil {
 		logger.Errorf("error forming egts: %s", err)
-		return buf
+		return cR, buf
 	}
 	buf = append(buf, packet...)
 	logger.Debugf("writeEGTSid in egtsServerSession: %d : %s", egtsRecID, message.msgID)
@@ -73,7 +73,7 @@ func processMessage(s *egtsSession, cR redis.Conn, message *egtsMsg, buf []byte,
 		logger.Errorf("error wrinteEGTSid: %s", err)
 		cR = connRedis()
 	}
-	return buf
+	return cR, buf
 }
 
 func waitReplyEGTS() {

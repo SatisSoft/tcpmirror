@@ -276,8 +276,8 @@ func formEGTS(cR redis.Conn, s *egtsSession, bufOld []byte, msg []byte, logger *
 	}
 	egts, err := nav.NDTPtoEGTS(*ndtp, uint32(id))
 	if err == nil {
-		mill, err := getEGTSScore(cR, msg, logger)
-		if err != nil {
+		mill, err1 := getEGTSScore(cR, msg, logger)
+		if err1 != nil {
 			logger.Errorf("error getEGTSScore: %s", err)
 			return cR, bufOld
 		}
