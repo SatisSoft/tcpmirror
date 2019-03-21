@@ -127,7 +127,7 @@ func extFromClient(s *session, ndtp *nav.NDTP) (err error) {
 // extTitleFromClient processes NPH_SED_DEVICE_TITLE_DATA messages from client to server
 func extTitleFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 	c := pool.Get()
-	defer c.Close()
+	defer closeAndLog(c, s.logger)
 	packetCopy := append([]byte(nil), ndtp.Packet...)
 	err = writeExtClient(c, s, mill, packetCopy)
 	if err != nil {
@@ -172,7 +172,7 @@ func extTitleFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 // extResFromClient processes NPH_SED_DEVICE_RESULT messages from client to server
 func extResFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 	c := pool.Get()
-	defer c.Close()
+	defer closeAndLog(c, s.logger)
 	_, _, _, mesID, err := getServExt(c, s)
 	if err != nil {
 		s.logger.Warningf("can't getServExt: %v", err)
@@ -210,7 +210,7 @@ func extResFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 
 func ndtpFromClient(s *session, ndtp *nav.NDTP) (err error) {
 	c := pool.Get()
-	defer c.Close()
+	defer closeAndLog(c, s.logger)
 	mill := getMill()
 	packetCopy := append([]byte(nil), ndtp.Packet...)
 	err = write2DB(c, s, packetCopy, mill, toEGTS(ndtp))

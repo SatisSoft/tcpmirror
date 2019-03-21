@@ -88,7 +88,7 @@ func main() {
 	egtsKey = "rnis_" + listenPort[1]
 	logrus.Infof("egtsIDKey: %s; egtsKey : %s", egtsIDKey, egtsKey)
 	pool = newPool(redisServer)
-	defer pool.Close()
+	defer closeAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}))
 	if graphiteAddress == "" {
 		logrus.Println("don't send metrics to graphite")
 	} else {

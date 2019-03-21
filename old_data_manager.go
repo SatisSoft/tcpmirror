@@ -26,7 +26,7 @@ func oldFromClient(s *session) {
 
 func checkOldFromClient(s *session) {
 	conn := pool.Get()
-	defer conn.Close()
+	defer closeAndLog(conn, s.logger)
 	res, err := getOldNDTP(conn, s)
 	if err != nil {
 		s.logger.Warningf("getOldNDTP: %v", err)
@@ -181,7 +181,7 @@ func oldFromServer(s *session) {
 
 func oldExtFromServer(s *session) {
 	conn := pool.Get()
-	defer conn.Close()
+	defer closeAndLog(conn, s.logger)
 	res, mill, flag, _, err := getServExt(conn, s)
 	if err != nil {
 		s.logger.Warningf("can't getServExt: %v", err)
