@@ -117,8 +117,18 @@ func handleConnection(c net.Conn, connNo uint64) {
 		s.logger.Warningf("can't create session: %v", err)
 	}
 	defer closeSession(s)
+	waitFirstMessage(c, s)
+	connect(s)
+	err = <-s.errClientCh
+	s.logger.Debugf("msg from errClientCh: %s", err)
+	return
+}
+
+func waitFirstMessage(c net.Conn, s *session) {
 	var b [defaultBufferSize]byte
-	c.SetReadDeadline(time.Now().Add(readTimeout))
+	if err := c.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
+		s.logger.Warningf("can't set ReadDeadLine for client connection: %s", err)
+	}
 	n, err := c.Read(b[:])
 	if err != nil {
 		s.logger.Warningf("can't get first message from client: %s", err)
@@ -129,8 +139,12 @@ func handleConnection(c net.Conn, connNo uint64) {
 	}
 	s.logger.Debugf("got first message from client %s", c.RemoteAddr())
 	printPacket(s.logger, "receive first packet: ", b[:n])
+	handleFirstMessage(c, s, b[:n])
+}
+
+func handleFirstMessage(c net.Conn, s *session, mes []byte) {
 	ndtp := new(nav.NDTP)
-	_, err = ndtp.Parse(b[:n])
+	_, err := ndtp.Parse(mes)
 	if err != nil {
 		s.logger.Warningf("first message is incorrect: %s", err)
 		return
@@ -151,11 +165,10 @@ func handleConnection(c net.Conn, connNo uint64) {
 			s.logger.Errorf("error sending reply to client: %s", err)
 		}
 		return
-	} else {
-		err = reply(s, ndtp, nphResultOk)
-		if err != nil {
-			s.logger.Errorf("error sending reply to client: %s", err)
-		}
+	}
+	err = reply(s, ndtp, nphResultOk)
+	if err != nil {
+		s.logger.Errorf("error sending reply to client: %s", err)
 	}
 	s.servConn.conn, err = net.Dial("tcp", ndtpServer)
 	if err != nil {
@@ -164,10 +177,6 @@ func handleConnection(c net.Conn, connNo uint64) {
 		s.servConn.closed = false
 		sendFirstMessage(s, ndtp)
 	}
-	connect(s)
-	err = <-s.errClientCh
-	s.logger.Debugf("msg from errClientCh: %s", err)
-	return
 }
 
 func sendFirstMessage(s *session, ndtp *nav.NDTP) {

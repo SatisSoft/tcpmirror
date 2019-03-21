@@ -20,53 +20,58 @@ func serverSession(s *session) {
 		}
 		//if connection to client is not closed, reading data from server
 		if !s.servConn.closed {
-			var b [defaultBufferSize]byte
-			err := s.servConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
-			if err != nil {
-				s.logger.Warningf("can't set read dead line: %s", err)
-			}
-			n, err := s.servConn.conn.Read(b[:])
-			s.logger.Debugf("servConn.closed = %t; servConn.recon = %t", s.servConn.closed, s.servConn.recon)
-			s.logger.Debugf("received %d bytes from server", n)
-			printPacket(s.logger, "packet from server: ", b[:n])
-			if err != nil {
-				s.logger.Warningf("can't get data from server: %v", err)
-				ndtpConStatus(s)
-				time.Sleep(5 * time.Second)
-				continue
-			}
-			restBuf = append(restBuf, b[:n]...)
-			s.logger.Debugf("len(restBuf) = %d", len(restBuf))
-			for {
-				ndtp := new(nav.NDTP)
-				restBuf, err = ndtp.Parse(restBuf)
-				if err != nil {
-					s.logger.Warningf(" error while parsing NDTP from server: %v", err)
-					restBuf = []byte{}
-					break
-				}
-
-				if ndtp.IsResult() {
-					err = nphResultFromServer(s, ndtp)
-				} else if ndtp.Service() == nav.NphSrvExternalDevice {
-					err = extFromServer(s, ndtp)
-				} else {
-					err = controlFromServer(s, ndtp)
-				}
-				if err != nil {
-					s.logger.Warningf("can't process message from server: %s", err)
-					restBuf = []byte{}
-					break
-				}
-				time.Sleep(1 * time.Millisecond)
-				if len(restBuf) == 0 {
-					break
-				}
-			}
+			restBuf = waitServerMessage(s, restBuf)
 		} else {
 			time.Sleep(1 * time.Second)
 		}
 	}
+}
+
+func waitServerMessage(s *session, restBuf []byte) []byte {
+	var b [defaultBufferSize]byte
+	err := s.servConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
+	if err != nil {
+		s.logger.Warningf("can't set read dead line: %s", err)
+	}
+	n, err := s.servConn.conn.Read(b[:])
+	s.logger.Debugf("servConn.closed = %t; servConn.recon = %t", s.servConn.closed, s.servConn.recon)
+	s.logger.Debugf("received %d bytes from server", n)
+	printPacket(s.logger, "packet from server: ", b[:n])
+	if err != nil {
+		s.logger.Warningf("can't get data from server: %v", err)
+		ndtpConStatus(s)
+		time.Sleep(5 * time.Second)
+		return restBuf
+	}
+	restBuf = append(restBuf, b[:n]...)
+	s.logger.Debugf("len(restBuf) = %d", len(restBuf))
+	for {
+		ndtp := new(nav.NDTP)
+		restBuf, err = ndtp.Parse(restBuf)
+		if err != nil {
+			s.logger.Warningf(" error while parsing NDTP from server: %v", err)
+			restBuf = []byte{}
+			break
+		}
+
+		if ndtp.IsResult() {
+			err = nphResultFromServer(s, ndtp)
+		} else if ndtp.Service() == nav.NphSrvExternalDevice {
+			err = extFromServer(s, ndtp)
+		} else {
+			err = controlFromServer(s, ndtp)
+		}
+		if err != nil {
+			s.logger.Warningf("can't process message from server: %s", err)
+			restBuf = []byte{}
+			break
+		}
+		time.Sleep(1 * time.Millisecond)
+		if len(restBuf) == 0 {
+			break
+		}
+	}
+	return restBuf
 }
 
 func nphResultFromServer(s *session, ndtp *nav.NDTP) (err error) {
@@ -85,7 +90,9 @@ func controlFromServer(s *session, ndtp *nav.NDTP) (err error) {
 	changes := map[string]int{nav.NplReqID: int(s.clientNplID()), nav.NphReqID: nphReqID}
 	ndtp.ChangePacket(changes)
 	s.logger.Debugf("old nphReqID: %d; new nphReqID: %d", ndtp.Nph.ReqID, nphReqID)
-	writeControlID(s, nphReqID, ndtp.Nph.ReqID)
+	if err = writeControlID(s, nphReqID, ndtp.Nph.ReqID); err != nil {
+		s.logger.Errorf("can't writeControlID: %s", err)
+	}
 	printPacket(s.logger, "send control message to client: ", ndtp.Packet)
 	err = sendToClient(s, ndtp.Packet)
 	if err != nil {
@@ -155,12 +162,13 @@ func ndtpConStatus(s *session) {
 	defer s.muRecon.Unlock()
 	if s.servConn.closed || s.servConn.recon {
 		return
-	} else {
-		s.servConn.recon = true
-		s.servConn.conn.Close()
-		s.servConn.closed = true
-		go reconnectNDTP(s)
 	}
+	s.servConn.recon = true
+	if err := s.servConn.conn.Close(); err != nil {
+		s.logger.Errorf("can't close servConn: %s", err)
+	}
+	s.servConn.closed = true
+	go reconnectNDTP(s)
 }
 
 func reconnectNDTP(s *session) {
@@ -194,9 +202,8 @@ func reconnectNDTP(s *session) {
 					time.Sleep(1 * time.Minute)
 					s.servConn.recon = false
 					return
-				} else {
-					s.logger.Warningf("failed sending first message again to NDTP server: %s", err)
 				}
+				s.logger.Warningf("failed sending first message again to NDTP server: %s", err)
 			}
 		}
 		time.Sleep(1 * time.Minute)

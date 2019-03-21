@@ -95,7 +95,9 @@ func write2NDTP(c redis.Conn, s *session, time int64, packet []byte) error {
 
 func write2EGTS(c redis.Conn, s *session, time int64, packet []byte) error {
 	idB := new(bytes.Buffer)
-	binary.Write(idB, binary.LittleEndian, uint32(s.id))
+	if err := binary.Write(idB, binary.LittleEndian, uint32(s.id)); err != nil {
+		return err
+	}
 	packet = append(idB.Bytes(), packet...)
 	s.logger.Tracef("time: %d", time)
 	_, err := c.Do("ZADD", egtsKey, time, packet)
