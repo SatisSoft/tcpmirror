@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/gomodule/redigo/redis"
 	"strconv"
 	"time"
 )
@@ -10,15 +11,20 @@ import nav "github.com/ashirko/navprot"
 
 //session with NDTP client
 func clientSession(s *session) {
-	removeServerExt(s)
+	if err := removeServerExt(s); err != nil {
+		s.logger.Warningf("can't removeServerExt: %s", err)
+	}
 	go oldFromClient(s)
 	go ndtpRemoveExpired(s)
+	clientSessionLoop(s)
+}
+
+func clientSessionLoop(s *session) {
 	var restBuf []byte
 	for {
 		var b [defaultBufferSize]byte
 		s.logger.Debug("start reading from client")
-		err := s.clientConn.SetReadDeadline(time.Now().Add(readTimeout))
-		if err != nil {
+		if err := s.clientConn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
 			s.logger.Warningf("can't set read dead line: %s", err)
 		}
 		n, err := s.clientConn.Read(b[:])
@@ -33,28 +39,35 @@ func clientSession(s *session) {
 		}
 		restBuf = append(restBuf, b[:n]...)
 		s.logger.Debugf("len(restBuf) = %d", len(restBuf))
-		for len(restBuf) > 0 {
-			ndtp := new(nav.NDTP)
-			s.logger.Tracef("before parsing len(restBuf) = %d", len(restBuf))
-			printPacket(s.logger, "before parsing restBuf", restBuf)
-			if restBuf, err = ndtp.Parse(restBuf); err != nil {
-				if len(restBuf) > defaultBufferSize {
-					restBuf = []byte{}
-				}
-				break
-			}
-			if enableMetrics {
-				countClientNDTP.Inc(1)
-			}
-			err = processNdtp(s, ndtp)
-			if err != nil {
-				s.logger.Warningf("can't process message from client: %s", err)
-				restBuf = []byte{}
-				break
-			}
-			time.Sleep(1 * time.Millisecond)
-		}
+		restBuf = processRestBuf(s, restBuf)
+
 	}
+}
+
+func processRestBuf(s *session, restBuf []byte) []byte {
+	var err error
+	for len(restBuf) > 0 {
+		ndtp := new(nav.NDTP)
+		s.logger.Tracef("before parsing len(restBuf) = %d", len(restBuf))
+		printPacket(s.logger, "before parsing restBuf", restBuf)
+		restBuf, err = ndtp.Parse(restBuf)
+		if err != nil {
+			if len(restBuf) > defaultBufferSize {
+				return []byte(nil)
+			}
+			return restBuf
+		}
+		if enableMetrics {
+			countClientNDTP.Inc(1)
+		}
+		err = processNdtp(s, ndtp)
+		if err != nil {
+			s.logger.Warningf("can't process message from client: %s", err)
+			return []byte(nil)
+		}
+		time.Sleep(1 * time.Millisecond)
+	}
+	return restBuf
 }
 
 func processNdtp(s *session, ndtp *nav.NDTP) (err error) {
@@ -114,7 +127,7 @@ func extFromClient(s *session, ndtp *nav.NDTP) (err error) {
 // extTitleFromClient processes NPH_SED_DEVICE_TITLE_DATA messages from client to server
 func extTitleFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 	c := pool.Get()
-	defer c.Close()
+	defer closeAndLog(c, s.logger)
 	packetCopy := append([]byte(nil), ndtp.Packet...)
 	err = writeExtClient(c, s, mill, packetCopy)
 	if err != nil {
@@ -159,7 +172,7 @@ func extTitleFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 // extResFromClient processes NPH_SED_DEVICE_RESULT messages from client to server
 func extResFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 	c := pool.Get()
-	defer c.Close()
+	defer closeAndLog(c, s.logger)
 	_, _, _, mesID, err := getServExt(c, s)
 	if err != nil {
 		s.logger.Warningf("can't getServExt: %v", err)
@@ -197,7 +210,7 @@ func extResFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 
 func ndtpFromClient(s *session, ndtp *nav.NDTP) (err error) {
 	c := pool.Get()
-	defer c.Close()
+	defer closeAndLog(c, s.logger)
 	mill := getMill()
 	packetCopy := append([]byte(nil), ndtp.Packet...)
 	err = write2DB(c, s, packetCopy, mill, toEGTS(ndtp))
@@ -211,40 +224,11 @@ func ndtpFromClient(s *session, ndtp *nav.NDTP) (err error) {
 	}
 	s.logger.Debugf("start send to NDTP server")
 	if s.servConn.closed != true {
-		changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
-		ndtp.ChangePacket(changes)
-		printPacket(s.logger, "packet after changing: ", ndtp.Packet)
-		err = writeNDTPid(c, s, ndtp.Nph.ReqID, mill)
-		if err != nil {
-			s.logger.Errorf("error writingNDTPid: %v", err)
-		} else {
-			printPacket(s.logger, "send message to server: ", ndtp.Packet)
-			err = sendToServer(s, ndtp)
-			if err != nil {
-				s.logger.Warningf("can't send to NDTP server: %s", err)
-				ndtpConStatus(s)
-			} else {
-				if enableMetrics {
-					countToServerNDTP.Inc(1)
-				}
-			}
-		}
+		fromCtoS(s, ndtp, c, mill)
 	}
 	if egtsConn.closed != true {
 		if toEGTS(ndtp) {
-			m := new(egtsMsg)
-			m.msgID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
-			m.msg, err = nav.NDTPtoEGTS(*ndtp, uint32(s.id))
-			if err != nil {
-				s.logger.Errorf("error converting to egts: %s", err)
-			}
-			s.logger.Debugln("start to send to EGTS goroutine")
-			select {
-			case egtsCh <- m:
-			default:
-				s.logger.Errorln("egtsCh is full")
-			}
-
+			sendToEgts(s, ndtp, mill)
 		}
 	}
 	s.logger.Debugln("start to reply")
@@ -254,6 +238,43 @@ func ndtpFromClient(s *session, ndtp *nav.NDTP) (err error) {
 		s.errClientCh <- err
 	}
 	return
+}
+
+func sendToEgts(s *session, ndtp *nav.NDTP, mill int64) {
+	m := new(egtsMsg)
+	m.msgID = strconv.Itoa(s.id) + ":" + strconv.FormatInt(mill, 10)
+	var err error
+	m.msg, err = nav.NDTPtoEGTS(*ndtp, uint32(s.id))
+	if err != nil {
+		s.logger.Errorf("error converting to egts: %s", err)
+	}
+	s.logger.Debugln("start to send to EGTS goroutine")
+	select {
+	case egtsCh <- m:
+	default:
+		s.logger.Errorln("egtsCh is full")
+	}
+}
+
+func fromCtoS(s *session, ndtp *nav.NDTP, c redis.Conn, mill int64) {
+	changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
+	ndtp.ChangePacket(changes)
+	printPacket(s.logger, "packet after changing: ", ndtp.Packet)
+	err := writeNDTPid(c, s, ndtp.Nph.ReqID, mill)
+	if err != nil {
+		s.logger.Errorf("error writingNDTPid: %v", err)
+	} else {
+		printPacket(s.logger, "send message to server: ", ndtp.Packet)
+		err = sendToServer(s, ndtp)
+		if err != nil {
+			s.logger.Warningf("can't send to NDTP server: %s", err)
+			ndtpConStatus(s)
+		} else {
+			if enableMetrics {
+				countToServerNDTP.Inc(1)
+			}
+		}
+	}
 }
 
 func toEGTS(ndtp *nav.NDTP) bool {

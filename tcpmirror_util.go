@@ -2,6 +2,7 @@ package main
 
 import (
 	"github.com/sirupsen/logrus"
+	"io"
 	"net"
 	"strconv"
 	"strings"
@@ -34,4 +35,11 @@ func getIP(c net.Conn) net.IP {
 	ip := ipPort[0]
 	ip1 := net.ParseIP(ip)
 	return ip1.To4()
+}
+
+func closeAndLog(c io.Closer, logger *logrus.Entry) {
+	err := c.Close()
+	if err != nil {
+		logger.Errorf("can't close %s:", err)
+	}
 }

@@ -26,7 +26,7 @@ func oldFromClient(s *session) {
 
 func checkOldFromClient(s *session) {
 	conn := pool.Get()
-	defer conn.Close()
+	defer closeAndLog(conn, s.logger)
 	res, err := getOldNDTP(conn, s)
 	if err != nil {
 		s.logger.Warningf("getOldNDTP: %v", err)
@@ -57,14 +57,14 @@ func resendNav(conn redis.Conn, s *session, res [][]byte) {
 				s.logger.Warningf("can't get score for %v : %v", mes, err)
 				continue
 			}
-			nphReqId := s.serverNPHReqID
-			changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(nphReqId)}
+			nphReqID := s.serverNPHReqID
+			changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(nphReqID)}
 			if ndtp.Service() == nav.NphSrvNavdata && ndtp.PacketType() == nav.NphSndRealtime {
 				s.logger.Infoln("change packet type to history")
 				changes[nav.PacketType] = 100
 			}
 			ndtp.ChangePacket(changes)
-			err = writeNDTPid(conn, s, nphReqId, mill)
+			err = writeNDTPid(conn, s, nphReqID, mill)
 			if err != nil {
 				s.logger.Errorf("error writeNDTPid: %s", err)
 			} else {
@@ -88,58 +88,72 @@ func resendNav(conn redis.Conn, s *session, res [][]byte) {
 func resendExt(conn redis.Conn, s *session, res [][]byte) {
 	res = reverceSlice(res)
 	for _, mes := range res {
-		ndtp := new(nav.NDTP)
-		_, err := ndtp.Parse(mes)
-		if err != nil {
-			s.logger.Errorf("error parsing old ndtp: %s", err)
-			continue
-		}
 		if s.servConn.closed != true {
-			mill, err := getScoreExt(conn, s, mes)
-			if err != nil {
-				s.logger.Warningf("can't get score for ext %v : %v", mes, err)
-				continue
-			}
-			pType := ndtp.PacketType()
-			if pType == nav.NphSedDeviceResult {
-				changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
-				ndtp.ChangePacket(changes)
-				printPacket(s.logger, "resendExt: send message: ", ndtp.Packet)
-				err = sendToServer(s, ndtp)
-				if err != nil {
-					s.logger.Warningf("can't send to NDTP server: %s", err)
-					ndtpConStatus(s)
-				} else {
-					s.logger.Debugln("remove old data")
-					err = removeOldExt(conn, s, mill)
-					if err != nil {
-						s.logger.Errorf("can't remove old ext: %s", err)
-					}
-					if enableMetrics {
-						countToServerNDTP.Inc(1)
-					}
-				}
-			} else if pType == nav.NphSedDeviceTitleData {
-				changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
-				ndtp.ChangePacket(changes)
-				printPacket(s.logger, "resendExt: packet after changing ext device message: ", ndtp.Packet)
-				err = writeNDTPIdExt(conn, s, ndtp.Nph.Data.(*nav.ExtDevice).MesID, mill)
-				if err != nil {
-					s.logger.Warningf("can't writeNDTPIdExt: %v", err)
-				} else {
-					printPacket(s.logger, "send ext device message to server: ", ndtp.Packet)
-					err = sendToServer(s, ndtp)
-					if err != nil {
-						s.logger.Warningf("can't send ext device message to NDTP server: %s", err)
-						ndtpConStatus(s)
-					} else if enableMetrics {
-						countToServerNDTP.Inc(1)
-					}
-				}
-			}
+			resendExtMessage(conn, s, mes)
 		} else {
 			s.logger.Debugf("connection to server closed")
 			return
+		}
+	}
+}
+
+func resendExtMessage(conn redis.Conn, s *session, mes []byte) {
+	ndtp := new(nav.NDTP)
+	_, err := ndtp.Parse(mes)
+	if err != nil {
+		s.logger.Errorf("error parsing old ndtp: %s", err)
+		return
+	}
+	mill, err := getScoreExt(conn, s, mes)
+	if err != nil {
+		s.logger.Warningf("can't get score for ext %v : %v", mes, err)
+		return
+	}
+	pType := ndtp.PacketType()
+	if pType == nav.NphSedDeviceResult {
+		resendSedDeviceResult(conn, s, ndtp, mill)
+	} else if pType == nav.NphSedDeviceTitleData {
+		resendSedDeviceTitleData(conn, s, ndtp, mill)
+	} else {
+		logrus.Errorf("unknown type of Ext Message: %v", mes)
+	}
+}
+
+func resendSedDeviceResult(conn redis.Conn, s *session, ndtp *nav.NDTP, mill int64) {
+	changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
+	ndtp.ChangePacket(changes)
+	printPacket(s.logger, "resendExt: send message: ", ndtp.Packet)
+	err := sendToServer(s, ndtp)
+	if err != nil {
+		s.logger.Warningf("can't send to NDTP server: %s", err)
+		ndtpConStatus(s)
+	} else {
+		s.logger.Debugln("remove old data")
+		err = removeOldExt(conn, s, mill)
+		if err != nil {
+			s.logger.Errorf("can't remove old ext: %s", err)
+		}
+		if enableMetrics {
+			countToServerNDTP.Inc(1)
+		}
+	}
+}
+
+func resendSedDeviceTitleData(conn redis.Conn, s *session, ndtp *nav.NDTP, mill int64) {
+	changes := map[string]int{nav.NplReqID: int(s.serverNplID()), nav.NphReqID: int(s.serverNPHReqID)}
+	ndtp.ChangePacket(changes)
+	printPacket(s.logger, "resendExt: packet after changing ext device message: ", ndtp.Packet)
+	err := writeNDTPIdExt(conn, s, ndtp.Nph.Data.(*nav.ExtDevice).MesID, mill)
+	if err != nil {
+		s.logger.Warningf("can't writeNDTPIdExt: %v", err)
+	} else {
+		printPacket(s.logger, "send ext device message to server: ", ndtp.Packet)
+		err = sendToServer(s, ndtp)
+		if err != nil {
+			s.logger.Warningf("can't send ext device message to NDTP server: %s", err)
+			ndtpConStatus(s)
+		} else if enableMetrics {
+			countToServerNDTP.Inc(1)
 		}
 	}
 }
@@ -167,7 +181,7 @@ func oldFromServer(s *session) {
 
 func oldExtFromServer(s *session) {
 	conn := pool.Get()
-	defer conn.Close()
+	defer closeAndLog(conn, s.logger)
 	res, mill, flag, _, err := getServExt(conn, s)
 	if err != nil {
 		s.logger.Warningf("can't getServExt: %v", err)
@@ -229,11 +243,15 @@ func egtsRemoveExpired() {
 }
 
 func oldEGTS(s *egtsSession) {
+	logger := logrus.WithField("egts", "old")
 	cR := connRedis()
-	defer cR.Close()
+	defer func() {
+		if err := cR.Close(); err != nil {
+			logger.Errorf("can't close connection to redis: %s", err)
+		}
+	}()
 	checkTicker := time.NewTicker(60 * time.Second)
 	defer checkTicker.Stop()
-	logger := logrus.WithField("egts", "old")
 	for {
 		<-checkTicker.C
 		logger.Debugf("start checking old data")
@@ -246,37 +264,7 @@ func oldEGTS(s *egtsSession) {
 		var i int
 		for _, msg := range messages {
 			if i < 10 {
-				logger.Debugf("forming egts packet %v", msg)
-				id := binary.LittleEndian.Uint32(msg)
-				ndtp := new(nav.NDTP)
-				msgCopy := append([]byte(nil), msg...)
-				_, err = ndtp.Parse(msgCopy)
-				if err != nil {
-					logger.Errorf("error parsing old ndtp : %s", err)
-					continue
-				}
-				egts, err := nav.NDTPtoEGTS(*ndtp, uint32(id))
-				if err == nil {
-					mill, err := getEGTSScore(cR, msg, logger)
-					messageID := strconv.Itoa(int(id)) + ":" + strconv.FormatInt(mill, 10)
-					egtsMessageID, egtsRecID := s.ids()
-					egts.PacketID = egtsMessageID
-					egts.Data.(*nav.EgtsRecord).RecNum = egtsRecID
-					packet, err := egts.Form()
-					if err != nil {
-						logger.Errorf("error forming egts: %s", err)
-						continue
-					}
-					bufOld = append(bufOld, packet...)
-					logger.Debugf("writeEGTSid %d : %s", egtsMessageID, messageID)
-					err = writeEGTSid(cR, egtsMessageID, messageID, logger)
-					if err != nil {
-						logger.Errorf("can't writeEGTSid: %v", err)
-						cR = connRedis()
-					}
-				} else {
-					logger.Errorf("parse NDTP error: %v", err)
-				}
+				cR, bufOld = formEGTS(cR, s, bufOld, msg, logger)
 				i++
 			} else {
 				logger.Debugf("send old EGTS packets to EGTS server: %v", bufOld)
@@ -291,4 +279,43 @@ func oldEGTS(s *egtsSession) {
 		}
 
 	}
+}
+
+func formEGTS(cR redis.Conn, s *egtsSession, bufOld []byte, msg []byte, logger *logrus.Entry) (redis.Conn, []byte) {
+	logger.Debugf("forming egts packet %v", msg)
+	id := binary.LittleEndian.Uint32(msg)
+	ndtp := new(nav.NDTP)
+	msgCopy := append([]byte(nil), msg...)
+	_, err := ndtp.Parse(msgCopy)
+	if err != nil {
+		logger.Errorf("error parsing old ndtp : %s", err)
+		return cR, bufOld
+	}
+	egts, err := nav.NDTPtoEGTS(*ndtp, uint32(id))
+	if err == nil {
+		mill, err1 := getEGTSScore(cR, msg, logger)
+		if err1 != nil {
+			logger.Errorf("error getEGTSScore: %s", err)
+			return cR, bufOld
+		}
+		messageID := strconv.Itoa(int(id)) + ":" + strconv.FormatInt(mill, 10)
+		egtsMessageID, egtsRecID := s.ids()
+		egts.PacketID = egtsMessageID
+		egts.Data.(*nav.EgtsRecord).RecNum = egtsRecID
+		packet, err1 := egts.Form()
+		if err1 != nil {
+			logger.Errorf("error forming egts: %s", err)
+			return cR, bufOld
+		}
+		bufOld = append(bufOld, packet...)
+		logger.Debugf("writeEGTSid %d : %s", egtsMessageID, messageID)
+		err = writeEGTSid(cR, egtsMessageID, messageID, logger)
+		if err != nil {
+			logger.Errorf("can't writeEGTSid: %v", err)
+			cR = connRedis()
+		}
+	} else {
+		logger.Errorf("parse NDTP error: %v", err)
+	}
+	return cR, bufOld
 }
