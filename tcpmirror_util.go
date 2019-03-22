@@ -15,7 +15,7 @@ func copyPack(packet []byte) []byte {
 	return packetCopy
 }
 
-func getMill() int64 {
+func milliseconds() int64 {
 	return time.Now().UnixNano() / 1000000
 }
 
@@ -30,7 +30,7 @@ func printPacket(logger *logrus.Entry, s string, slice []byte) {
 	logger.Debugf("%s {%s}\n", s, result)
 }
 
-func getIP(c net.Conn) net.IP {
+func ip(c net.Conn) net.IP {
 	ipPort := strings.Split(c.RemoteAddr().String(), ":")
 	ip := ipPort[0]
 	ip1 := net.ParseIP(ip)

@@ -131,15 +131,15 @@ func removeFromNDTPExt(s *session, mesID uint16) error {
 	return err
 }
 
-func getScore(c redis.Conn, s *session, mes []byte) (int64, error) {
+func score(c redis.Conn, s *session, mes []byte) (int64, error) {
 	s.logger.Tracef("mes: %v", mes)
 	res, err := redis.Int64(c.Do("ZSCORE", s.id, mes))
 	s.logger.Tracef("res=%d; err: %v", res, mes)
 	return res, err
 }
 
-func getOldNDTP(c redis.Conn, s *session) ([][]byte, error) {
-	max := getMill() - 60000
+func oldNDTP(c redis.Conn, s *session) ([][]byte, error) {
+	max := milliseconds() - 60000
 	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", s.id, 0, max, "LIMIT", 0, 1000))
 	s.logger.Tracef("max: %d; len(res): %d", max, len(res))
 	s.logger.Tracef("err: %v", err)
@@ -201,22 +201,22 @@ func deleteEGTS(c redis.Conn, egtsMessageID uint16, logger *logrus.Entry) (err e
 func removeExpiredDataEGTS(logger *logrus.Entry) (err error) {
 	c := pool.Get()
 	defer c.Close()
-	max := getMill() - 259200000 //3*24*60*60*1000
+	max := milliseconds() - 259200000 //3*24*60*60*1000
 	_, err = c.Do("ZREMRANGEBYSCORE", egtsKey, 0, max)
 	logger.Tracef("max: %d", max)
 	logger.Tracef("err: %v", err)
 	return
 }
 
-func getOldEGTS(c redis.Conn, logger *logrus.Entry) (res [][]byte, err error) {
-	max := getMill() - 60000
+func oldEgtsMessages(c redis.Conn, logger *logrus.Entry) (res [][]byte, err error) {
+	max := milliseconds() - 60000
 	res, err = redis.ByteSlices(c.Do("ZRANGEBYSCORE", egtsKey, 0, max, "LIMIT", 0, 10000))
 	logger.Tracef("max: %d; len(res): %d", max, len(res))
 	logger.Tracef("err: %v", err)
 	return
 }
 
-func getEGTSScore(c redis.Conn, mes []byte, logger *logrus.Entry) (int64, error) {
+func egtsScore(c redis.Conn, mes []byte, logger *logrus.Entry) (int64, error) {
 	logger.Tracef("mes: %v", mes)
 	res, err := redis.Int64(c.Do("ZSCORE", egtsKey, mes))
 	logger.Tracef("res=%d; err: %v", res, err)
@@ -247,7 +247,7 @@ func readControlID(s *session, id1 int) (int, error) {
 func removeExpiredDataNDTP(s *session) (err error) {
 	c := pool.Get()
 	defer c.Close()
-	max := getMill() - 259200000 //3*24*60*60*1000
+	max := milliseconds() - 259200000 //3*24*60*60*1000
 	_, err = c.Do("ZREMRANGEBYSCORE", s.id, 0, max)
 	s.logger.Tracef("err: %v", err)
 	if err != nil {
@@ -294,7 +294,7 @@ func removeServerExtOld(c redis.Conn, s *session) error {
 	return err
 }
 
-func getServExt(c redis.Conn, s *session) (mes []byte, time int64, flag string, mesID uint64, err error) {
+func servExt(c redis.Conn, s *session) (mes []byte, time int64, flag string, mesID uint64, err error) {
 	key := "ext_s:" + strconv.Itoa(s.id)
 	s.logger.Tracef("key: %s", key)
 	res, err := redis.StringMap(c.Do("HGETALL", key))
@@ -346,16 +346,16 @@ func writeExtClient(c redis.Conn, s *session, time int64, packet []byte) error {
 	return err
 }
 
-func getOldNDTPExt(c redis.Conn, s *session) ([][]byte, error) {
+func oldNDTPExt(c redis.Conn, s *session) ([][]byte, error) {
 	key := "ext_c:" + strconv.Itoa(s.id)
-	max := getMill() - 60000
+	max := milliseconds() - 60000
 	res, err := redis.ByteSlices(c.Do("ZRANGEBYSCORE", key, 0, max, "LIMIT", 0, 10))
 	s.logger.Tracef("id: %s; max: %d; len(res): %d", key, max, len(res))
 	s.logger.Tracef("err: %v", err)
 	return res, err
 }
 
-func getScoreExt(c redis.Conn, s *session, mes []byte) (int64, error) {
+func scoreExt(c redis.Conn, s *session, mes []byte) (int64, error) {
 	key := "ext_c:" + strconv.Itoa(s.id)
 	s.logger.Tracef("key=%s; mes: %v", key, mes)
 	res, err := redis.Int64(c.Do("ZSCORE", key, mes))

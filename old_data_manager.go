@@ -27,15 +27,15 @@ func oldFromClient(s *session) {
 func checkOldFromClient(s *session) {
 	conn := pool.Get()
 	defer closeAndLog(conn, s.logger)
-	res, err := getOldNDTP(conn, s)
+	res, err := oldNDTP(conn, s)
 	if err != nil {
-		s.logger.Warningf("getOldNDTP: %v", err)
+		s.logger.Warningf("oldNDTP: %v", err)
 	} else {
 		resendNav(conn, s, res)
 	}
-	res, err = getOldNDTPExt(conn, s)
+	res, err = oldNDTPExt(conn, s)
 	if err != nil {
-		s.logger.Warningf("can't getOldNDTPExt: %v", err)
+		s.logger.Warningf("can't oldNDTPExt: %v", err)
 	} else {
 		resendExt(conn, s, res)
 	}
@@ -52,7 +52,7 @@ func resendNav(conn redis.Conn, s *session, res [][]byte) {
 			continue
 		}
 		if s.servConn.closed != true {
-			mill, err := getScore(conn, s, mes)
+			mill, err := score(conn, s, mes)
 			if err != nil {
 				s.logger.Warningf("can't get score for %v : %v", mes, err)
 				continue
@@ -104,7 +104,7 @@ func resendExtMessage(conn redis.Conn, s *session, mes []byte) {
 		s.logger.Errorf("error parsing old ndtp: %s", err)
 		return
 	}
-	mill, err := getScoreExt(conn, s, mes)
+	mill, err := scoreExt(conn, s, mes)
 	if err != nil {
 		s.logger.Warningf("can't get score for ext %v : %v", mes, err)
 		return
@@ -182,13 +182,13 @@ func oldFromServer(s *session) {
 func oldExtFromServer(s *session) {
 	conn := pool.Get()
 	defer closeAndLog(conn, s.logger)
-	res, mill, flag, _, err := getServExt(conn, s)
+	res, mill, flag, _, err := servExt(conn, s)
 	if err != nil {
-		s.logger.Warningf("can't getServExt: %v", err)
+		s.logger.Warningf("can't servExt: %v", err)
 		return
 	}
-	s.logger.Debugf("mill: %d; flag: %s; res: %v", mill, flag, res)
-	now := getMill()
+	s.logger.Debugf("milliseconds: %d; flag: %s; res: %v", mill, flag, res)
+	now := milliseconds()
 	if now-mill > 60000 && flag == "0" {
 		err = removeServerExtOld(conn, s)
 		if err != nil {
@@ -255,7 +255,7 @@ func oldEGTS(s *egtsSession) {
 	for {
 		<-checkTicker.C
 		logger.Debugf("start checking old data")
-		messages, err := getOldEGTS(cR, logger)
+		messages, err := oldEgtsMessages(cR, logger)
 		if err != nil {
 			logger.Warningf("can't get old EGTS %s", err)
 			return
@@ -293,9 +293,9 @@ func formEGTS(cR redis.Conn, s *egtsSession, bufOld []byte, msg []byte, logger *
 	}
 	egts, err := nav.NDTPtoEGTS(*ndtp, uint32(id))
 	if err == nil {
-		mill, err1 := getEGTSScore(cR, msg, logger)
+		mill, err1 := egtsScore(cR, msg, logger)
 		if err1 != nil {
-			logger.Errorf("error getEGTSScore: %s", err)
+			logger.Errorf("error egtsScore: %s", err)
 			return cR, bufOld
 		}
 		messageID := strconv.Itoa(int(id)) + ":" + strconv.FormatInt(mill, 10)

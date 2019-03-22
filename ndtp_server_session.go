@@ -117,7 +117,7 @@ func extFromServer(s *session, ndtp *nav.NDTP) (err error) {
 
 func extTitleFromServer(s *session, ndtp *nav.NDTP) (err error) {
 	packetCopy := append([]byte(nil), ndtp.Packet...)
-	mill := getMill()
+	mill := milliseconds()
 	err = writeExtServ(s, packetCopy, mill, ndtp.Nph.Data.(nav.ExtDevice).MesID)
 	if err != nil {
 		s.logger.Errorf("can't writeExtServ: %s", err)

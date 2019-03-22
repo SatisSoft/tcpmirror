@@ -111,7 +111,7 @@ func noNeedReplyFromClient(s *session, ndtp *nav.NDTP) (err error) {
 
 // extFromClient processes NPH_SRV_EXTERNAL_DEVICE messages from client to server
 func extFromClient(s *session, ndtp *nav.NDTP) (err error) {
-	mill := getMill()
+	mill := milliseconds()
 	s.logger.Debugf("handle NPH_SRV_EXTERNAL_DEVICE")
 	pType := ndtp.PacketType()
 	if pType == nav.NphSedDeviceTitleData {
@@ -173,9 +173,9 @@ func extTitleFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 func extResFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 	c := pool.Get()
 	defer closeAndLog(c, s.logger)
-	_, _, _, mesID, err := getServExt(c, s)
+	_, _, _, mesID, err := servExt(c, s)
 	if err != nil {
-		s.logger.Warningf("can't getServExt: %v", err)
+		s.logger.Warningf("can't servExt: %v", err)
 	} else if mesID == uint64(ndtp.Nph.Data.(nav.ExtDevice).MesID) {
 		if ndtp.Nph.Data.(nav.ExtDevice).Res == 0 {
 			s.logger.Debugf("received result and remove data from db")
@@ -211,7 +211,7 @@ func extResFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 func ndtpFromClient(s *session, ndtp *nav.NDTP) (err error) {
 	c := pool.Get()
 	defer closeAndLog(c, s.logger)
-	mill := getMill()
+	mill := milliseconds()
 	packetCopy := append([]byte(nil), ndtp.Packet...)
 	err = write2DB(c, s, packetCopy, mill, toEGTS(ndtp))
 	if err != nil {

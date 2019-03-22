@@ -154,7 +154,7 @@ func handleFirstMessage(c net.Conn, s *session, mes []byte) {
 		s.logger.Warningf("can't get id from first message: %v", err)
 	}
 	s.setID(id)
-	ip := getIP(c)
+	ip := ip(c)
 	ndtp.ChangeAddress(ip)
 	printPacket(s.logger, "changed first packet: ", ndtp.Packet)
 	err = writeConnDB(s, ndtp.Packet)
