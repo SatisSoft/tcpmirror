@@ -13,6 +13,7 @@ func serverSession(s *session) {
 	var restBuf []byte
 	go oldFromServer(s)
 	//receive, process and send data to a client
+	var b [defaultBufferSize]byte
 	for {
 		//check if connection with client is closed
 		if conClosed(s) {
@@ -20,20 +21,19 @@ func serverSession(s *session) {
 		}
 		//if connection to client is not closed, reading data from server
 		if !s.servConn.closed {
-			restBuf = waitServerMessage(s, restBuf)
+			restBuf = waitServerMessage(s, restBuf, b[:])
 		} else {
 			time.Sleep(1 * time.Second)
 		}
 	}
 }
 
-func waitServerMessage(s *session, restBuf []byte) []byte {
-	var b [defaultBufferSize]byte
+func waitServerMessage(s *session, restBuf, b []byte) []byte {
 	err := s.servConn.conn.SetReadDeadline(time.Now().Add(readTimeout))
 	if err != nil {
 		s.logger.Warningf("can't set read dead line: %s", err)
 	}
-	n, err := s.servConn.conn.Read(b[:])
+	n, err := s.servConn.conn.Read(b)
 	s.logger.Debugf("servConn.closed = %t; servConn.recon = %t", s.servConn.closed, s.servConn.recon)
 	s.logger.Debugf("received %d bytes from server", n)
 	printPacket(s.logger, "packet from server: ", b[:n])

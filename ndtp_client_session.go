@@ -21,8 +21,8 @@ func clientSession(s *session) {
 
 func clientSessionLoop(s *session) {
 	var restBuf []byte
+	var b [defaultBufferSize]byte
 	for {
-		var b [defaultBufferSize]byte
 		s.logger.Debug("start reading from client")
 		if err := s.clientConn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
 			s.logger.Warningf("can't set read dead line: %s", err)
@@ -40,7 +40,6 @@ func clientSessionLoop(s *session) {
 		restBuf = append(restBuf, b[:n]...)
 		s.logger.Debugf("len(restBuf) = %d", len(restBuf))
 		restBuf = processRestBuf(s, restBuf)
-
 	}
 }
 
