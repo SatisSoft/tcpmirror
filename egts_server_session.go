@@ -150,7 +150,7 @@ func connRedis() redis.Conn {
 	var cR redis.Conn
 	for {
 		var err error
-		cR, err = redis.Dial("tcp", ":6379")
+		cR, err = redis.Dial("tcp", redisServer)
 		if err != nil {
 			logrus.Errorf("error connecting to redis: %s\n", err)
 		} else {

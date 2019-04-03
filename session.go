@@ -43,10 +43,9 @@ func closeSession(s *session) {
 		s.logger.Errorf("error closing client connection: %s", err)
 	}
 	if !s.servConn.closed {
-		s.logger.Printf("close connection to server")
-		err = s.servConn.conn.Close()
-		if err != nil {
-			s.logger.Errorf("error closing server connection: %s", err)
+		s.logger.Debugf("close connection to server")
+		if err = s.servConn.conn.Close(); err != nil {
+			s.logger.Warningf("error closing server connection: %s", err)
 		}
 	}
 	return

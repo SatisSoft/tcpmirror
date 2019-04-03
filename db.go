@@ -304,7 +304,6 @@ func servExt(c redis.Conn, s *session) (mes []byte, time int64, flag string, mes
 	}
 	if len(res) == 0 {
 		s.logger.Tracef("res for %s is empty", key)
-		err = fmt.Errorf("res is empty for %s", key)
 		return
 	}
 	flag = res["flag"]
