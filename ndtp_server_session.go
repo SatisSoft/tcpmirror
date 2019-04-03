@@ -165,7 +165,7 @@ func ndtpConStatus(s *session) {
 	}
 	s.servConn.recon = true
 	if err := s.servConn.conn.Close(); err != nil {
-		s.logger.Errorf("can't close servConn: %s", err)
+		s.logger.Debugf("can't close servConn: %s", err)
 	}
 	s.servConn.closed = true
 	go reconnectNDTP(s)

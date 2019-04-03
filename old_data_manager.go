@@ -183,6 +183,9 @@ func oldExtFromServer(s *session) {
 	conn := pool.Get()
 	defer closeAndLog(conn, s.logger)
 	res, mill, flag, _, err := servExt(conn, s)
+	if res == nil {
+		return
+	}
 	if err != nil {
 		s.logger.Warningf("can't servExt: %v", err)
 		return
