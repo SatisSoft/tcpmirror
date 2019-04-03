@@ -172,7 +172,10 @@ func extTitleFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 func extResFromClient(s *session, ndtp *nav.NDTP, mill int64) (err error) {
 	c := pool.Get()
 	defer closeAndLog(c, s.logger)
-	_, _, _, mesID, err := servExt(c, s)
+	mes, _, _, mesID, err := servExt(c, s)
+	if mes == nil {
+		return
+	}
 	if err != nil {
 		s.logger.Warningf("can't servExt: %v", err)
 	} else if mesID == uint64(ndtp.Nph.Data.(nav.ExtDevice).MesID) {
