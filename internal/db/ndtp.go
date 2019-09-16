@@ -12,7 +12,7 @@ func WriteNDTPid(pool *Pool, terminalID int, nphID uint32, packID []byte, logger
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
 	key := "ndtp:" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
-	_, err := c.Do("SET", key, packID, "ex", 50)
+	_, err := c.Do("SET", key, packID, "ex", 20)
 	return err
 }
 

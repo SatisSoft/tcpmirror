@@ -20,7 +20,6 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 	time := util.Milliseconds()
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
-	//logger.Tracef("key: %v", sdata[:util.PacketStart])
 	err = writeZeroConfirmation(c, uint64(time), sdata[:util.PacketStart])
 	if err != nil {
 		return
@@ -29,7 +28,7 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 	if err != nil {
 		return
 	}
-	err = write2EGTS(c, time, sdata[util.PacketStart:])
+	err = write2EGTS(c, time, sdata[:util.PacketStart])
 	return
 }
 
@@ -79,9 +78,31 @@ func markSysConfirmed(conn redis.Conn, sysID byte, key []byte) error {
 }
 
 func maybeDelete(conn redis.Conn, key []byte) error {
-	n, err := conn.Do("BITCOUNT", 0, systemBytes, key)
+	n, err := redis.Int(conn.Do("BITCOUNT", key, 0, systemBytes-1))
 	if err == nil && n == SysNumber {
-		_, err = conn.Do("DEL", key)
+		err = deletePacket(conn, key)
+	}
+	return err
+}
+
+func deletePacket(conn redis.Conn, key []byte) error {
+	packet, err := findPacket(conn, key)
+	logrus.Tracef("deletePacket packet = %v, err = %v", packet, err)
+	if err != nil {
+		return err
+	}
+	terminalID := util.TerminalID(key)
+	_, err = conn.Do("ZREM", egtsKey, key)
+	if err != nil {
+		return err
+	}
+	_, err = conn.Do("ZREM", terminalID, packet)
+	if err != nil {
+		return err
+	}
+	_, err = conn.Do("DEL", key)
+	if err != nil {
+		return err
 	}
 	return err
 }
@@ -101,8 +122,12 @@ func sysNotConfirmed(conn redis.Conn, data [][]byte, sysID byte) ([][]byte, erro
 }
 
 func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
+	val, err := redis.Bytes(conn.Do("GET", key))
+	if err != nil {
+		return
+	}
 	terminalID := util.TerminalID(key)
-	time := binary.LittleEndian.Uint32(key[systemBytes:])
+	time := binary.LittleEndian.Uint64(val[systemBytes:])
 	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, time, time))
 	if err != nil {
 		return nil, err
