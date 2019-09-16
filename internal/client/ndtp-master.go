@@ -42,6 +42,11 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 }
 
 func (c *NdtpMaster) start() {
+	err := c.setNph()
+	if err != nil {
+		// todo monitor this error
+		c.logger.Errorf("can't setNph: %v", err)
+	}
 	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
@@ -107,10 +112,14 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 		c.logger.Errorf("can't get service: %s", err)
 	}
 	if service == ndtp.NphSrvNavdata {
-		nphID := c.getNphID()
+		nphID, err := c.getNphID()
+		if err != nil {
+			c.logger.Errorf("can't get NPH ID: %v", err)
+			return
+		}
 		changes := map[string]int{ndtp.NphReqID: int(nphID)}
 		newPacket := ndtp.Change(packet, changes)
-		err := db.WriteNDTPid(c.pool, c.terminalID, nphID, message[:util.PacketStart], c.logger)
+		err = db.WriteNDTPid(c.pool, c.terminalID, nphID, message[:util.PacketStart], c.logger)
 		if err != nil {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
@@ -176,7 +185,7 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 		var err error
 		var packet []byte
 		packet, buf, service, packetType, _, err = ndtp.SimpleParse(buf)
-		//c.logger.Tracef("packet: %d buf: %d service: %d packetType: %d", len(packet), len(buf), service, packetType)
+		c.logger.Tracef("packet: %d buf: %d service: %d packetType: %d", len(packet), len(buf), service, packetType)
 		if err != nil {
 			return nil, err
 		}
@@ -237,11 +246,14 @@ func (c *NdtpMaster) resend(messages [][]byte) {
 	for _, mes := range messages {
 		data := util.Deserialize(mes)
 		packet := data.Packet
-		nphID := c.getNphID()
+		nphID, err := c.getNphID()
+		if err != nil {
+			c.logger.Errorf("can't get NPH ID: %v", err)
+		}
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
 		newPacket := ndtp.Change(packet, changes)
 		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
-		err := db.WriteNDTPid(c.pool, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
+		err = db.WriteNDTPid(c.pool, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
 		if err != nil {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
@@ -260,14 +272,14 @@ func (c *NdtpMaster) send2Server(packet []byte) error {
 	return send(c.conn, packet)
 }
 
-func (c *NdtpMaster) getNphID() uint32 {
-	//s.muS.Lock()
+func (c *NdtpMaster) getNphID() (uint32, error) {
+	c.mu.Lock()
 	nphID := c.nphID
 	c.nphID++
-	//s.muS.Unlock()
-	return nphID
+	err := db.SetNph(c.pool, c.id, c.terminalID, c.nphID, c.logger)
+	c.mu.Unlock()
+	return nphID, err
 }
-
 func (c *NdtpMaster) connStatus() {
 	c.muRecon.Lock()
 	defer c.muRecon.Unlock()
@@ -334,4 +346,12 @@ func (c *NdtpMaster) send2Channel(channel chan []byte, data []byte) {
 	default:
 		c.logger.Warningln("channel is full")
 	}
+}
+
+func (c *NdtpMaster) setNph() error {
+	nph, err := db.GetNph(c.pool, c.id, c.terminalID, c.logger)
+	if err == nil {
+		c.nphID = nph
+	}
+	return err
 }

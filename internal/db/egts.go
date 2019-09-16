@@ -36,6 +36,24 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
 	return notConfirmed(conn, notConfirmedKeys)
 }
 
+// SetEgtsID writes Egts IDs to db
+func SetEgtsID(conn redis.Conn, sysID byte, reqID uint16) error {
+	key := "max:" + strconv.Itoa(int(sysID)) + ":req"
+	_, err := conn.Do("SET", key, reqID)
+	return err
+}
+
+// GetEgtsID gets Egts IDs from db
+func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
+	key := "max:" + strconv.Itoa(int(sysID))
+	res, err := redis.Int(conn.Do("GET", key))
+	if err != nil && err != redis.ErrNil {
+		return
+	}
+	req = uint16(res)
+	return
+}
+
 func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
 	max := util.Milliseconds() - 60000
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", egtsKey, 0, max, "LIMIT", 0, 10000))

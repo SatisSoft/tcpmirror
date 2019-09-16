@@ -47,6 +47,11 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 }
 
 func (c *Ndtp) start() {
+	err := c.setNph()
+	if err != nil {
+		// todo monitor this error
+		c.logger.Errorf("can't setNph: %v", err)
+	}
 	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
@@ -107,17 +112,20 @@ func (c *Ndtp) sendFirstMessage() error {
 func (c *Ndtp) handleMessage(message []byte) {
 	data := util.Deserialize(message)
 	packet := data.Packet
-	nphID := c.getNphID()
+	nphID, err := c.getNphID()
+	if err != nil {
+		c.logger.Errorf("can't get NPH ID: %v", err)
+	}
 	changes := map[string]int{ndtp.NphReqID: int(nphID)}
 	newPacket := ndtp.Change(packet, changes)
-	err := db.WriteNDTPid(c.pool, c.terminalID, nphID, message[:util.PacketStart], c.logger)
+	err = db.WriteNDTPid(c.pool, c.terminalID, nphID, message[:util.PacketStart], c.logger)
 	if err != nil {
-		c.logger.Errorf("can't write NDTP id: %s", err)
+		c.logger.Errorf("can't write NDTP id: %v", err)
 		return
 	}
 	err = c.send2Server(newPacket)
 	if err != nil {
-		c.logger.Warningf("can't send to NDTP server: %s", err)
+		c.logger.Warningf("can't send to NDTP server: %v", err)
 		c.connStatus()
 	}
 }
@@ -219,11 +227,14 @@ func (c *Ndtp) resend(messages [][]byte) {
 	for _, mes := range messages {
 		data := util.Deserialize(mes)
 		packet := data.Packet
-		nphID := c.getNphID()
+		nphID, err := c.getNphID()
+		if err != nil {
+			c.logger.Errorf("can't get NPH ID: %v", err)
+		}
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
 		newPacket := ndtp.Change(packet, changes)
 		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
-		err := db.WriteNDTPid(c.pool, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
+		err = db.WriteNDTPid(c.pool, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
 		if err != nil {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
@@ -259,12 +270,13 @@ func send(conn net.Conn, packet []byte) error {
 	return err
 }
 
-func (c *Ndtp) getNphID() uint32 {
-	//s.muS.Lock()
+func (c *Ndtp) getNphID() (uint32, error) {
+	c.mu.Lock()
 	nphID := c.nphID
 	c.nphID++
-	//s.muS.Unlock()
-	return nphID
+	err := db.SetNph(c.pool, c.id, c.terminalID, c.nphID, c.logger)
+	c.mu.Unlock()
+	return nphID, err
 }
 
 func (c *Ndtp) connStatus() {
@@ -324,4 +336,12 @@ func (c *Ndtp) serverClosed() bool {
 	default:
 		return false
 	}
+}
+
+func (c *Ndtp) setNph() error {
+	nph, err := db.GetNph(c.pool, c.id, c.terminalID, c.logger)
+	if err == nil {
+		c.nphID = nph
+	}
+	return err
 }

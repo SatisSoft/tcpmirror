@@ -18,6 +18,7 @@ var SysNumber int
 
 // Write2DB writes packet with metadata to DB
 func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (err error) {
+	logger.Tracef("Write2DB terminalID: %d, sdata: %v", terminalID, sdata)
 	time := util.Milliseconds()
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
@@ -64,10 +65,22 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 }
 
 func writeZeroConfirmation(c redis.Conn, time uint64, key []byte) error {
+	if alreadyExists(c, key) {
+		return fmt.Errorf("key %v already exists", key)
+	}
 	val := make([]byte, 12)
 	binary.LittleEndian.PutUint64(val[4:], time)
 	_, err := c.Do("SET", key, val, "ex", util.Sec3Days)
 	return err
+}
+
+func alreadyExists(c redis.Conn, key []byte) bool {
+	r, err := c.Do("GET", key)
+	logrus.Printf("alreadyExists r: %v, err: %v, key: %v", r, err, key)
+	if r == nil && err == nil {
+		return false
+	}
+	return true
 }
 
 func markSysConfirmed(conn redis.Conn, sysID byte, key []byte) error {
@@ -123,12 +136,15 @@ func sysNotConfirmed(conn redis.Conn, data [][]byte, sysID byte) ([][]byte, erro
 }
 
 func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
-	val, err := redis.Bytes(conn.Do("GET", key))
+	//val0, err := redis.Bytes(conn.Do("GET", key))
+	val0, err := conn.Do("GET", key)
+	val1, err := redis.Bytes(val0, err)
+	logrus.Tracef("findPack key = %v, val0 = %v, val1 = %v, err = %v", key, val0, val1, err)
 	if err != nil {
 		return
 	}
 	terminalID := util.TerminalID(key)
-	time := binary.LittleEndian.Uint64(val[systemBytes:])
+	time := binary.LittleEndian.Uint64(val1[systemBytes:])
 	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, time, time))
 	if err != nil {
 		return nil, err

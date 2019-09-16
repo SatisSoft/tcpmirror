@@ -57,6 +57,29 @@ func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *l
 	return markSysConfirmed(conn, sysID, res)
 }
 
+// SetNph writes Nph ID to db
+func SetNph(pool *Pool, sysID byte, terminalID int, nphID uint32, logger *logrus.Entry) error {
+	conn := pool.Get()
+	defer util.CloseAndLog(conn, logger)
+	key := "max:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID)
+	_, err := conn.Do("SET", key, nphID)
+	//logger.Tracef("SetNph key: %v, r: %v, err: %v", key, r, err)
+	return err
+}
+
+// GetNph gets Nph ID from db
+func GetNph(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) (uint32, error) {
+	conn := pool.Get()
+	defer util.CloseAndLog(conn, logger)
+	key := "max:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID)
+	nphID, err := redis.Int(conn.Do("GET", key))
+	//logger.Tracef("GetNph key: %v, nphID: %d, err: %v", key, nphID, err)
+	if err == redis.ErrNil {
+		return 0, nil
+	}
+	return uint32(nphID), err
+}
+
 func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte) error {
 	_, err := c.Do("ZADD", terminalID, time, sdata)
 	return err

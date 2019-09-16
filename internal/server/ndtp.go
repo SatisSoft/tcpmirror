@@ -125,9 +125,9 @@ func (s *ndtpServer) serverLoop() {
 
 func (s *ndtpServer) processBuf(buf []byte) []byte {
 	for len(buf) > 0 {
-		//s.logger.Tracef("processBuf len: %d: %v", len(buf), buf)
 		packet, rest, service, _, nphID, err := ndtp.SimpleParse(buf)
-		s.logger.Tracef("len packeth: %d, len buf: %d, service: %d", len(packet), len(rest), service)
+		s.logger.Tracef("service: %d, nphID: %d, packet: %v, err: %v", service, nphID, packet, err)
+		s.logger.Tracef("len packet: %d, len buf: %d, service: %d", len(packet), len(rest), service)
 		if err != nil {
 			if len(rest) > defaultBufferSize {
 				s.logger.Warningf("drop buffer: %s", err)

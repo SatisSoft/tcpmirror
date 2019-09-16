@@ -77,6 +77,11 @@ func (c *Egts) stop() error {
 func (c *Egts) clientLoop() {
 	dbConn := db.Connect(c.DB)
 	defer c.closeDBConn(dbConn)
+	err := c.getID(dbConn)
+	if err != nil {
+		// todo monitor this error
+		c.logger.Errorf("can't getID: %v", err)
+	}
 	var buf []byte
 	count := 0
 	sendTicker := time.NewTicker(100 * time.Millisecond)
@@ -105,11 +110,15 @@ func (c *Egts) processMessage(dbConn db.Conn, message []byte, buf []byte) []byte
 	util.PrintPacket(c.logger, "serialized data: ", message)
 	data := util.Deserialize(message)
 	c.logger.Tracef("data: %+v", data)
-	messageID, recID := c.ids()
+	messageID, recID, err := c.ids(dbConn)
+	if err != nil {
+		c.logger.Errorf("can't get ids: %s", err)
+		return buf
+	}
 	packet, err := util.Ndtp2Egts(data.Packet, data.TerminalID, messageID, recID)
 	util.PrintPacket(c.logger, "formed packet: ", packet)
 	if err != nil {
-		c.logger.Errorf("can't form c: %s", err)
+		c.logger.Errorf("can't form packet: %s", err)
 		return buf
 	}
 	buf = append(buf, packet...)
@@ -120,14 +129,15 @@ func (c *Egts) processMessage(dbConn db.Conn, message []byte, buf []byte) []byte
 	return buf
 }
 
-func (c *Egts) ids() (uint16, uint16) {
+func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 	c.mu.Lock()
 	egtsMessageID := c.egtsMessageID
 	egtsRecID := c.egtsRecID
 	c.egtsMessageID++
 	c.egtsRecID++
+	err := db.SetEgtsID(conn, c.id, c.egtsRecID)
 	c.mu.Unlock()
-	return egtsMessageID, egtsRecID
+	return egtsMessageID, egtsRecID, err
 }
 
 func (c *Egts) send(buf []byte) {
@@ -306,4 +316,12 @@ func (c *Egts) updateRecStatus() {
 
 func (c *Egts) closeDBConn(conn db.Conn) {
 	db.Close(conn)
+}
+
+func (c *Egts) getID(conn db.Conn) error {
+	recID, err := db.GetEgtsID(conn, c.id)
+	if err == nil {
+		c.egtsRecID = recID
+	}
+	return err
 }
