@@ -41,7 +41,7 @@ func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", egtsKey, 0, max, "LIMIT", 0, 10000))
 }
 
-func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error){
+func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error) {
 	res := [][]byte{}
 	for _, key := range notConfKeys {
 		packet, err := findPacket(conn, key)

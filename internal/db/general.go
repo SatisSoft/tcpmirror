@@ -12,6 +12,7 @@ import (
 
 const egtsKey = "egts"
 const systemBytes = 4
+
 // SysNumber is a number of clients
 var SysNumber int
 
@@ -71,7 +72,7 @@ func writeZeroConfirmation(c redis.Conn, time uint64, key []byte) error {
 
 func markSysConfirmed(conn redis.Conn, sysID byte, key []byte) error {
 	_, err := conn.Do("SETBIT", key, sysID, 1)
-	if err != nil{
+	if err != nil {
 		return err
 	}
 	return maybeDelete(conn, key)
@@ -148,5 +149,3 @@ func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
 	}
 	return pack, err
 }
-
-

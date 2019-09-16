@@ -16,7 +16,7 @@ const EgtsChanSize = 1000
 
 // Egts describes EGTS client
 type Egts struct {
-	Input chan []byte
+	Input  chan []byte
 	dbConn db.Conn
 	*info
 	*egtsSession

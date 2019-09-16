@@ -3,7 +3,7 @@ package util
 import "time"
 
 const (
-	Sec3Days = 259200
+	Sec3Days      = 259200
 	Millisec3Days = 259200000
 )
 

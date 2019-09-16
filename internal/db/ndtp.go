@@ -66,5 +66,3 @@ func allNotConfirmedNdtp(conn redis.Conn, terminalID int) ([][]byte, error) {
 	max := util.Milliseconds() - 60000
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", 0, 10000))
 }
-
-

@@ -1,10 +1,13 @@
 package server
 
 import (
+	"fmt"
 	"github.com/ashirko/navprot/pkg/egts"
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/client"
+	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 	"net"
 	"os"
@@ -13,11 +16,37 @@ import (
 )
 
 const (
-	listen = "localhost:8800"
+	listen     = "localhost:8800"
 	ndtpMaster = "localhost:8801"
 	ndtpClient = "localhost:8802"
 	egtsClient = "localhost:8803"
 )
+
+func Test_startServerOneClient(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	systems := systemsOne()
+	args := args(systems)
+	opts := options()
+	con := db.Connect(opts.DB)
+	_, err := con.Do("FLUSHALL")
+	if err != nil {
+		t.Error(err)
+	}
+	db.SysNumber = len(args.Systems)
+	go mockNdtpMasterClient(t)
+	go mockTerminal(t)
+	go startServer(args, opts, nil)
+	time.Sleep(25 * time.Second)
+	res, err := redis.ByteSlices(con.Do("KEYS", "*"))
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Printf("res: %v; err: %v\n", res, err)
+	if len(res) != 2 {
+		t.Errorf("expected 2 keys in DB. Got %d: %v", len(res), res)
+	}
+}
 
 func Test_startServer(t *testing.T) {
 	logrus.SetReportCaller(true)
@@ -25,6 +54,7 @@ func Test_startServer(t *testing.T) {
 	systems := systems()
 	args := args(systems)
 	opts := options()
+	db.SysNumber = len(args.Systems)
 	egtsClients := startEgtsClients(opts, args)
 	go mockNdtpMasterClient(t)
 	go mockNdtpClient(t)
@@ -51,6 +81,17 @@ func args(systems []util.System) *util.Args {
 		Systems:    systems,
 		Monitoring: "",
 		DB:         "localhost:9999",
+	}
+}
+
+func systemsOne() []util.System {
+	return []util.System{
+		{
+			ID:       1,
+			Address:  ndtpMaster,
+			Protocol: "NDTP",
+			IsMaster: true,
+		},
 	}
 }
 
@@ -117,7 +158,7 @@ func mockTerminal(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	time.Sleep(10 *time.Second)
+	time.Sleep(10 * time.Second)
 }
 
 func mockNdtpMasterClient(t *testing.T) {
@@ -130,6 +171,7 @@ func mockNdtpMasterClient(t *testing.T) {
 		t.Error(err)
 	}
 	var b [defaultBufferSize]byte
+	// first
 	n, err := c.Read(b[:])
 	if err != nil {
 		t.Error(err)
@@ -141,6 +183,23 @@ func mockNdtpMasterClient(t *testing.T) {
 		t.Error(err)
 	}
 	rep := p.Reply(0)
+	logrus.Println("master send:", rep)
+	err = send(c, rep)
+	if err != nil {
+		t.Error(err)
+	}
+	// second
+	n, err = c.Read(b[:])
+	if err != nil {
+		t.Error(err)
+	}
+	p = new(ndtp.Packet)
+	_, err = p.Parse(b[:n])
+	logrus.Println("master received:", p.Packet)
+	if err != nil {
+		t.Error(err)
+	}
+	rep = p.Reply(0)
 	logrus.Println("master send:", rep)
 	err = send(c, rep)
 	if err != nil {
