@@ -1,1 +1,1 @@
-A simple TCP mirroring tool
+The application provides functionality for receiving packages (currently in NDTP protocol) and sending them to multiply systems using NDTP and EGTS protocols. Delivery of packets to the consumer systems is guaranteed. If the consumer system is unavailable, packeges would be delivered after the resumption of connection. Also, control of the producer system could be done using the NDTP master client.
