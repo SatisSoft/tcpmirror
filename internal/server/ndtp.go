@@ -93,6 +93,7 @@ func (s *ndtpServer) receiveFromMaster() {
 		case <-s.exitChan:
 			return
 		case packet := <-s.masterOut:
+			s.logger.Tracef("received packet from master: %v", packet)
 			err := s.send2terminal(packet)
 			if err != nil {
 				close(s.exitChan)

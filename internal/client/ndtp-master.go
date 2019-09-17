@@ -131,7 +131,6 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 			c.connStatus()
 		}
 	} else {
-		util.PrintPacket(c.logger, "send message to server: ", packet)
 		err := c.send2Server(packet)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)

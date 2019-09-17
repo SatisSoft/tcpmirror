@@ -133,6 +133,33 @@ func Test_startServerThreeClients(t *testing.T) {
 	}
 }
 
+func Test_startServerOneClientExt(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	systems := systemsOne()
+	args := argsOne(systems)
+	opts := options()
+	con := db.Connect(opts.DB)
+	_, err := con.Do("FLUSHALL")
+	if err != nil {
+		t.Error(err)
+	}
+	defer con.Close()
+	db.SysNumber = len(args.Systems)
+	go mockNdtpMasterClientExt(t)
+	go mockTerminalExt(t, args.Listen)
+	go startServer(args, opts, nil)
+	time.Sleep(25 * time.Second)
+	res, err := redis.ByteSlices(con.Do("KEYS", "*"))
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Printf("res: %v; err: %v\n", res, err)
+	if len(res) != 3 {
+		t.Errorf("expected 2 keys in DB. Got %d: %v", len(res), res)
+	}
+}
+
 func startEgtsClients(options *util.Options, args *util.Args) []client.Client {
 	egtsClients, err := initEgtsClients(options, args)
 	logrus.Tracef("newEgtsClients: %v", egtsClients)
@@ -249,6 +276,8 @@ var packetNav = []byte{126, 126, 74, 0, 2, 0, 107, 210, 2, 0, 0, 0, 0, 0, 0, 1, 
 	0, 220, 0, 4, 0, 2, 0, 22, 0, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 167, 97, 0, 0, 31, 6, 0, 0, 8,
 	0, 2, 0, 0, 0, 0, 0}
 
+var packetExt = []byte{126, 126, 90, 1, 2, 0, 33, 134, 2, 0, 4, 0, 0, 144, 7, 5, 0, 100, 0, 0, 0, 1, 0, 0, 0, 18, 0, 0, 128, 0, 0, 0, 0, 1, 0, 0, 0, 60, 78, 65, 86, 83, 67, 82, 32, 118, 101, 114, 61, 49, 46, 48, 62, 60, 73, 68, 62, 49, 56, 60, 47, 73, 68, 62, 60, 70, 82, 79, 77, 62, 83, 69, 82, 86, 69, 82, 60, 47, 70, 82, 79, 77, 62, 60, 84, 79, 62, 85, 83, 69, 82, 60, 47, 84, 79, 62, 60, 84, 89, 80, 69, 62, 81, 85, 69, 82, 89, 60, 47, 84, 89, 80, 69, 62, 60, 77, 83, 71, 32, 116, 105, 109, 101, 61, 54, 48, 32, 98, 101, 101, 112, 61, 49, 32, 116, 121, 112, 101, 61, 98, 97, 99, 107, 103, 114, 111, 117, 110, 100, 62, 60, 98, 114, 47, 62, 60, 98, 114, 47, 62, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 194, 251, 32, 236, 229, 237, 255, 32, 241, 235, 251, 248, 232, 242, 229, 63, 60, 98, 114, 47, 62, 60, 98, 114, 47, 62, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 60, 98, 116, 110, 49, 62, 196, 224, 60, 47, 98, 116, 110, 49, 62, 60, 98, 114, 47, 62, 60, 98, 114, 47, 62, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 38, 110, 98, 115, 112, 59, 60, 98, 116, 110, 50, 62, 205, 229, 242, 60, 47, 98, 116, 110, 50, 62, 60, 98, 114, 47, 62, 60, 47, 77, 83, 71, 62, 60, 47, 78, 65, 86, 83, 67, 82, 62}
+
 func mockTerminal(t *testing.T, addr string) {
 	logger := logrus.WithFields(logrus.Fields{"test": "mock_terminal"})
 	time.Sleep(100 * time.Millisecond)
@@ -289,12 +318,16 @@ func mockTerminalDouble(t *testing.T, addr string) {
 
 func sendAndReceive(t *testing.T, c net.Conn, packet []byte, logger *logrus.Entry) {
 	err := send(c, packet)
+	logger.Tracef("send: %v", packet)
 	if err != nil {
+		logger.Errorf("got error: %v", err)
 		t.Error(err)
 	}
 	var b [defaultBufferSize]byte
-	_, err = c.Read(b[:])
+	n, err := c.Read(b[:])
+	logger.Tracef("receive: %v", b[:n])
 	if err != nil {
+		logger.Errorf("got error: %v", err)
 		t.Error(err)
 	}
 }
@@ -317,6 +350,51 @@ func mockNdtpMasterClient(t *testing.T) {
 	receiveAndReply(t, c, logger)
 	// third
 	receiveAndReply(t, c, logger)
+	time.Sleep(1000 * time.Millisecond)
+}
+
+func mockTerminalExt(t *testing.T, addr string) {
+	logger := logrus.WithFields(logrus.Fields{"test": "mock_terminal"})
+	time.Sleep(100 * time.Millisecond)
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Error(err)
+	}
+	defer conn.Close()
+	sendAndReceive(t, conn, packetAuth, logger)
+	time.Sleep(100 * time.Millisecond)
+	nphID := 5291
+	sendAndReceive(t, conn, packetNav, logger)
+	logger.Tracef("packNav1: %v", packetNav)
+	nphID++
+	changes := map[string]int{ndtp.NphReqID: nphID}
+	packetNav = ndtp.Change(packetNav, changes)
+	logger.Tracef("packNav2: %v", packetNav)
+	sendAndReceive(t, conn, packetNav, logger)
+	// ext
+	receiveAndReply(t, conn, logger)
+	time.Sleep(10 * time.Second)
+}
+
+func mockNdtpMasterClientExt(t *testing.T) {
+	logger := logrus.WithFields(logrus.Fields{"test": "mock_master"})
+	l, err := net.Listen("tcp", ndtpMaster)
+	if err != nil {
+		t.Error(err)
+	}
+	defer l.Close()
+	c, err := l.Accept()
+	if err != nil {
+		t.Error(err)
+	}
+	defer c.Close()
+	// first
+	receiveAndReply(t, c, logger)
+	// second
+	receiveAndReply(t, c, logger)
+	// third
+	receiveAndReply(t, c, logger)
+	sendAndReceive(t, c, packetExt, logger)
 	time.Sleep(1000 * time.Millisecond)
 }
 
