@@ -176,13 +176,13 @@ func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
 		if err != nil {
 			return nil, err
 		}
-		if packetData.IsResult() {
+		if packetData.IsResult() && packetData.Service() == ndtp.NphSrvNavdata {
 			err = c.handleResult(packetData)
 			if err != nil {
 				return nil, err
 			}
 		} else {
-			c.logger.Warningf("expected result, but received %v", packetData)
+			c.logger.Warningf("expected result navdata, but received %v", packetData)
 			continue
 		}
 	}

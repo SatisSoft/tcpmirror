@@ -38,7 +38,7 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
 
 // SetEgtsID writes Egts IDs to db
 func SetEgtsID(conn redis.Conn, sysID byte, reqID uint16) error {
-	key := "max:" + strconv.Itoa(int(sysID)) + ":req"
+	key := "max:" + strconv.Itoa(int(sysID))
 	_, err := conn.Do("SET", key, reqID)
 	return err
 }
@@ -51,7 +51,7 @@ func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
 		return
 	}
 	req = uint16(res)
-	return
+	return req, nil
 }
 
 func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {

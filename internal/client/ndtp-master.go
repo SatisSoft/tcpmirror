@@ -16,6 +16,7 @@ const NdtpMasterChanSize = 20
 type NdtpMaster struct {
 	Input      chan []byte
 	Output     chan []byte
+	auth       bool
 	exitChan   chan struct{}
 	pool       *db.Pool
 	terminalID int
@@ -194,7 +195,13 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 			if err != nil {
 				return nil, err
 			}
-		} else if service == 0 && packetType == 100 {
+		} else if service == 0 && packetType == 0 {
+			if c.auth {
+				c.send2Channel(c.Output, packet)
+			} else {
+				c.logger.Tracef("received auth reply")
+				c.auth = true
+			}
 			continue
 		} else {
 			c.send2Channel(c.Output, packet)

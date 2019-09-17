@@ -84,6 +84,7 @@ func alreadyExists(c redis.Conn, key []byte) bool {
 }
 
 func markSysConfirmed(conn redis.Conn, sysID byte, key []byte) error {
+	logrus.Tracef("markSysConfirmed sysID %d, key %v", sysID, key)
 	_, err := conn.Do("SETBIT", key, sysID, 1)
 	if err != nil {
 		return err
@@ -93,6 +94,7 @@ func markSysConfirmed(conn redis.Conn, sysID byte, key []byte) error {
 
 func maybeDelete(conn redis.Conn, key []byte) error {
 	n, err := redis.Int(conn.Do("BITCOUNT", key, 0, systemBytes-1))
+	logrus.Tracef("maybeDelete n = %d, key %v", n, key)
 	if err == nil && n == SysNumber {
 		err = deletePacket(conn, key)
 	}
@@ -101,20 +103,23 @@ func maybeDelete(conn redis.Conn, key []byte) error {
 
 func deletePacket(conn redis.Conn, key []byte) error {
 	packet, err := findPacket(conn, key)
-	logrus.Tracef("deletePacket packet = %v, err = %v", packet, err)
+	logrus.Tracef("deletePacket key = %v, packet = %v, err = %v", key, packet, err)
 	if err != nil {
 		return err
 	}
 	terminalID := util.TerminalID(key)
-	_, err = conn.Do("ZREM", egtsKey, key)
+	res, err := conn.Do("ZREM", egtsKey, key)
+	logrus.Tracef("del 1 res = %v, err = %v", res, err)
 	if err != nil {
 		return err
 	}
-	_, err = conn.Do("ZREM", terminalID, packet)
+	res, err = conn.Do("ZREM", terminalID, packet)
+	logrus.Tracef("del 2 res = %v, err = %v", res, err)
 	if err != nil {
 		return err
 	}
-	_, err = conn.Do("DEL", key)
+	res, err = conn.Do("DEL", key)
+	logrus.Tracef("del 3 res = %v, err = %v", res, err)
 	if err != nil {
 		return err
 	}

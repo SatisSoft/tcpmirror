@@ -38,14 +38,16 @@ type Options struct {
 	//DbAddress Server
 }
 
+var (
+	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
+)
+
 func ParseArgs() (args *Args, err error) {
 	//todo set logrus level
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	var conf string
-	flag.StringVar(&conf, "conf", "", "configuration file (e.g. 'config/example.toml')")
 	flag.Parse()
-	args, err = parseConfig(conf)
+	args, err = parseConfig(*conf)
 	return args, err
 }
 
