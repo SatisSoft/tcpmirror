@@ -7,6 +7,9 @@ db_address = "localhost:8889"
 # monitoring server address
 mon_address = "localhost:9000"
 
+#listen protocol
+listen_protocol = "NDTP"
+
 # list of data consumers
 consumers_list = ["vis1", "vis2", "vis3"]
 
