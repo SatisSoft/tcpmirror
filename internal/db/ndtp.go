@@ -8,10 +8,10 @@ import (
 )
 
 // WriteNDTPid maps ClientNdtpID to ServerNdtpID
-func WriteNDTPid(pool *Pool, terminalID int, nphID uint32, packID []byte, logger *logrus.Entry) error {
+func WriteNDTPid(pool *Pool, sysID byte, terminalID int, nphID uint32, packID []byte, logger *logrus.Entry) error {
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
-	key := "ndtp:" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
+	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
 	_, err := c.Do("SET", key, packID, "ex", 20)
 	return err
 }
@@ -49,7 +49,7 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *logrus.Entry) error {
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
-	key := "ndtp:" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
+	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
 	res, err := redis.Bytes(conn.Do("GET", key))
 	if err != nil {
 		return err

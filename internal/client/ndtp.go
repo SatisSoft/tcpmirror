@@ -118,7 +118,7 @@ func (c *Ndtp) handleMessage(message []byte) {
 	}
 	changes := map[string]int{ndtp.NphReqID: int(nphID)}
 	newPacket := ndtp.Change(packet, changes)
-	err = db.WriteNDTPid(c.pool, c.terminalID, nphID, message[:util.PacketStart], c.logger)
+	err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, message[:util.PacketStart], c.logger)
 	if err != nil {
 		c.logger.Errorf("can't write NDTP id: %v", err)
 		return
@@ -234,7 +234,7 @@ func (c *Ndtp) resend(messages [][]byte) {
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
 		newPacket := ndtp.Change(packet, changes)
 		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
-		err = db.WriteNDTPid(c.pool, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
+		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
 		if err != nil {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
