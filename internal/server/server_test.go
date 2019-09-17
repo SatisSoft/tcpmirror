@@ -2,11 +2,11 @@ package server
 
 import (
 	"fmt"
-	"github.com/ashirko/navprot/pkg/egts"
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/client"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/egorban/egtsServ/pkg/egtsserv"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
 	"net"
@@ -17,25 +17,26 @@ import (
 
 const (
 	listen     = "localhost:8800"
-	ndtpMaster = "localhost:8801"
-	ndtpClient = "localhost:8802"
-	egtsClient = "localhost:8803"
+	ndtpMaster = "localhost:8901"
+	ndtpClient = "localhost:8902"
+	egtsClient = "localhost:8903"
 )
 
 func Test_startServerOneClient(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
 	systems := systemsOne()
-	args := args(systems)
+	args := argsOne(systems)
 	opts := options()
 	con := db.Connect(opts.DB)
 	_, err := con.Do("FLUSHALL")
 	if err != nil {
 		t.Error(err)
 	}
+	defer con.Close()
 	db.SysNumber = len(args.Systems)
 	go mockNdtpMasterClient(t)
-	go mockTerminal(t)
+	go mockTerminal(t, args.Listen)
 	go startServer(args, opts, nil)
 	time.Sleep(25 * time.Second)
 	res, err := redis.ByteSlices(con.Do("KEYS", "*"))
@@ -52,16 +53,17 @@ func Test_startServerOneClientDouble(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
 	systems := systemsOne()
-	args := args(systems)
+	args := argsDouble(systems)
 	opts := options()
 	con := db.Connect(opts.DB)
 	_, err := con.Do("FLUSHALL")
 	if err != nil {
 		t.Error(err)
 	}
+	defer con.Close()
 	db.SysNumber = len(args.Systems)
 	go mockNdtpMasterClient(t)
-	go mockTerminalDouble(t)
+	go mockTerminalDouble(t, args.Listen)
 	go startServer(args, opts, nil)
 	time.Sleep(25 * time.Second)
 	res, err := redis.ByteSlices(con.Do("KEYS", "*"))
@@ -77,18 +79,19 @@ func Test_startServerOneClientDouble(t *testing.T) {
 func Test_startServerTwoClients(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	systems := systemsOne()
-	args := args(systems)
+	systems := systemsTwo()
+	args := argsTwo(systems)
 	opts := options()
 	con := db.Connect(opts.DB)
 	_, err := con.Do("FLUSHALL")
 	if err != nil {
 		t.Error(err)
 	}
+	defer con.Close()
 	db.SysNumber = len(args.Systems)
 	go mockNdtpMasterClient(t)
 	go mockNdtpClient(t)
-	go mockTerminal(t)
+	go mockTerminal(t, args.Listen)
 	go startServer(args, opts, nil)
 	time.Sleep(25 * time.Second)
 	res, err := redis.ByteSlices(con.Do("KEYS", "*"))
@@ -96,24 +99,38 @@ func Test_startServerTwoClients(t *testing.T) {
 		t.Error(err)
 	}
 	fmt.Printf("res: %v; err: %v\n", res, err)
-	if len(res) != 6 {
+	if len(res) != 4 {
 		t.Errorf("expected 2 keys in DB. Got %d: %v", len(res), res)
 	}
 }
 
-func Test_startServer(t *testing.T) {
+func Test_startServerThreeClients(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	systems := systems()
-	args := args(systems)
+	systems := systemsThree()
+	args := argsThree(systems)
 	opts := options()
+	con := db.Connect(opts.DB)
+	_, err := con.Do("FLUSHALL")
+	if err != nil {
+		t.Error(err)
+	}
 	db.SysNumber = len(args.Systems)
 	egtsClients := startEgtsClients(opts, args)
 	go mockNdtpMasterClient(t)
 	go mockNdtpClient(t)
-	go mockEgtsClient(t)
-	go mockTerminal(t)
-	startServer(args, opts, egtsClients)
+	go mockEgtsClient(t, egtsClient)
+	go mockTerminal(t, args.Listen)
+	go startServer(args, opts, egtsClients)
+	time.Sleep(25 * time.Second)
+	res, err := redis.ByteSlices(con.Do("KEYS", "*"))
+	if err != nil {
+		t.Error(err)
+	}
+	fmt.Printf("res: %v; err: %v\n", res, err)
+	if len(res) != 5 {
+		t.Errorf("expected 5 keys in DB. Got %d: %v", len(res), res)
+	}
 }
 
 func startEgtsClients(options *util.Options, args *util.Args) []client.Client {
@@ -127,9 +144,39 @@ func startEgtsClients(options *util.Options, args *util.Args) []client.Client {
 	return egtsClients
 }
 
-func args(systems []util.System) *util.Args {
+func argsOne(systems []util.System) *util.Args {
 	return &util.Args{
-		Listen:     listen,
+		Listen:     "localhost:8800",
+		Protocol:   "NDTP",
+		Systems:    systems,
+		Monitoring: "",
+		DB:         "localhost:9999",
+	}
+}
+
+func argsTwo(systems []util.System) *util.Args {
+	return &util.Args{
+		Listen:     "localhost:8801",
+		Protocol:   "NDTP",
+		Systems:    systems,
+		Monitoring: "",
+		DB:         "localhost:9999",
+	}
+}
+
+func argsDouble(systems []util.System) *util.Args {
+	return &util.Args{
+		Listen:     "localhost:8802",
+		Protocol:   "NDTP",
+		Systems:    systems,
+		Monitoring: "",
+		DB:         "localhost:9999",
+	}
+}
+
+func argsThree(systems []util.System) *util.Args {
+	return &util.Args{
+		Listen:     "localhost:8803",
 		Protocol:   "NDTP",
 		Systems:    systems,
 		Monitoring: "",
@@ -165,7 +212,7 @@ func systemsTwo() []util.System {
 	}
 }
 
-func systems() []util.System {
+func systemsThree() []util.System {
 	return []util.System{
 		{
 			ID:       1,
@@ -197,21 +244,15 @@ func options() *util.Options {
 
 var packetAuth = []byte{1, 2, 3, 126, 126, 59, 0, 2, 0, 14, 84, 2, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 1, 0, 0, 0, 0, 0, 6, 0, 2, 0, 2, 3, 90, 139, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 51, 53, 53, 48, 57, 52, 48, 52, 51, 49, 56, 56, 51, 49, 49, 50, 53, 48, 48, 49, 54, 53, 48, 53, 56, 49, 53, 53, 51, 55, 0, 1, 2, 3}
 
-//var packetNav = []byte{0, 80, 86, 161, 44, 216, 192, 140, 96, 196, 138, 54, 8, 0, 69, 0, 0, 129, 102, 160, 64, 0, 125, 6,
-//	18, 51, 10, 68, 41, 150, 10, 176, 70, 26, 236, 153, 35, 56, 151, 147, 73, 96, 98, 94, 76, 40, 80,
-//	24, 1, 2, 190, 27, 0, 0, 126, 126, 74, 0, 2, 0, 107, 210, 2, 0, 0, 0, 0, 0, 0, 1, 0, 101, 0, 1, 0, 171,
-//	20, 0, 0, 0, 0, 36, 141, 198, 90, 87, 110, 119, 22, 201, 186, 64, 33, 224, 203, 0, 0, 0, 0, 83, 1, 0,
-//	0, 220, 0, 4, 0, 2, 0, 22, 0, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 167, 97, 0, 0, 31, 6, 0, 0, 8,
-//	0, 2, 0, 0, 0, 0, 0, 1, 2, 3}
 var packetNav = []byte{126, 126, 74, 0, 2, 0, 107, 210, 2, 0, 0, 0, 0, 0, 0, 1, 0, 101, 0, 1, 0, 171,
 	20, 0, 0, 0, 0, 36, 141, 198, 90, 87, 110, 119, 22, 201, 186, 64, 33, 224, 203, 0, 0, 0, 0, 83, 1, 0,
 	0, 220, 0, 4, 0, 2, 0, 22, 0, 67, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 167, 97, 0, 0, 31, 6, 0, 0, 8,
 	0, 2, 0, 0, 0, 0, 0}
 
-func mockTerminal(t *testing.T) {
+func mockTerminal(t *testing.T, addr string) {
 	logger := logrus.WithFields(logrus.Fields{"test": "mock_terminal"})
 	time.Sleep(100 * time.Millisecond)
-	conn, err := net.Dial("tcp", listen)
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		t.Error(err)
 	}
@@ -229,10 +270,10 @@ func mockTerminal(t *testing.T) {
 	time.Sleep(10 * time.Second)
 }
 
-func mockTerminalDouble(t *testing.T) {
+func mockTerminalDouble(t *testing.T, addr string) {
 	logger := logrus.WithFields(logrus.Fields{"test": "mock_terminal_double"})
 	time.Sleep(100 * time.Millisecond)
-	conn, err := net.Dial("tcp", listen)
+	conn, err := net.Dial("tcp", addr)
 	if err != nil {
 		t.Error(err)
 	}
@@ -264,35 +305,40 @@ func mockNdtpMasterClient(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer l.Close()
 	c, err := l.Accept()
 	if err != nil {
 		t.Error(err)
 	}
+	defer c.Close()
 	// first
 	receiveAndReply(t, c, logger)
 	// second
 	receiveAndReply(t, c, logger)
 	// third
 	receiveAndReply(t, c, logger)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 }
 
 func receiveAndReply(t *testing.T, c net.Conn, logger *logrus.Entry) {
 	var b [defaultBufferSize]byte
 	n, err := c.Read(b[:])
 	if err != nil {
+		logger.Errorf("got error: %v", err)
 		t.Error(err)
 	}
 	p := new(ndtp.Packet)
 	_, err = p.Parse(b[:n])
-	logrus.Println("master received:", p.Packet)
+	logger.Println("received:", p.Packet)
 	if err != nil {
+		logger.Errorf("got error: %v", err)
 		t.Error(err)
 	}
 	rep := p.Reply(0)
-	logrus.Println("master send:", rep)
+	logger.Println("send:", rep)
 	err = send(c, rep)
 	if err != nil {
+		logger.Errorf("got error: %v", err)
 		t.Error(err)
 	}
 }
@@ -303,40 +349,24 @@ func mockNdtpClient(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
+	defer l.Close()
 	c, err := l.Accept()
 	if err != nil {
+		logger.Errorf("got error: %v", err)
 		t.Error(err)
 	}
+	defer c.Close()
 	// first
 	receiveAndReply(t, c, logger)
 	// second
 	receiveAndReply(t, c, logger)
 	// third
 	receiveAndReply(t, c, logger)
-	time.Sleep(100 * time.Millisecond)
+	time.Sleep(1000 * time.Millisecond)
 }
 
-func mockEgtsClient(t *testing.T) {
-	l, err := net.Listen("tcp", egtsClient)
-	if err != nil {
-		t.Error(err)
-	}
-	c, err := l.Accept()
-	if err != nil {
-		t.Error(err)
-	}
-	var b [defaultBufferSize]byte
-	n, err := c.Read(b[:])
-	if err != nil {
-		t.Error(err)
-	}
-	p := new(egts.Packet)
-	_, err = p.Parse(b[:n])
-	logrus.Println("egts client received:", p)
-	if err != nil {
-		t.Error(err)
-	}
-	time.Sleep(100 * time.Millisecond)
+func mockEgtsClient(t *testing.T, addr string) {
+	egtsserv.Start(addr)
 }
 
 func send(conn net.Conn, packet []byte) error {
