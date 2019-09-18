@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -276,7 +277,12 @@ func (c *NdtpMaster) resend(messages [][]byte) {
 
 func (c *NdtpMaster) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
-	return send(c.conn, packet)
+	if c.open {
+		return send(c.conn, packet)
+	} else {
+		c.connStatus()
+		return errors.New("connection to server is closed")
+	}
 }
 
 func (c *NdtpMaster) getNphID() (uint32, error) {

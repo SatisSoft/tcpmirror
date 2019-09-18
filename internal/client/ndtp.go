@@ -1,6 +1,7 @@
 package client
 
 import (
+	"errors"
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -259,7 +260,12 @@ func reverceSlice(res [][]byte) [][]byte {
 
 func (c *Ndtp) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
-	return send(c.conn, packet)
+	if c.open {
+		return send(c.conn, packet)
+	} else {
+		c.connStatus()
+		return errors.New("connection to server is closed")
+	}
 }
 
 func send(conn net.Conn, packet []byte) error {
