@@ -1,0 +1,17 @@
+# listen address
+listen_address = "localhost:7010"
+
+# DB server address
+db_address = "localhost:9999"
+
+#listen protocol
+listen_protocol = "NDTP"
+
+# list of data consumers
+consumers_list = ["vis1"]
+
+[vis1]
+id = 2
+address = "localhost:7011"
+protocol = "NDTP"
+master = true

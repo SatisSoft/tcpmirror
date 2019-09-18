@@ -1,0 +1,34 @@
+# listen address
+listen_address = "localhost:7000"
+
+# DB server address
+db_address = "localhost:9999"
+
+#listen protocol
+listen_protocol = "NDTP"
+
+# list of data consumers
+consumers_list = ["vis1", "vis2", "vis3"]
+
+[vis1]
+# consumer's unique id
+id = 1
+# consumer's address
+address = "10.20.30.41:5555"
+# consumer's protocol
+protocol = "EGTS"
+# is consumer a master system
+master = false
+
+[vis2]
+id = 2
+address = "10.20.30.41:5556"
+protocol = "NDTP"
+master = true
+
+
+[vis3]
+id = 3
+address = "10.20.30.41:5557"
+protocol = "NDTP"
+master = false
