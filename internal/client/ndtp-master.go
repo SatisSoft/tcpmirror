@@ -11,7 +11,7 @@ import (
 )
 
 // NdtpMasterChanSize defines size of NdtpMaster client input chanel buffer
-const NdtpMasterChanSize = 20
+const NdtpMasterChanSize = 200
 
 // NdtpMaster describes  Ndtp master client
 type NdtpMaster struct {
@@ -113,6 +113,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 	service, err := ndtp.Service(data.Packet)
 	if err != nil {
 		c.logger.Errorf("can't get service: %s", err)
+		return
 	}
 	if service == ndtp.NphSrvNavdata {
 		nphID, err := c.getNphID()
@@ -174,7 +175,9 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 	buf, err = c.processPacket(buf)
 	if err != nil {
 		c.logger.Warningf("can't process packet: %s", err)
-		return []byte{}
+		if len(buf) > 1024 {
+			return []byte{}
+		}
 	}
 	return buf
 }
@@ -189,12 +192,12 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 		packet, buf, service, packetType, _, err = ndtp.SimpleParse(buf)
 		c.logger.Tracef("packet: %d buf: %d service: %d packetType: %d", len(packet), len(buf), service, packetType)
 		if err != nil {
-			return nil, err
+			return buf, err
 		}
 		if service == 1 && packetType == 0 {
 			err = c.handleResult(packet)
 			if err != nil {
-				return nil, err
+				return []byte{}, err
 			}
 		} else if service == 0 && packetType == 0 {
 			if c.auth {
@@ -279,10 +282,9 @@ func (c *NdtpMaster) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
 	if c.open {
 		return send(c.conn, packet)
-	} else {
-		c.connStatus()
-		return errors.New("connection to server is closed")
 	}
+	c.connStatus()
+	return errors.New("connection to server is closed")
 }
 
 func (c *NdtpMaster) getNphID() (uint32, error) {

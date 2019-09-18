@@ -12,7 +12,7 @@ import (
 )
 
 // NdtpChanSize defines size of Ndtp client input chanel buffer
-const NdtpChanSize = 20
+const NdtpChanSize = 200
 
 type ndtpSession struct {
 	nplID uint16
@@ -117,6 +117,7 @@ func (c *Ndtp) handleMessage(message []byte) {
 	nphID, err := c.getNphID()
 	if err != nil {
 		c.logger.Errorf("can't get NPH ID: %v", err)
+		return
 	}
 	changes := map[string]int{ndtp.NphReqID: int(nphID)}
 	newPacket := ndtp.Change(packet, changes)
@@ -165,7 +166,9 @@ func (c *Ndtp) waitServerMessage(buf []byte) []byte {
 	buf, err = c.processPacket(buf)
 	if err != nil {
 		c.logger.Warningf("can't process packet: %s", err)
-		return []byte{}
+		if len(buf) > 1024 {
+			return []byte{}
+		}
 	}
 	return buf
 }
@@ -176,12 +179,12 @@ func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
 		packetData := new(ndtp.Packet)
 		buf, err = packetData.Parse(buf)
 		if err != nil {
-			return nil, err
+			return buf, err
 		}
 		if packetData.IsResult() && packetData.Service() == ndtp.NphSrvNavdata {
 			err = c.handleResult(packetData)
 			if err != nil {
-				return nil, err
+				return []byte{}, err
 			}
 		} else {
 			c.logger.Warningf("expected result navdata, but received %v", packetData)
@@ -262,10 +265,9 @@ func (c *Ndtp) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
 	if c.open {
 		return send(c.conn, packet)
-	} else {
-		c.connStatus()
-		return errors.New("connection to server is closed")
 	}
+	c.connStatus()
+	return errors.New("connection to server is closed")
 }
 
 func send(conn net.Conn, packet []byte) error {

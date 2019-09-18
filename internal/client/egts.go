@@ -12,7 +12,7 @@ import (
 )
 
 // EgtsChanSize defines size of EGTS client input chanel buffer
-const EgtsChanSize = 1000
+const EgtsChanSize = 10000
 
 // Egts describes EGTS client
 type Egts struct {
