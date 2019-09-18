@@ -51,7 +51,8 @@ func (c *NdtpMaster) start() {
 	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
-		c.logger.Errorf("error while connecting to NDTP server %d: %s", c.id, err)
+		c.logger.Errorf("error while connecting to NDTP master server %d: %s", c.id, err)
+		c.reconnect()
 	} else {
 		c.conn = conn
 		c.open = true
@@ -85,7 +86,7 @@ func (c *NdtpMaster) clientLoop() {
 	err := c.sendFirstMessage()
 	if err != nil {
 		c.logger.Errorf("can't send first message: %s", err)
-		c.reconnect()
+		c.connStatus()
 	}
 	for {
 		select {
