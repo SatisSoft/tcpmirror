@@ -122,7 +122,7 @@ func (c *Egts) processMessage(dbConn db.Conn, message []byte, buf []byte) []byte
 		return buf
 	}
 	buf = append(buf, packet...)
-	err = db.WriteEgtsID(dbConn, recID, data.ID)
+	err = db.WriteEgtsID(dbConn, c.id, recID, data.ID)
 	if err != nil {
 		c.logger.Errorf("error WriteEgtsID: %s", err)
 	}

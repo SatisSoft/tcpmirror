@@ -7,15 +7,15 @@ import (
 )
 
 // WriteEgtsID maps EgtsID to NdtpID
-func WriteEgtsID(conn redis.Conn, egtsID uint16, packetID []byte) error {
-	key := "egts:" + strconv.Itoa(int(egtsID))
+func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, packetID []byte) error {
+	key := egtsKey + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
 	_, err := conn.Do("SET", key, packetID, "ex", 20)
 	return err
 }
 
 // ConfirmEgts sets confirm bite for corresponding system to 1 and deletes confirmed packets
 func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte) error {
-	key := "egts:" + strconv.Itoa(int(egtsID))
+	key := egtsKey + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
 	res, err := redis.Bytes(conn.Do("GET", key))
 	if err != nil {
 		return err
