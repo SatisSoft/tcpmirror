@@ -12,7 +12,7 @@ const (
 	mon       = "mon_address"
 	consumers = "consumers_list"
 	protocol  = "listen_protocol"
-	logLevel = "log_level"
+	logLevel  = "log_level"
 )
 
 type System struct {
@@ -28,7 +28,7 @@ type Args struct {
 	Systems    []System
 	Monitoring string
 	DB         string
-	LogLevel logrus.Level
+	LogLevel   logrus.Level
 }
 
 type Options struct {

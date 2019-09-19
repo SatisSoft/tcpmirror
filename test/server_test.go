@@ -20,8 +20,10 @@ func Test_serverStartOne(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfMessages := 100
-	go mockTerminal(t, "localhost:7000", numOfMessages)
+	numOfPackets := 100
+	numOfNdtpServers := 1
+	numOfTerminals := 1
+	go mockTerminal(t, "localhost:7000", numOfPackets)
 	go mockNdtpMaster(t, "localhost:7001")
 	go server.Start()
 	time.Sleep(5 * time.Second)
@@ -29,7 +31,7 @@ func Test_serverStartOne(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := numOfMessages + 3
+	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
@@ -38,7 +40,7 @@ func Test_serverStartOne(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = 3
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
@@ -55,9 +57,11 @@ func Test_serverStartTwoTerminals(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfMessages := 2
-	go mockTerminal(t, "localhost:7010", numOfMessages)
-	go mockTerminalSecond(t, "localhost:7010", numOfMessages)
+	numOfPackets := 2
+	numOfNdtpServers := 1
+	numOfTerminals := 2
+	go mockTerminal(t, "localhost:7010", numOfPackets)
+	go mockTerminalSecond(t, "localhost:7010", numOfPackets)
 	go mockNdtpMaster(t, "localhost:7011")
 	go server.Start()
 	time.Sleep(5 * time.Second)
@@ -65,7 +69,7 @@ func Test_serverStartTwoTerminals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := (numOfMessages + 3) * 2
+	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
@@ -74,7 +78,7 @@ func Test_serverStartTwoTerminals(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = 3 * 2
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
@@ -91,8 +95,10 @@ func Test_serverStartTwo(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfMessages := 100
-	go mockTerminal(t, "localhost:7020", numOfMessages)
+	numOfPackets := 100
+	numOfNdtpServers := 2
+	numOfTerminals := 1
+	go mockTerminal(t, "localhost:7020", numOfPackets)
 	go mockNdtpMaster(t, "localhost:7021")
 	go mockNdtpServer(t, "localhost:7022")
 	go server.Start()
@@ -101,7 +107,7 @@ func Test_serverStartTwo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := numOfMessages*2 + 4
+	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
@@ -110,7 +116,7 @@ func Test_serverStartTwo(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = 4
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
@@ -127,8 +133,11 @@ func Test_serverStartThree(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfMessages := 2
-	go mockTerminal(t, "localhost:7030", numOfMessages)
+	numOfPackets := 2
+	numOfNdtpServers := 2
+	numOfEgtsServers := 1
+	numOfTerminals := 1
+	go mockTerminal(t, "localhost:7030", numOfPackets)
 	go mockNdtpMaster(t, "localhost:7031")
 	go mockNdtpServer(t, "localhost:7032")
 	go mockEgtsServer(t, "localhost:7033")
@@ -138,7 +147,7 @@ func Test_serverStartThree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected := numOfMessages*3 + 5
+	expected := numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
@@ -147,7 +156,7 @@ func Test_serverStartThree(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = 5
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
