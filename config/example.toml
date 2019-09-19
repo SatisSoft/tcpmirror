@@ -11,7 +11,7 @@ mon_address = "localhost:9000"
 listen_protocol = "NDTP"
 
 #log level
-log_level = 6
+log_level = "trace"
 
 # list of data consumers
 consumers_list = ["vis1", "vis2", "vis3"]
