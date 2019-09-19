@@ -7,6 +7,7 @@ import (
 	"strings"
 )
 
+// Print packet in []byte{} format
 func PrintPacket(logger *logrus.Entry, s string, slice []byte) {
 	sliceText := []string(nil)
 	for i := range slice {

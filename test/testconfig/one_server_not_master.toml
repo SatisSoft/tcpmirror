@@ -7,6 +7,9 @@ db_address = "localhost:9999"
 #listen protocol
 listen_protocol = "NDTP"
 
+#log level
+log_level = "trace"
+
 # list of data consumers
 consumers_list = ["vis1", "vis2", "vis3"]
 

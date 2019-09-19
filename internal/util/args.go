@@ -12,6 +12,7 @@ const (
 	mon       = "mon_address"
 	consumers = "consumers_list"
 	protocol  = "listen_protocol"
+	logLevel = "log_level"
 )
 
 type System struct {
@@ -27,6 +28,7 @@ type Args struct {
 	Systems    []System
 	Monitoring string
 	DB         string
+	LogLevel logrus.Level
 }
 
 type Options struct {
@@ -34,8 +36,6 @@ type Options struct {
 	Mon bool
 	// DB sever address
 	DB string
-	//*db.DB
-	//DbAddress Server
 }
 
 var (
@@ -43,9 +43,6 @@ var (
 )
 
 func ParseArgs() (args *Args, err error) {
-	//todo set logrus level
-	logrus.SetReportCaller(true)
-	logrus.SetLevel(logrus.TraceLevel)
 	flag.Parse()
 	args, err = parseConfig(*conf)
 	return args, err
@@ -62,6 +59,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.Protocol = viper.GetString(protocol)
 	args.Monitoring = viper.GetString(mon)
 	args.Systems = parseSystems(viper.GetStringSlice(consumers))
+	args.LogLevel, err = logrus.ParseLevel(viper.GetString(logLevel))
 	return
 }
 
