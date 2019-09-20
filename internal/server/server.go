@@ -25,6 +25,7 @@ func Start() {
 		os.Exit(1)
 	}
 	options, err := initialize(args)
+	logrus.Infof("start with args %+v and options %+v", args, options)
 	if err != nil {
 		logrus.Error("can't init server:", err)
 		os.Exit(1)

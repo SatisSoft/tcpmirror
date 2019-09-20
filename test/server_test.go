@@ -133,7 +133,7 @@ func Test_serverStartThree(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 2
+	numOfPackets := 100
 	numOfNdtpServers := 2
 	numOfEgtsServers := 1
 	numOfTerminals := 1
@@ -157,6 +157,49 @@ func Test_serverStartThree(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
+	if len(res) != expected {
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
+	}
+}
+
+func Test_serverStartOneNotMaster(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	err := flag.Set("conf", "./testconfig/one_server_not_master.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := db.Connect("localhost:9999")
+	if err := clearDB(conn); err != nil {
+		t.Fatal(err)
+	}
+	numOfPackets := 2
+	numOfNdtpServers := 1
+	numOfTerminals := 1
+	numOfEgtsServers := 1
+	//numOfNdptServersOff := 1
+	// 1 if all packets are not confirmed
+	notConfirmed := 1
+	go mockTerminal(t, "localhost:7040", numOfPackets)
+	go mockNdtpServer(t, "localhost:7042")
+	go server.Start()
+	time.Sleep(5 * time.Second)
+	res, err := getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := numOfTerminals*(2 + notConfirmed) + (numOfNdtpServers)*numOfTerminals + numOfEgtsServers +
+		numOfPackets*(numOfNdtpServers+notConfirmed)*numOfTerminals
+	if len(res) != expected {
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
+	}
+	time.Sleep(20 * time.Second)
+	res, err = getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected = numOfTerminals*(2 + notConfirmed) + (numOfNdtpServers)*numOfTerminals +
+		numOfPackets*numOfTerminals + numOfEgtsServers*notConfirmed
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}

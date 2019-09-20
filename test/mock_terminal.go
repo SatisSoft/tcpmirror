@@ -39,7 +39,7 @@ func mockTerminal(t *testing.T, addr string, num int) {
 			t.Error(err)
 		}
 	}
-	time.Sleep(1 * time.Second)
+	time.Sleep(10 * time.Second)
 }
 
 func mockTerminalSecond(t *testing.T, addr string, num int) {
