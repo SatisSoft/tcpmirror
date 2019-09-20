@@ -204,3 +204,45 @@ func Test_serverStartOneNotMaster(t *testing.T) {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }
+
+func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	err := flag.Set("conf", "./testconfig/one_server_guaranteed_delivery.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := db.Connect("localhost:9999")
+	if err := clearDB(conn); err != nil {
+		t.Fatal(err)
+	}
+	numOfPackets := 2
+	numOfNdtpServers := 1
+	numOfTerminals := 1
+	notConfirmed := 1
+	numOfEgtsServers := 1
+	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", numOfPackets)
+	go server.Start()
+	time.Sleep(5 * time.Second)
+	res, err := getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	//expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
+	expected := numOfTerminals*(2 + notConfirmed) + numOfEgtsServers +
+		numOfPackets*notConfirmed*numOfTerminals
+	if len(res) != expected {
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
+	}
+	time.Sleep(5 * time.Second)
+	go mockNdtpMaster(t, "localhost:7051")
+	time.Sleep(100 * time.Second)
+	res, err = getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
+	if len(res) != expected {
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
+	}
+}

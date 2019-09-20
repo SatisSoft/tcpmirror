@@ -66,6 +66,37 @@ func mockTerminalSecond(t *testing.T, addr string, num int) {
 	time.Sleep(1 * time.Second)
 }
 
+func mockTerminalGuaranteedDeliveryMaster(t *testing.T, addr string, num int) {
+	logger := logrus.WithFields(logrus.Fields{"test": "mock_terminal"})
+	time.Sleep(100 * time.Millisecond)
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Error(err)
+	}
+	defer util.CloseAndLog(conn, logger)
+	err = sendAndReceive(t, conn, packetAuthSecond, logger)
+	if err != nil {
+		logger.Errorf("got error: %v", err)
+		t.Error(err)
+	}
+	//time.Sleep(100 * time.Millisecond)
+	for i := 0; i < num; i++ {
+		err = sendNewMessage(t, conn, i, logger)
+		if err != nil {
+			logger.Errorf("got error: %v", err)
+			t.Error(err)
+		}
+	}
+	time.Sleep(85 * time.Second)
+	//for i := 0; i < num; i++ {
+	//	err = sendNewMessage(t, conn, i, logger)
+	//	if err != nil {
+	//		logger.Errorf("got error: %v", err)
+	//		t.Error(err)
+	//	}
+	//}
+}
+
 func sendNewMessage(t *testing.T, conn net.Conn, i int, logger *logrus.Entry) error {
 	changes := map[string]int{ndtp.NphReqID: i}
 	packetNav = ndtp.Change(packetNav, changes)

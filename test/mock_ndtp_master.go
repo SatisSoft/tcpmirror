@@ -9,6 +9,7 @@ import (
 
 func mockNdtpMaster(t *testing.T, addr string) {
 	logger := logrus.WithFields(logrus.Fields{"test": "mock_master"})
+	logger.Tracef("start mock_master")
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		t.Error(err)
