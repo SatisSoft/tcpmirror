@@ -59,6 +59,7 @@ func (c *Egts) start() {
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
 		c.logger.Errorf("error while connecting to EGTS server: %s", err)
+		c.reconnect()
 	} else {
 		c.conn = conn
 		c.open = true

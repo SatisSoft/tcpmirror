@@ -62,6 +62,9 @@ func (c *Ndtp) start() {
 		c.conn = conn
 		c.open = true
 	}
+	if c.serverClosed() {
+		return
+	}
 	go c.old()
 	go c.replyHandler()
 	c.clientLoop()
