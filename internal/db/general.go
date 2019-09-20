@@ -129,15 +129,24 @@ func deletePacket(conn redis.Conn, key []byte) error {
 func sysNotConfirmed(conn redis.Conn, data [][]byte, sysID byte) ([][]byte, error) {
 	res := [][]byte{}
 	for _, id := range data {
-		b, err := conn.Do("GETBIT", id, sysID)
+		isConf, err := isConfirmed(conn, id, sysID)
 		if err != nil {
 			return nil, err
 		}
-		if b == 0 {
+		if !isConf {
 			res = append(res, id)
 		}
 	}
 	return res, nil
+}
+
+func isConfirmed(conn redis.Conn, id []byte, sysID byte) (isConf bool, err error) {
+	b, err := redis.Int(conn.Do("GETBIT", id, sysID))
+	logrus.Tracef("isConfirmed b: %v; err: %v; sysID: %d; id %v;", b, err, sysID, id)
+	if b == 1 {
+		isConf = true
+	}
+	return
 }
 
 func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {

@@ -209,6 +209,7 @@ func (c *Ndtp) handleResult(packetData *ndtp.Packet) (err error) {
 
 func (c *Ndtp) old() {
 	ticker := time.NewTicker(60 * time.Second)
+	c.checkOld()
 	defer ticker.Stop()
 	for {
 		select {

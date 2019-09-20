@@ -42,7 +42,7 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	if err != nil {
 		return nil, err
 	}
-	return sysNotConfirmed(conn, all, sysID)
+	return getNotConfirmed(conn, sysID, all)
 }
 
 // ConfirmNdtp sets confirm bite for corresponding system to 1 and deletes confirmed packets
@@ -88,4 +88,19 @@ func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte) error {
 func allNotConfirmedNdtp(conn redis.Conn, terminalID int) ([][]byte, error) {
 	max := util.Milliseconds() - 60000
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", 0, 10000))
+}
+
+func getNotConfirmed(conn redis.Conn, sysID byte, packets [][]byte) ([][]byte, error) {
+	res := make([][]byte, 0)
+	for _, packet := range packets {
+		id := packet[:util.PacketStart]
+		isConf, err := isConfirmed(conn, id, sysID)
+		if err != nil {
+			return nil, err
+		}
+		if !isConf {
+			res = append(res, packet)
+		}
+	}
+	return res, nil
 }
