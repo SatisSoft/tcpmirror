@@ -163,7 +163,8 @@ func (s *ndtpServer) processPacket(packet []byte, service uint16, nphID uint32) 
 			return
 		}
 		s.send2Channels(sdata)
-		err = s.send2terminal(packet)
+		reply := ndtp.MakeReply(packet, ndtp.NphResultOk)
+		err = s.send2terminal(reply)
 	}
 	return
 }
