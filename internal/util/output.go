@@ -1,6 +1,7 @@
 package util
 
 import (
+	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/sirupsen/logrus"
 	"io"
 	"strconv"
@@ -24,4 +25,11 @@ func CloseAndLog(c io.Closer, logger *logrus.Entry) {
 	if err != nil {
 		logger.Errorf("can't close %s:", err)
 	}
+}
+
+// for test only
+func PrintPacketForDebugging(logger *logrus.Entry, s string, slice []byte) {
+	packetData := new(ndtp.Packet)
+	rest, err := packetData.Parse(slice)
+	logger.Debugf("%s: %v; rest: %v, err: %v", s, packetData, rest, err)
 }

@@ -114,6 +114,8 @@ func (s *ndtpServer) serverLoop() {
 		n, err := s.conn.Read(b[:])
 		s.logger.Debugf("received %d from client", n)
 		util.PrintPacket(s.logger, "packet from client: ", b[:n])
+		//todo remove after testing
+		util.PrintPacketForDebugging(s.logger, "parsed packet from client:", b[:n])
 		if err != nil {
 			s.logger.Info("close ndtpServer: ", err)
 			close(s.exitChan)
@@ -229,6 +231,8 @@ func (s *ndtpServer) handleFirstMessage(mes []byte) (err error) {
 func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 	util.PrintPacket(s.logger, "send to terminal:", packet)
 	err = s.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+	//todo remove after testing
+	util.PrintPacketForDebugging(s.logger, "parsed packet to client:", packet)
 	if err != nil {
 		return
 	}
