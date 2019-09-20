@@ -330,8 +330,7 @@ func (c *Ndtp) reconnect() {
 					c.logger.Printf("reconnected")
 					c.conn = conn
 					c.open = true
-					time.Sleep(1 * time.Minute)
-					c.reconnecting = false
+					go c.chanReconStatus()
 					return
 				}
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
@@ -356,4 +355,9 @@ func (c *Ndtp) setNph() error {
 		c.nphID = nph
 	}
 	return err
+}
+
+func (c *Ndtp) chanReconStatus() {
+	time.Sleep(1 * time.Minute)
+	c.reconnecting = false
 }

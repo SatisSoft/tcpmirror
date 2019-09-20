@@ -234,6 +234,7 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 
 func (c *NdtpMaster) old() {
 	ticker := time.NewTicker(60 * time.Second)
+	c.logger.Traceln("start old ticker")
 	defer ticker.Stop()
 	for {
 		select {
@@ -246,7 +247,9 @@ func (c *NdtpMaster) old() {
 }
 
 func (c *NdtpMaster) checkOld() {
+	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
+	c.logger.Tracef("receive old: ", res, err)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
 	} else {
@@ -337,8 +340,7 @@ func (c *NdtpMaster) reconnect() {
 					c.logger.Printf("reconnected")
 					c.conn = conn
 					c.open = true
-					time.Sleep(1 * time.Minute)
-					c.reconnecting = false
+					go c.chanReconStatus()
 					return
 				}
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
@@ -372,4 +374,9 @@ func (c *NdtpMaster) setNph() error {
 		c.nphID = nph
 	}
 	return err
+}
+
+func (c *NdtpMaster) chanReconStatus() {
+	time.Sleep(1 * time.Minute)
+	c.reconnecting = false
 }
