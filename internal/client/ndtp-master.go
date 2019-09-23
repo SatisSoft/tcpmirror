@@ -314,7 +314,7 @@ func (c *NdtpMaster) connStatus() {
 		c.logger.Debugf("can't close servConn: %s", err)
 	}
 	c.open = false
-	go c.reconnect()
+	c.reconnect()
 }
 
 func (c *NdtpMaster) reconnect() {
