@@ -160,13 +160,19 @@ func (s *ndtpServer) processPacket(packet []byte, service uint16, nphID uint32) 
 	if service != ndtp.NphSrvNavdata {
 		s.send2Channel(s.masterIn, sdata)
 	} else {
-		err = db.Write2DB(s.pool, s.terminalID, sdata, s.logger)
-		if err != nil {
-			return
+		if db.AlreadyExists(s.pool, sdata[:util.PacketStart], s.logger) {
+			s.logger.Warningf("key %v already exists", sdata[:util.PacketStart])
+			reply := ndtp.MakeReply(packet, ndtp.NphResultOk)
+			err = s.send2terminal(reply)
+		} else {
+			err = db.Write2DB(s.pool, s.terminalID, sdata, s.logger)
+			if err != nil {
+				return
+			}
+			s.send2Channels(sdata)
+			reply := ndtp.MakeReply(packet, ndtp.NphResultOk)
+			err = s.send2terminal(reply)
 		}
-		s.send2Channels(sdata)
-		reply := ndtp.MakeReply(packet, ndtp.NphResultOk)
-		err = s.send2terminal(reply)
 	}
 	return
 }
