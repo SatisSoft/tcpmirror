@@ -327,22 +327,23 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 	mockEgtsServerStop(t)
-	time.Sleep(10 * time.Second)
+	time.Sleep(120 * time.Second)
 	res, err = getAllKeys(conn)
+
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfTerminals*numOfNdtpServers
+	expected = numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfTerminals + numOfPackets*numOfTerminals + 1
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 	go mockEgtsServer(t, "localhost:7033")
-	time.Sleep(25 * time.Second)
+	time.Sleep(30 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers + numOfPackets*numOfTerminals
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
