@@ -65,18 +65,6 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 	return id, err
 }
 
-// AlreadyExists check if key is already exists in a DB
-func AlreadyExists(pool *Pool, key []byte, logger *logrus.Entry) bool {
-	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
-	r, err := c.Do("GET", key)
-	logrus.Printf("alreadyExists r: %v, err: %v, key: %v", r, err, key)
-	if r == nil && err == nil {
-		return false
-	}
-	return true
-}
-
 func writeZeroConfirmation(c redis.Conn, time uint64, key []byte) error {
 	val := make([]byte, 12)
 	binary.LittleEndian.PutUint64(val[4:], time)

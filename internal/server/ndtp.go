@@ -25,6 +25,7 @@ type ndtpServer struct {
 	masterOut   chan []byte
 	ndtpClients []client.Client
 	channels    []chan []byte
+	packetNum uint32
 }
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System) {
@@ -140,7 +141,7 @@ func (s *ndtpServer) processBuf(buf []byte) []byte {
 			return rest
 		}
 		buf = rest
-		err = s.processPacket(packet, service, nphID)
+		err = s.processPacket(packet, service)
 		if err != nil {
 			s.logger.Warningf("can't process message from client: %s", err)
 			return []byte(nil)
@@ -149,30 +150,25 @@ func (s *ndtpServer) processBuf(buf []byte) []byte {
 	return buf
 }
 
-func (s *ndtpServer) processPacket(packet []byte, service uint16, nphID uint32) (err error) {
+func (s *ndtpServer) processPacket(packet []byte, service uint16) (err error) {
 	data := util.Data{
 		TerminalID: uint32(s.terminalID),
 		SessionID:  uint16(s.sessionID),
-		NphID:      nphID,
+		PacketNum:  s.packetNum,
 		Packet:     packet,
 	}
+	s.packetNum ++
 	sdata := util.Serialize(data)
 	if service != ndtp.NphSrvNavdata {
 		s.send2Channel(s.masterIn, sdata)
 	} else {
-		if db.AlreadyExists(s.pool, sdata[:util.PacketStart], s.logger) {
-			s.logger.Warningf("key %v already exists", sdata[:util.PacketStart])
-			reply := ndtp.MakeReply(packet, ndtp.NphResultOk)
-			err = s.send2terminal(reply)
-		} else {
-			err = db.Write2DB(s.pool, s.terminalID, sdata, s.logger)
-			if err != nil {
-				return
-			}
-			s.send2Channels(sdata)
-			reply := ndtp.MakeReply(packet, ndtp.NphResultOk)
-			err = s.send2terminal(reply)
+		err = db.Write2DB(s.pool, s.terminalID, sdata, s.logger)
+		if err != nil {
+			return
 		}
+		s.send2Channels(sdata)
+		reply := ndtp.MakeReply(packet, ndtp.NphResultOk)
+		err = s.send2terminal(reply)
 	}
 	return
 }
