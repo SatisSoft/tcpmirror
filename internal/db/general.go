@@ -10,7 +10,6 @@ import (
 	"strconv"
 )
 
-const egtsKey = "egts"
 const systemBytes = 4
 
 // SysNumber is a number of clients
@@ -44,7 +43,7 @@ func RemoveExpired(pool *Pool, terminalID int, logger *logrus.Entry) (err error)
 	if err != nil {
 		return
 	}
-	_, err = c.Do("ZREMRANGEBYSCORE", egtsKey, 0, max)
+	_, err = c.Do("ZREMRANGEBYSCORE", util.EgtsName, 0, max)
 	return
 }
 
@@ -96,7 +95,7 @@ func deletePacket(conn redis.Conn, key []byte) error {
 		return err
 	}
 	terminalID := util.TerminalID(key)
-	res, err := conn.Do("ZREM", egtsKey, key)
+	res, err := conn.Do("ZREM", util.EgtsName, key)
 	logrus.Tracef("del 1 res = %v, err = %v", res, err)
 	if err != nil {
 		return err

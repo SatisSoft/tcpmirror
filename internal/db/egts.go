@@ -8,14 +8,14 @@ import (
 
 // WriteEgtsID maps EgtsID to NdtpID
 func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, packetID []byte) error {
-	key := egtsKey + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
+	key := util.EgtsName + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
 	_, err := conn.Do("SET", key, packetID, "ex", 20)
 	return err
 }
 
 // ConfirmEgts sets confirm bite for corresponding system to 1 and deletes confirmed packets
 func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte) error {
-	key := egtsKey + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
+	key := util.EgtsName + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
 	res, err := redis.Bytes(conn.Do("GET", key))
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
 
 func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
 	max := util.Milliseconds() - 60000
-	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", egtsKey, 0, max, "LIMIT", 0, 10000))
+	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 10000))
 }
 
 func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error) {
@@ -72,6 +72,6 @@ func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error) {
 }
 
 func write2EGTS(c redis.Conn, time int64, key []byte) error {
-	_, err := c.Do("ZADD", egtsKey, time, key)
+	_, err := c.Do("ZADD", util.EgtsName, time, key)
 	return err
 }
