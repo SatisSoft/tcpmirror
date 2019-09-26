@@ -291,8 +291,9 @@ func (s *ndtpServer) send2Channels(data []byte) {
 }
 
 func (s *ndtpServer) send2Channel(channel chan []byte, data []byte) {
+	copyData := util.Copy(data)
 	select {
-	case channel <- data:
+	case channel <- copyData:
 		return
 	default:
 		s.logger.Warningln("channel is full")
