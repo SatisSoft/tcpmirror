@@ -36,7 +36,7 @@ func startNdtpServer(listen string, options *util.Options, channels []chan []byt
 		logrus.Fatalf("error while listening: %s", err)
 		return
 	}
-	defer l.Close()
+	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}))
 	for {
 		c, err := l.Accept()
 		if err != nil {

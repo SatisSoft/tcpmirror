@@ -49,6 +49,7 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 }
 
 func (c *Ndtp) start() {
+	c.logger = c.logger.WithFields(logrus.Fields{"terminalID": c.terminalID})
 	err := c.setNph()
 	if err != nil {
 		// todo monitor this error

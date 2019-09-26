@@ -44,6 +44,7 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 }
 
 func (c *NdtpMaster) start() {
+	c.logger = c.logger.WithFields(logrus.Fields{"terminalID": c.terminalID})
 	err := c.setNph()
 	if err != nil {
 		// todo monitor this error
