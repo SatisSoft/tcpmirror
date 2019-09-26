@@ -22,11 +22,12 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 	time := util.Milliseconds()
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
+	logger.Tracef("writeZeroConfirmation time: %v; key: %v", time, sdata[:util.PacketStart])
 	err = writeZeroConfirmation(c, uint64(time), sdata[:util.PacketStart])
 	if err != nil {
 		return
 	}
-	err = write2Ndtp(c, terminalID, time, sdata)
+	err = write2Ndtp(c, terminalID, time, sdata, logger)
 	if err != nil {
 		return
 	}
@@ -65,24 +66,11 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 }
 
 func writeZeroConfirmation(c redis.Conn, time uint64, key []byte) error {
-	if alreadyExists(c, key) {
-		return fmt.Errorf("key %v already exists", key)
-	}
 	val := make([]byte, 12)
 	binary.LittleEndian.PutUint64(val[4:], time)
 	_, err := c.Do("SET", key, val, "ex", util.Sec3Days)
 	return err
 }
-
-func alreadyExists(c redis.Conn, key []byte) bool {
-	r, err := c.Do("GET", key)
-	logrus.Printf("alreadyExists r: %v, err: %v, key: %v", r, err, key)
-	if r == nil && err == nil {
-		return false
-	}
-	return true
-}
-
 func markSysConfirmed(conn redis.Conn, sysID byte, key []byte) error {
 	logrus.Tracef("markSysConfirmed sysID %d, key %v", sysID, key)
 	_, err := conn.Do("SETBIT", key, sysID, 1)

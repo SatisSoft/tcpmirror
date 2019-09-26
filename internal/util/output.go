@@ -33,3 +33,9 @@ func PrintPacketForDebugging(logger *logrus.Entry, s string, slice []byte) {
 	rest, err := packetData.Parse(slice)
 	logger.Debugf("%s: %v; rest: %v, err: %v", s, packetData, rest, err)
 }
+
+func Copy(packet []byte) []byte {
+	packetCopy := make([]byte, len(packet))
+	copy(packetCopy, packet)
+	return packetCopy
+}

@@ -26,6 +26,7 @@ type Ndtp struct {
 	exitChan   chan struct{}
 	pool       *db.Pool
 	terminalID int
+	auth bool
 	*info
 	*ndtpSession
 	*connection
@@ -48,6 +49,7 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 }
 
 func (c *Ndtp) start() {
+	c.logger = c.logger.WithFields(logrus.Fields{"terminalID": c.terminalID})
 	err := c.setNph()
 	if err != nil {
 		// todo monitor this error
@@ -118,6 +120,7 @@ func (c *Ndtp) handleMessage(message []byte) {
 	data := util.Deserialize(message)
 	packet := data.Packet
 	nphID, err := c.getNphID()
+	c.logger.Tracef("set nphID %d to packet %v", nphID, packet)
 	if err != nil {
 		c.logger.Errorf("can't get NPH ID: %v", err)
 		return
@@ -190,7 +193,16 @@ func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
 				return []byte{}, err
 			}
 		} else {
-			c.logger.Warningf("expected result navdata, but received %v", packetData)
+			if packetData.IsResult() && packetData.Service() == ndtp.NphSrvGenericControls {
+				if c.auth {
+					c.logger.Warningf("expected result navdata, but received %v", packetData)
+				} else {
+					c.logger.Tracef("received auth reply")
+					c.auth = true
+				}
+			} else {
+				c.logger.Warningf("expected result navdata, but received %v", packetData)
+			}
 			continue
 		}
 	}
@@ -223,6 +235,7 @@ func (c *Ndtp) old() {
 
 func (c *Ndtp) checkOld() {
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
+	c.logger.Tracef("receive old: %v, %v ", err, res)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
 	} else {
@@ -240,9 +253,10 @@ func (c *Ndtp) resend(messages [][]byte) {
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
 		}
+		c.logger.Tracef("set nphID %d to resended message %v", nphID, packet)
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
 		newPacket := ndtp.Change(packet, changes)
-		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
+		util.PrintPacket(c.logger, "resend message: ", newPacket)
 		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
 		if err != nil {
 			c.logger.Errorf("can't write NDTP id: %s", err)
@@ -284,9 +298,11 @@ func send(conn net.Conn, packet []byte) error {
 }
 
 func (c *Ndtp) getNphID() (uint32, error) {
+	c.logger.Tracef("getNphID")
 	c.mu.Lock()
 	nphID := c.nphID
 	c.nphID++
+	c.logger.Tracef("getNphID: %v", c.nphID)
 	err := db.SetNph(c.pool, c.id, c.terminalID, c.nphID, c.logger)
 	c.mu.Unlock()
 	return nphID, err
@@ -295,7 +311,6 @@ func (c *Ndtp) getNphID() (uint32, error) {
 func (c *Ndtp) connStatus() {
 	c.muRecon.Lock()
 	defer c.muRecon.Unlock()
-	//if s.servConn.closed || s.servConn.recon {
 	if !c.open || c.reconnecting {
 		return
 	}
@@ -304,7 +319,7 @@ func (c *Ndtp) connStatus() {
 		c.logger.Debugf("can't close servConn: %s", err)
 	}
 	c.open = false
-	go c.reconnect()
+	c.reconnect()
 }
 
 func (c *Ndtp) reconnect() {
