@@ -25,7 +25,7 @@ type ndtpServer struct {
 	masterOut   chan []byte
 	ndtpClients []client.Client
 	channels    []chan []byte
-	packetNum uint32
+	packetNum   uint32
 }
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System) {
@@ -157,7 +157,7 @@ func (s *ndtpServer) processPacket(packet []byte, service uint16) (err error) {
 		PacketNum:  s.packetNum,
 		Packet:     packet,
 	}
-	s.packetNum ++
+	s.packetNum++
 	sdata := util.Serialize(data)
 	if service != ndtp.NphSrvNavdata {
 		s.send2Channel(s.masterIn, sdata)

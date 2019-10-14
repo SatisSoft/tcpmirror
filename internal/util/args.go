@@ -4,6 +4,8 @@ import (
 	"flag"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"path/filepath"
+	"strings"
 )
 
 const (
@@ -38,8 +40,11 @@ type Options struct {
 	DB string
 }
 
+const egtsKey = "egts"
+
 var (
-	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
+	conf     = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
+	EgtsName string
 )
 
 func ParseArgs() (args *Args, err error) {
@@ -60,6 +65,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.Monitoring = viper.GetString(mon)
 	args.Systems = parseSystems(viper.GetStringSlice(consumers))
 	args.LogLevel, err = logrus.ParseLevel(viper.GetString(logLevel))
+	EgtsName = egtsKey + ":" + strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
 	return
 }
 

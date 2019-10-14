@@ -10,7 +10,6 @@ import (
 	"strconv"
 )
 
-const egtsKey = "egts"
 const systemBytes = 4
 
 // SysNumber is a number of clients
@@ -44,7 +43,7 @@ func RemoveExpired(pool *Pool, terminalID int, logger *logrus.Entry) (err error)
 	if err != nil {
 		return
 	}
-	_, err = c.Do("ZREMRANGEBYSCORE", egtsKey, 0, max)
+	_, err = c.Do("ZREMRANGEBYSCORE", util.EgtsName, 0, max)
 	return
 }
 
@@ -63,6 +62,26 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 	}
 	_, err = c.Do("SET", key, id+1)
 	return id, err
+}
+
+func IsOldData(pool *Pool, message []byte, logger *logrus.Entry) bool {
+	c := pool.Get()
+	defer util.CloseAndLog(c, logger)
+	return CheckOldData(c, message, logger)
+}
+
+func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
+	val, err := redis.Bytes(conn.Do("GET", message[systemBytes:]))
+	logger.Tracef("isOldData err: %v; val: %v", err, val)
+	if err == redis.ErrNil {
+		return true
+	}
+	time := binary.LittleEndian.Uint64(val[systemBytes:])
+	if time < uint64(util.Milliseconds()-55000) {
+		logger.Tracef("isOldData detected old time: %d", time)
+		return true
+	}
+	return false
 }
 
 func writeZeroConfirmation(c redis.Conn, time uint64, key []byte) error {
@@ -96,7 +115,7 @@ func deletePacket(conn redis.Conn, key []byte) error {
 		return err
 	}
 	terminalID := util.TerminalID(key)
-	res, err := conn.Do("ZREM", egtsKey, key)
+	res, err := conn.Do("ZREM", util.EgtsName, key)
 	logrus.Tracef("del 1 res = %v, err = %v", res, err)
 	if err != nil {
 		return err
