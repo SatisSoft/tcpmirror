@@ -108,6 +108,9 @@ func (c *Egts) clientLoop() {
 }
 
 func (c *Egts) processMessage(dbConn db.Conn, message []byte, buf []byte) []byte {
+	if !db.CheckOldData(dbConn, message, c.logger) {
+		return buf
+	}
 	util.PrintPacket(c.logger, "serialized data: ", message)
 	data := util.Deserialize(message)
 	c.logger.Tracef("data: %+v", data)

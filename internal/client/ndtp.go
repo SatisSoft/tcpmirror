@@ -26,7 +26,7 @@ type Ndtp struct {
 	exitChan   chan struct{}
 	pool       *db.Pool
 	terminalID int
-	auth bool
+	auth       bool
 	*info
 	*ndtpSession
 	*connection
@@ -117,6 +117,9 @@ func (c *Ndtp) sendFirstMessage() error {
 }
 
 func (c *Ndtp) handleMessage(message []byte) {
+	if !db.IsOldData(c.pool, message, c.logger) {
+		return
+	}
 	data := util.Deserialize(message)
 	packet := data.Packet
 	nphID, err := c.getNphID()
@@ -234,6 +237,7 @@ func (c *Ndtp) old() {
 }
 
 func (c *Ndtp) checkOld() {
+	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Tracef("receive old: %v, %v ", err, res)
 	if err != nil {

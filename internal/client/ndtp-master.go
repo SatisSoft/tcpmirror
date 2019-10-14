@@ -112,6 +112,9 @@ func (c *NdtpMaster) sendFirstMessage() error {
 }
 
 func (c *NdtpMaster) handleMessage(message []byte) {
+	if !db.IsOldData(c.pool, message, c.logger) {
+		return
+	}
 	data := util.Deserialize(message)
 	packet := data.Packet
 	service, err := ndtp.Service(data.Packet)

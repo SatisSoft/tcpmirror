@@ -43,7 +43,7 @@ type Options struct {
 const egtsKey = "egts"
 
 var (
-	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
+	conf     = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
 	EgtsName string
 )
 
