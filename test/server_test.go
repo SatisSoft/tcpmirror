@@ -333,7 +333,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfTerminals + numOfPackets*numOfTerminals + 1
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers + numOfTerminals + numOfPackets +1
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
@@ -343,7 +343,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers + numOfPackets*numOfTerminals
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers //+ numOfPackets*numOfTerminals
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}

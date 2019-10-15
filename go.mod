@@ -7,7 +7,7 @@ require (
 	github.com/ashirko/go-metrics v0.0.0-20180711071436-4bd4fea2d0a6
 	github.com/ashirko/go-metrics-graphite v0.0.0-20180711072403-f55f02e3815b
 	github.com/ashirko/navprot v1.4.1
-	github.com/egorban/egtsServ v1.0.0
+	github.com/egorban/egtsServ v1.0.1
 	github.com/go-ole/go-ole v1.2.4 // indirect
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/shirou/gopsutil v2.18.12+incompatible

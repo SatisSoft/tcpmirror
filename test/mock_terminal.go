@@ -147,7 +147,6 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 		}
 	}
 	time.Sleep(30 * time.Second)
-	//last := i
 	for ; i < num*2; i++ {
 		err = sendNewMessage(t, conn, i, logger)
 		if err != nil {
@@ -156,7 +155,6 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 		}
 	}
 	time.Sleep(120 * time.Second)
-	//last = i
 	for ; i < num*3; i++ {
 		err = sendNewMessage(t, conn, i, logger)
 		if err != nil {
