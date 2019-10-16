@@ -71,14 +71,15 @@ func IsOldData(pool *Pool, message []byte, logger *logrus.Entry) bool {
 }
 
 func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
-	val, err := redis.Bytes(conn.Do("GET", message[systemBytes:]))
+	val, err := redis.Bytes(conn.Do("GET", message[:util.PacketStart]))
 	logger.Tracef("isOldData err: %v; val: %v", err, val)
 	if err == redis.ErrNil {
+		logger.Tracef("isOldData detected empty result: %v;", val)
 		return true
 	}
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
 	if time < uint64(util.Milliseconds()-55000) {
-		logger.Tracef("isOldData detected old time: %d", time)
+		logger.Tracef("isOldData detected old time: %d, val: %v", time, val)
 		return true
 	}
 	return false

@@ -90,6 +90,9 @@ func (c *Egts) clientLoop() {
 	for {
 		select {
 		case message := <-c.Input:
+			if db.CheckOldData(dbConn, message, c.logger) {
+				continue
+			}
 			buf = c.processMessage(dbConn, message, buf)
 			count++
 			if count == 10 {
@@ -108,9 +111,6 @@ func (c *Egts) clientLoop() {
 }
 
 func (c *Egts) processMessage(dbConn db.Conn, message []byte, buf []byte) []byte {
-	if !db.CheckOldData(dbConn, message, c.logger) {
-		return buf
-	}
 	util.PrintPacket(c.logger, "serialized data: ", message)
 	data := util.Deserialize(message)
 	c.logger.Tracef("data: %+v", data)
