@@ -112,7 +112,7 @@ func (c *NdtpMaster) sendFirstMessage() error {
 }
 
 func (c *NdtpMaster) handleMessage(message []byte) {
-	if !db.IsOldData(c.pool, message, c.logger) {
+	if db.IsOldData(c.pool, message, c.logger) {
 		return
 	}
 	data := util.Deserialize(message)
@@ -192,7 +192,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 	//c.logger.Tracef("start process packet: %d, %d", len(buf), len(rest))
 	for len(buf) > 0 {
-		//c.logger.Tracef("process packet: %v", buf)
+		c.logger.Tracef("process buff: %v", buf)
 		var service, packetType uint16
 		var err error
 		var packet []byte
@@ -204,7 +204,7 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 		if service == 1 && packetType == 0 {
 			err = c.handleResult(packet)
 			if err != nil {
-				return []byte{}, err
+				c.logger.Warningf("can't handle result: %v; %v", err, packet)
 			}
 		} else if service == 0 && packetType == 0 {
 			if c.auth {

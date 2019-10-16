@@ -117,7 +117,7 @@ func (c *Ndtp) sendFirstMessage() error {
 }
 
 func (c *Ndtp) handleMessage(message []byte) {
-	if !db.IsOldData(c.pool, message, c.logger) {
+	if db.IsOldData(c.pool, message, c.logger) {
 		return
 	}
 	data := util.Deserialize(message)
@@ -185,15 +185,17 @@ func (c *Ndtp) waitServerMessage(buf []byte) []byte {
 func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
 	var err error
 	for len(buf) > 0 {
+		c.logger.Tracef("process buff: %v", buf)
 		packetData := new(ndtp.Packet)
 		buf, err = packetData.Parse(buf)
 		if err != nil {
 			return buf, err
 		}
+		c.logger.Tracef("packet: %d buf: %d service: %d packetType: %s", len(packetData.Packet), len(buf), packetData.Service(), packetData.PacketType())
 		if packetData.IsResult() && packetData.Service() == ndtp.NphSrvNavdata {
 			err = c.handleResult(packetData)
 			if err != nil {
-				return []byte{}, err
+				c.logger.Warningf("can't handle result: %v; %v", err, packetData)
 			}
 		} else {
 			if packetData.IsResult() && packetData.Service() == ndtp.NphSrvGenericControls {
