@@ -299,14 +299,14 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 100
+	numOfPackets := 2
 	numOfNdtpServers := 2
 	numOfEgtsServers := 1
 	numOfTerminals := 1
-	go mockTerminalEgtsStop(t, "localhost:7030", numOfPackets)
-	go mockNdtpMaster(t, "localhost:7031")
-	go mockNdtpServer(t, "localhost:7032")
-	go mockEgtsServer(t, "localhost:7033")
+	go mockTerminalEgtsStop(t, "localhost:7070", numOfPackets)
+	go mockNdtpMaster(t, "localhost:7071")
+	go mockNdtpServer(t, "localhost:7072")
+	go mockEgtsServer(t, "localhost:7073")
 	go server.Start()
 	time.Sleep(5 * time.Second)
 	res, err := getAllKeys(conn)
@@ -333,11 +333,11 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers + numOfTerminals + numOfPackets +1
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers + numOfTerminals + numOfPackets + 1
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
-	go mockEgtsServer(t, "localhost:7033")
+	go mockEgtsServer(t, "localhost:7073")
 	time.Sleep(30 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {

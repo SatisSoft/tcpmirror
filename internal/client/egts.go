@@ -90,15 +90,17 @@ func (c *Egts) clientLoop() {
 	for {
 		select {
 		case message := <-c.Input:
-			if db.CheckOldData(dbConn, message, c.logger) {
-				continue
-			}
-			buf = c.processMessage(dbConn, message, buf)
-			count++
-			if count == 10 {
-				c.send(buf)
-				buf = []byte(nil)
-				count = 0
+			if c.open {
+				if db.CheckOldData(dbConn, message, c.logger) {
+					continue
+				}
+				buf = c.processMessage(dbConn, message, buf)
+				count++
+				if count == 10 {
+					c.send(buf)
+					buf = []byte(nil)
+					count = 0
+				}
 			}
 		case <-sendTicker.C:
 			if (count > 0) && (count < 10) {
