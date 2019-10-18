@@ -88,9 +88,9 @@ func (c *Egts) clientLoop() {
 	sendTicker := time.NewTicker(100 * time.Millisecond)
 	defer sendTicker.Stop()
 	for {
-		select {
-		case message := <-c.Input:
-			if c.open {
+		if c.open {
+			select {
+			case message := <-c.Input:
 				if db.CheckOldData(dbConn, message, c.logger) {
 					continue
 				}
@@ -101,13 +101,17 @@ func (c *Egts) clientLoop() {
 					buf = []byte(nil)
 					count = 0
 				}
+			case <-sendTicker.C:
+				if (count > 0) && (count < 10) {
+					c.send(buf)
+					buf = []byte(nil)
+					count = 0
+				}
 			}
-		case <-sendTicker.C:
-			if (count > 0) && (count < 10) {
-				c.send(buf)
-				buf = []byte(nil)
-				count = 0
-			}
+		} else {
+			time.Sleep(5 * time.Second)
+			buf = []byte(nil)
+			count = 0
 		}
 	}
 }
@@ -161,52 +165,54 @@ func (c *Egts) send(buf []byte) {
 
 func (c *Egts) replyHandler() {
 	dbConn := db.Connect(c.DB)
+	var buf []byte
 	for {
 		if c.open {
-			c.waitReply(dbConn)
+			buf = c.waitReply(dbConn, buf)
+			c.logger.Tracef("replyRestBuf: %v", buf)
 		} else {
+			buf = []byte(nil)
 			c.logger.Warningf("EGTS server closed")
 			time.Sleep(5 * time.Second)
 		}
 	}
 }
 
-func (c *Egts) waitReply(dbConn db.Conn) {
+func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
 	var b [defaultBufferSize]byte
-	var restBuf []byte
 	if err := c.conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
 		c.logger.Warningf("can't SetReadDeadLine for egtsConn: %s", err)
 	}
 	n, err := c.conn.Read(b[:])
-	util.PrintPacket(c.logger, "received packet: ", b[:n])
 	if err != nil {
 		c.logger.Warningf("can't get reply from c server %s", err)
 		c.conStatus()
 		time.Sleep(5 * time.Second)
-		return
+		return []byte(nil)
 	}
+	util.PrintPacket(c.logger, "received packet: ", b[:n])
+	c.logger.Tracef("packetLen: %d", n)
 	restBuf = append(restBuf, b[:n]...)
-	c.handleReplyLoop(dbConn, restBuf)
+	return c.handleReplyLoop(dbConn, restBuf)
 }
 
-func (c *Egts) handleReplyLoop(dbConn db.Conn, restBuf []byte) {
-	for {
+func (c *Egts) handleReplyLoop(dbConn db.Conn, restBuf []byte) []byte {
+	for ; len(restBuf) != 0; {
 		packetData := new(egts.Packet)
 		var err error
 		restBuf, err = packetData.Parse(restBuf)
 		if err != nil {
 			c.logger.Errorf("error while parsing reply %v: %s", restBuf, err)
-			return
+			return restBuf
 
 		}
 		err = c.handleReplies(dbConn, packetData)
 		if err != nil {
 			c.logger.Errorf("error while handling replies: %s", err)
-		}
-		if len(restBuf) == 0 {
-			return
+			return restBuf
 		}
 	}
+	return []byte(nil)
 }
 
 func (c *Egts) handleReplies(dbConn db.Conn, packetData *egts.Packet) (err error) {
@@ -251,31 +257,34 @@ func (c *Egts) old() {
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
 	for {
-		<-ticker.C
-		c.logger.Debugf("start checking old data")
-		messages, err := db.OldPacketsEGTS(dbConn, c.id)
-		if err != nil {
-			c.logger.Warningf("can't get old packets: %s", err)
-			return
-		}
-		var buf []byte
-		var i int
-		for _, msg := range messages {
-			if i < 10 {
+		if c.open {
+			<-ticker.C
+			c.logger.Debugf("start checking old data")
+			messages, err := db.OldPacketsEGTS(dbConn, c.id)
+			if err != nil {
+				c.logger.Warningf("can't get old packets: %s", err)
+				return
+			}
+			c.logger.Debugf("get %d old packets", len(messages))
+			var buf []byte
+			var i int
+			for _, msg := range messages {
 				buf = c.processMessage(dbConn, msg, buf)
 				i++
-			} else {
-				c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
-				c.send(buf)
-				i = 0
-				buf = []byte(nil)
+				if i > 9 {
+					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
+					c.send(buf)
+					i = 0
+					buf = []byte(nil)
+				}
 			}
+			if len(buf) > 0 {
+				c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
+				c.send(buf)
+			}
+		} else {
+			time.Sleep(5 * time.Second)
 		}
-		if len(buf) > 0 {
-			c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
-			c.send(buf)
-		}
-
 	}
 }
 
@@ -305,7 +314,7 @@ func (c *Egts) reconnect() {
 			if err == nil {
 				c.conn = cE
 				c.open = true
-				c.logger.Printf("reconnected")
+				c.logger.Println("reconnected")
 				go c.updateRecStatus()
 				return
 			}

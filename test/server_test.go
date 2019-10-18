@@ -299,7 +299,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 2
+	numOfPackets := 100
 	numOfNdtpServers := 2
 	numOfEgtsServers := 1
 	numOfTerminals := 1
@@ -314,18 +314,16 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
-	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
-	}
+	logrus.Println("start 1 test")
+	checkKeyNum(t, res, expected)
 	time.Sleep(20 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
-	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
-	}
+	logrus.Println("start 2 test")
+	checkKeyNum(t, res, expected)
 	mockEgtsServerStop(t)
 	time.Sleep(120 * time.Second)
 	res, err = getAllKeys(conn)
@@ -334,9 +332,8 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers + numOfTerminals + numOfPackets + 1
-	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
-	}
+	logrus.Println("start 3 test")
+	checkKeyNum(t, res, expected)
 	go mockEgtsServer(t, "localhost:7073")
 	time.Sleep(30 * time.Second)
 	res, err = getAllKeys(conn)
@@ -344,6 +341,11 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers //+ numOfPackets*numOfTerminals
+	logrus.Println("start 4 test")
+	checkKeyNum(t, res, expected)
+}
+
+func checkKeyNum(t *testing.T, res [][]byte, expected int) {
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}

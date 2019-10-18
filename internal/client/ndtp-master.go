@@ -94,11 +94,15 @@ func (c *NdtpMaster) clientLoop() {
 		c.connStatus()
 	}
 	for {
-		select {
-		case <-c.exitChan:
-			return
-		case message := <-c.Input:
-			c.handleMessage(message)
+		if c.open {
+			select {
+			case <-c.exitChan:
+				return
+			case message := <-c.Input:
+				c.handleMessage(message)
+			}
+		} else {
+			time.Sleep(5 * time.Second)
 		}
 	}
 }
@@ -242,11 +246,15 @@ func (c *NdtpMaster) old() {
 	c.checkOld()
 	defer ticker.Stop()
 	for {
-		select {
-		case <-c.exitChan:
-			return
-		case <-ticker.C:
-			c.checkOld()
+		if c.open {
+			select {
+			case <-c.exitChan:
+				return
+			case <-ticker.C:
+				c.checkOld()
+			}
+		} else {
+			time.Sleep(5 * time.Second)
 		}
 	}
 }
