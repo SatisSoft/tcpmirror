@@ -281,6 +281,7 @@ func (c *Ndtp) resend(messages [][]byte) {
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
 			c.connStatus()
+			return
 		}
 	}
 }

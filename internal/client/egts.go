@@ -163,6 +163,20 @@ func (c *Egts) send(buf []byte) {
 	}
 }
 
+func (c *Egts) sendOld(buf []byte) (err error){
+	if c.open {
+		util.PrintPacket(c.logger, "sending packet: ", buf)
+		if err = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
+			c.logger.Warningf("can't SetWriteDeadline: %s", err)
+		}
+		_, err = c.conn.Write(buf)
+		if err != nil {
+			c.conStatus()
+		}
+	}
+	return err
+}
+
 func (c *Egts) replyHandler() {
 	dbConn := db.Connect(c.DB)
 	var buf []byte
@@ -256,14 +270,14 @@ func (c *Egts) old() {
 	dbConn := db.Connect(c.DB)
 	ticker := time.NewTicker(60 * time.Second)
 	defer ticker.Stop()
-	for {
+	OLDLOOP: for {
 		if c.open {
 			<-ticker.C
 			c.logger.Debugf("start checking old data")
 			messages, err := db.OldPacketsEGTS(dbConn, c.id)
 			if err != nil {
 				c.logger.Warningf("can't get old packets: %s", err)
-				return
+				continue
 			}
 			c.logger.Debugf("get %d old packets", len(messages))
 			var buf []byte
@@ -273,7 +287,10 @@ func (c *Egts) old() {
 				i++
 				if i > 9 {
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
-					c.send(buf)
+					if err = c.sendOld(buf); err != nil {
+						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
+						continue OLDLOOP
+					}
 					i = 0
 					buf = []byte(nil)
 				}
