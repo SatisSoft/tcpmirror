@@ -91,7 +91,7 @@ func (c *Egts) clientLoop() {
 		if c.open {
 			select {
 			case message := <-c.Input:
-				if db.CheckOldData(dbConn, message, c.logger) {
+				if db.CheckOldData(dbConn, message, c.logger, c.Options.PeriodOldData) {
 					continue
 				}
 				buf = c.processMessage(dbConn, message, buf)
@@ -109,7 +109,7 @@ func (c *Egts) clientLoop() {
 				}
 			}
 		} else {
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(c.Options.TimeoutClose) * time.Second)
 			buf = []byte(nil)
 			count = 0
 		}
@@ -132,7 +132,7 @@ func (c *Egts) processMessage(dbConn db.Conn, message []byte, buf []byte) []byte
 		return buf
 	}
 	buf = append(buf, packet...)
-	err = db.WriteEgtsID(dbConn, c.id, recID, data.ID)
+	err = db.WriteEgtsID(dbConn, c.id, recID, data.ID, c.Options.KeyEx)
 	if err != nil {
 		c.logger.Errorf("error WriteEgtsID: %s", err)
 	}
@@ -187,7 +187,7 @@ func (c *Egts) replyHandler() {
 		} else {
 			buf = []byte(nil)
 			c.logger.Warningf("EGTS server closed")
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(c.Options.TimeoutClose) * time.Second)
 		}
 	}
 }
@@ -201,7 +201,7 @@ func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
 	if err != nil {
 		c.logger.Warningf("can't get reply from c server %s", err)
 		c.conStatus()
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Duration(c.Options.TimeoutErrorReply) * time.Second)
 		return []byte(nil)
 	}
 	util.PrintPacket(c.logger, "received packet: ", b[:n])
@@ -268,13 +268,13 @@ func (c *Egts) handleSuccessReply(dbConn db.Conn, crn uint16) (err error) {
 
 func (c *Egts) old() {
 	dbConn := db.Connect(c.DB)
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(time.Duration(c.Options.PeriodCheckOld) * time.Second)
 	defer ticker.Stop()
 	OLDLOOP: for {
 		if c.open {
 			<-ticker.C
 			c.logger.Debugf("start checking old data")
-			messages, err := db.OldPacketsEGTS(dbConn, c.id)
+			messages, err := db.OldPacketsEGTS(dbConn, c.id, c.Options.PeriodNotConfData)
 			if err != nil {
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue
@@ -300,7 +300,7 @@ func (c *Egts) old() {
 				c.send(buf)
 			}
 		} else {
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(c.Options.TimeoutClose) * time.Second)
 		}
 	}
 }
@@ -337,7 +337,7 @@ func (c *Egts) reconnect() {
 			}
 			c.logger.Warningf("error while reconnecting to EGTS server: %s", err)
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(time.Duration(c.Options.TimeoutReconnect) * time.Second)
 	}
 }
 

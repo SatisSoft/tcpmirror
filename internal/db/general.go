@@ -64,13 +64,13 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 	return id, err
 }
 
-func IsOldData(pool *Pool, message []byte, logger *logrus.Entry) bool {
+func IsOldData(pool *Pool, message []byte, logger *logrus.Entry, period int64) bool {
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
-	return CheckOldData(c, message, logger)
+	return CheckOldData(c, message, logger, period)
 }
 
-func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
+func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry, period int64) bool {
 	val, err := redis.Bytes(conn.Do("GET", message[:util.PacketStart]))
 	logger.Tracef("isOldData err: %v; key: %v; val: %v", err, message[:util.PacketStart], val)
 	if err == redis.ErrNil {
@@ -78,7 +78,7 @@ func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
 		return true
 	}
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
-	min := uint64(util.Milliseconds() - 55000)
+	min := uint64(util.Milliseconds() - period)
 	logger.Tracef("isOldData key: %v; time: %d; now: %d", message[:util.PacketStart], time, min)
 	if time < min {
 		logger.Tracef("isOldData detected old time: %d, val: %v", time, val)
