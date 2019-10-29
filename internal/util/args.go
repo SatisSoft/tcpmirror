@@ -49,23 +49,9 @@ type Args struct {
 
 type Options struct {
 	// Is monitoring enabled
-	Mon                 bool
+	Mon bool
 	// DB sever address
-	DB                  string
-	// Expiration time keys
-	KeyEx               int
-	// Period for not confirmed data
-	PeriodNotConfData   int64
-	// Period for old data
-	PeriodOldData       int64
-	// Period check old data
-	PeriodCheckOld      int
-    // Timeout if connection is not open
-    TimeoutClose        int
-    // Timeout if error is occurred during waiting reply
-    TimeoutErrorReply   int
-    // Timeout for attemps reconnect
-    TimeoutReconnect    int
+	DB string
 }
 
 const egtsKey = "egts"
@@ -95,11 +81,29 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.LogLevel, err = logrus.ParseLevel(viper.GetString(logLevel))
 	args.KeyEx = viper.GetInt(keyEx)
 	args.PeriodNotConfData = viper.GetInt64(periodNotConfData)
+	if args.PeriodNotConfData == 0 {
+	    args.PeriodNotConfData = 60000
+	}
 	args.PeriodOldData = viper.GetInt64(periodOldData)
+	if args.PeriodOldData == 0 {
+	    args.PeriodOldData = 55000
+    }
 	args.PeriodCheckOld = viper.GetInt(periodCheckOld)
+	if args.PeriodCheckOld == 0 {
+	    args.PeriodCheckOld = 60
+    }
 	args.TimeoutClose = viper.GetInt(timeoutClose)
+	if args.TimeoutClose == 0 {
+	    args.TimeoutClose = 5
+    }
 	args.TimeoutErrorReply = viper.GetInt(timeoutErrorReply)
+	if args.TimeoutErrorReply == 0 {
+	    args.TimeoutErrorReply = 5
+    }
 	args.TimeoutReconnect = viper.GetInt(timeoutReconnect)
+	if args.TimeoutReconnect == 0 {
+	    args.TimeoutReconnect = 10
+    }
 	EgtsName = egtsKey + ":" + strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
 	return
 }

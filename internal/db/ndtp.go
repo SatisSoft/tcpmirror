@@ -8,12 +8,12 @@ import (
 )
 
 // WriteNDTPid maps ClientNdtpID to ServerNdtpID
-func WriteNDTPid(pool *Pool, sysID byte, terminalID int, nphID uint32, packID []byte, logger *logrus.Entry, expire int) error {
+func WriteNDTPid(pool *Pool, sysID byte, terminalID int, nphID uint32, packID []byte, logger *logrus.Entry) error {
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
 	logger.Tracef("writeNdtpID key: %v", key)
-	_, err := c.Do("SET", key, packID, "ex", expire)
+	_, err := c.Do("SET", key, packID, "ex", KeyEx)
 	return err
 }
 
@@ -37,10 +37,10 @@ func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error
 }
 
 // OldPacketsNdtp returns not confirmed packets for corresponding system
-func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry, period int64) ([][]byte, error) {
+func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) ([][]byte, error) {
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
-	all, err := allNotConfirmedNdtp(conn, terminalID, logger, period)
+	all, err := allNotConfirmedNdtp(conn, terminalID, logger)
 	logger.Tracef("allNotConfirmed: %v, %v", err, all)
 	if err != nil {
 		return nil, err
@@ -50,6 +50,7 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 
 // ConfirmNdtp sets confirm bite for corresponding system to 1 and deletes confirmed packets
 func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *logrus.Entry) error {
+    logger.Printf("KATYA ConfirmNdtp")
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
@@ -91,8 +92,8 @@ func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte, logger *
 	return err
 }
 
-func allNotConfirmedNdtp(conn redis.Conn, terminalID int, logger *logrus.Entry, period int64) ([][]byte, error) {
-	max := util.Milliseconds() - period
+func allNotConfirmedNdtp(conn redis.Conn, terminalID int, logger *logrus.Entry) ([][]byte, error) {
+	max := util.Milliseconds() - PeriodNotConfData
 	logger.Tracef("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", 0, 60000))
 }

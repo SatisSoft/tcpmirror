@@ -7,9 +7,9 @@ import (
 )
 
 // WriteEgtsID maps EgtsID to NdtpID
-func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, packetID []byte, expire int) error {
+func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, packetID []byte) error {
 	key := util.EgtsName + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
-	_, err := conn.Do("SET", key, packetID, "ex", expire)
+	_, err := conn.Do("SET", key, packetID, "ex", KeyEx)
 	return err
 }
 
@@ -24,8 +24,8 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte) error {
 }
 
 // OldPacketsEGTS returns not confirmed packets for corresponding system
-func OldPacketsEGTS(conn redis.Conn, sysID byte, period int64) ([][]byte, error) {
-	all, err := allNotConfirmedEGTS(conn, period)
+func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
+	all, err := allNotConfirmedEGTS(conn)
 	if err != nil {
 		return nil, err
 	}
@@ -54,8 +54,8 @@ func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
 	return req, nil
 }
 
-func allNotConfirmedEGTS(conn redis.Conn, period int64) ([][]byte, error) {
-	max := util.Milliseconds() - period
+func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
+	max := util.Milliseconds() - PeriodNotConfData
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 10000))
 }
 

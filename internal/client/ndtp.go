@@ -22,19 +22,14 @@ type ndtpSession struct {
 
 // Ndtp describes Ndtp client
 type Ndtp struct {
-	Input               chan []byte
-	exitChan            chan struct{}
-	pool                *db.Pool
-	terminalID          int
-	auth                bool
-	keyEx               int
-	periodNotConfData   int64
-	periodOldData       int64
-	periodCheckOld      int
-	timeoutClose        int
+	Input      chan []byte
+	exitChan   chan struct{}
+	pool       *db.Pool
+	terminalID int
+	auth       bool
 	*info
-    *ndtpSession
-    *connection
+	*ndtpSession
+	*connection
 }
 
 // NewNdtp creates new Ndtp client
@@ -50,11 +45,6 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 	c.Input = make(chan []byte, NdtpChanSize)
 	c.exitChan = exitChan
 	c.pool = pool
-	c.keyEx = options.KeyEx
-	c.periodNotConfData = options.PeriodNotConfData
-	c.periodOldData = options.PeriodOldData
-	c.periodCheckOld = options.PeriodCheckOld
-	c.timeoutClose = options.TimeoutClose
 	return c
 }
 
@@ -131,7 +121,7 @@ func (c *Ndtp) sendFirstMessage() error {
 }
 
 func (c *Ndtp) handleMessage(message []byte) {
-	if db.IsOldData(c.pool, message, c.logger, c.periodOldData) {
+	if db.IsOldData(c.pool, message, c.logger) {
 		return
 	}
 	data := util.Deserialize(message)
@@ -144,7 +134,7 @@ func (c *Ndtp) handleMessage(message []byte) {
 	}
 	changes := map[string]int{ndtp.NphReqID: int(nphID)}
 	newPacket := ndtp.Change(packet, changes)
-	err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, message[:util.PacketStart], c.logger, c.keyEx)
+	err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, message[:util.PacketStart], c.logger)
 	if err != nil {
 		c.logger.Errorf("can't write NDTP id: %v", err)
 		return
@@ -239,7 +229,7 @@ func (c *Ndtp) handleResult(packetData *ndtp.Packet) (err error) {
 }
 
 func (c *Ndtp) old() {
-	ticker := time.NewTicker(time.Duration(c.periodCheckOld) * time.Second)
+	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	c.checkOld()
 	defer ticker.Stop()
 	for {
@@ -251,14 +241,14 @@ func (c *Ndtp) old() {
 				c.checkOld()
 			}
 		} else {
-			time.Sleep(time.Duration(c.timeoutClose) * time.Second)
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}
 	}
 }
 
 func (c *Ndtp) checkOld() {
 	c.logger.Traceln("start checking old")
-	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger, c.periodNotConfData)
+	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Tracef("receive old: %v, %v ", err, res)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
@@ -281,7 +271,7 @@ func (c *Ndtp) resend(messages [][]byte) {
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
 		newPacket := ndtp.Change(packet, changes)
 		util.PrintPacket(c.logger, "resend message: ", newPacket)
-		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, mes[:util.PacketStart], c.logger, c.keyEx)
+		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
 		if err != nil {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return

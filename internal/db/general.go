@@ -13,7 +13,12 @@ import (
 const systemBytes = 4
 
 // SysNumber is a number of clients
-var SysNumber int
+var (
+    SysNumber int
+    KeyEx               int
+    PeriodNotConfData   int64
+    PeriodOldData       int64
+)
 
 // Write2DB writes packet with metadata to DB
 func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (err error) {
@@ -64,13 +69,13 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 	return id, err
 }
 
-func IsOldData(pool *Pool, message []byte, logger *logrus.Entry, period int64) bool {
+func IsOldData(pool *Pool, message []byte, logger *logrus.Entry) bool {
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
-	return CheckOldData(c, message, logger, period)
+	return CheckOldData(c, message, logger)
 }
 
-func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry, period int64) bool {
+func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
 	val, err := redis.Bytes(conn.Do("GET", message[:util.PacketStart]))
 	logger.Tracef("isOldData err: %v; key: %v; val: %v", err, message[:util.PacketStart], val)
 	if err == redis.ErrNil {
@@ -78,7 +83,7 @@ func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry, period 
 		return true
 	}
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
-	min := uint64(util.Milliseconds() - period)
+	min := uint64(util.Milliseconds() - PeriodOldData)
 	logger.Tracef("isOldData key: %v; time: %d; now: %d", message[:util.PacketStart], time, min)
 	if time < min {
 		logger.Tracef("isOldData detected old time: %d, val: %v", time, val)
