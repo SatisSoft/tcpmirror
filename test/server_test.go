@@ -212,7 +212,7 @@ func Test_serverStartOneNotMaster(t *testing.T) {
 		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
 	}
 }
-/*
+
 func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
@@ -231,7 +231,7 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	numOfEgtsServers := 1
 	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", numOfPackets, 1)
 	go server.Start()
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 	res, err := getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -241,10 +241,10 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
 	}
-	time.Sleep(60 * time.Second)
+	time.Sleep(2 * time.Second)
 	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", 0, 10)
 	go mockNdtpMaster(t, "localhost:7051")
-	time.Sleep(25 * time.Second)
+	time.Sleep(2 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -273,7 +273,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	numOfEgtsServers := 1
 	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7060", numOfPackets, 1)
 	go server.Start()
-	time.Sleep(5 * time.Second)
+	time.Sleep(1 * time.Second)
 	res, err := getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -283,11 +283,11 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
 	}
-	time.Sleep(60 * time.Second)
+	time.Sleep(2 * time.Second)
 	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7060", numOfPackets, 10)
 	go mockNdtpMaster(t, "localhost:7061")
 	go mockNdtpServer(t, "localhost:7062")
-	time.Sleep(25 * time.Second)
+	time.Sleep(5 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -297,7 +297,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
 	}
 }
-*/
+
 func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
