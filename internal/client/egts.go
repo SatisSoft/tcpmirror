@@ -163,7 +163,7 @@ func (c *Egts) send(buf []byte) {
 	}
 }
 
-func (c *Egts) sendOld(buf []byte) (err error){
+func (c *Egts) sendOld(buf []byte) (err error) {
 	if c.open {
 		util.PrintPacket(c.logger, "sending packet: ", buf)
 		if err = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
@@ -211,7 +211,7 @@ func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
 }
 
 func (c *Egts) handleReplyLoop(dbConn db.Conn, restBuf []byte) []byte {
-	for ; len(restBuf) != 0; {
+	for len(restBuf) != 0 {
 		packetData := new(egts.Packet)
 		var err error
 		restBuf, err = packetData.Parse(restBuf)
@@ -270,7 +270,8 @@ func (c *Egts) old() {
 	dbConn := db.Connect(c.DB)
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	defer ticker.Stop()
-	OLDLOOP: for {
+OLDLOOP:
+	for {
 		if c.open {
 			<-ticker.C
 			c.logger.Debugf("start checking old data")

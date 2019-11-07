@@ -14,10 +14,10 @@ const systemBytes = 4
 
 // SysNumber is a number of clients
 var (
-    SysNumber int
-    KeyEx               int
-    PeriodNotConfData   int64
-    PeriodOldData       int64
+	SysNumber         int
+	KeyEx             int
+	PeriodNotConfData int64
+	PeriodOldData     int64
 )
 
 // Write2DB writes packet with metadata to DB

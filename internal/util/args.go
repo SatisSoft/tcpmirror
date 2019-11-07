@@ -9,19 +9,19 @@ import (
 )
 
 const (
-	db                  = "db_address"
-	listen              = "listen_address"
-	mon                 = "mon_address"
-	consumers           = "consumers_list"
-	protocol            = "listen_protocol"
-	logLevel            = "log_level"
-	keyEx               = "key_ex"
-	periodNotConfData   = "period_notconf_data"
-	periodOldData       = "period_old_data"
-	periodCheckOld      = "period_check_old"
-	timeoutClose        = "timeout_close"
-	timeoutErrorReply   = "timeout_error_reply"
-    timeoutReconnect    = "timeout_reconnect"
+	db                = "db_address"
+	listen            = "listen_address"
+	mon               = "mon_address"
+	consumers         = "consumers_list"
+	protocol          = "listen_protocol"
+	logLevel          = "log_level"
+	keyEx             = "key_ex"
+	periodNotConfData = "period_notconf_data"
+	periodOldData     = "period_old_data"
+	periodCheckOld    = "period_check_old"
+	timeoutClose      = "timeout_close"
+	timeoutErrorReply = "timeout_error_reply"
+	timeoutReconnect  = "timeout_reconnect"
 )
 
 type System struct {
@@ -32,19 +32,19 @@ type System struct {
 }
 
 type Args struct {
-	Listen              string
-	Protocol            string
-	Systems             []System
-	Monitoring          string
-	DB                  string
-	LogLevel            logrus.Level
-	KeyEx               int
-	PeriodNotConfData   int64
-	PeriodOldData       int64
-	PeriodCheckOld      int
-	TimeoutClose        int
-	TimeoutErrorReply   int
-    TimeoutReconnect    int
+	Listen            string
+	Protocol          string
+	Systems           []System
+	Monitoring        string
+	DB                string
+	LogLevel          logrus.Level
+	KeyEx             int
+	PeriodNotConfData int64
+	PeriodOldData     int64
+	PeriodCheckOld    int
+	TimeoutClose      int
+	TimeoutErrorReply int
+	TimeoutReconnect  int
 }
 
 type Options struct {
@@ -82,28 +82,28 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.KeyEx = viper.GetInt(keyEx)
 	args.PeriodNotConfData = viper.GetInt64(periodNotConfData)
 	if args.PeriodNotConfData == 0 {
-	    args.PeriodNotConfData = 60000
+		args.PeriodNotConfData = 60000
 	}
 	args.PeriodOldData = viper.GetInt64(periodOldData)
 	if args.PeriodOldData == 0 {
-	    args.PeriodOldData = 55000
-    }
+		args.PeriodOldData = 55000
+	}
 	args.PeriodCheckOld = viper.GetInt(periodCheckOld)
 	if args.PeriodCheckOld == 0 {
-	    args.PeriodCheckOld = 60
-    }
+		args.PeriodCheckOld = 60
+	}
 	args.TimeoutClose = viper.GetInt(timeoutClose)
 	if args.TimeoutClose == 0 {
-	    args.TimeoutClose = 5
-    }
+		args.TimeoutClose = 5
+	}
 	args.TimeoutErrorReply = viper.GetInt(timeoutErrorReply)
 	if args.TimeoutErrorReply == 0 {
-	    args.TimeoutErrorReply = 5
-    }
+		args.TimeoutErrorReply = 5
+	}
 	args.TimeoutReconnect = viper.GetInt(timeoutReconnect)
 	if args.TimeoutReconnect == 0 {
-	    args.TimeoutReconnect = 10
-    }
+		args.TimeoutReconnect = 10
+	}
 	EgtsName = egtsKey + ":" + strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
 	return
 }

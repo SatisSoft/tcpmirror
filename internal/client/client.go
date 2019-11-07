@@ -15,10 +15,10 @@ const (
 )
 
 var (
-    PeriodCheckOld      int
-    TimeoutClose        int
-    TimeoutErrorReply   int
-    TimeoutReconnect    int
+	PeriodCheckOld    int
+	TimeoutClose      int
+	TimeoutErrorReply int
+	TimeoutReconnect  int
 )
 
 // Client describes general client
