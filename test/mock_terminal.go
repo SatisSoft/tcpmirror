@@ -139,7 +139,6 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 		t.Error(err)
 	}
 	var i int
-	logger.Println("SEND DATA1")
 	for i = 0; i < num; i++ {
 		err = sendNewMessage(t, conn, i, logger)
 		if err != nil {
@@ -147,10 +146,7 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 			t.Error(err)
 		}
 	}
-	logger.Println("SEND DATA1 END")
-	/*
-	time.Sleep(4 * time.Second)
-	logger.Println("SEND DATA2")
+	time.Sleep(2 * time.Second)
 	for ; i < num*2; i++ {
 		err = sendNewMessage(t, conn, i, logger)
 		if err != nil {
@@ -158,9 +154,7 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 			t.Error(err)
 		}
 	}
-	logger.Println("SEND DATA2 END")
-	time.Sleep(4 * time.Second)
-	logger.Println("SEND DATA3")
+	time.Sleep(2 * time.Second)
 	for ; i < num*3; i++ {
 		err = sendNewMessage(t, conn, i, logger)
 		if err != nil {
@@ -168,6 +162,5 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 			t.Error(err)
 		}
 	}
-	logger.Println("SEND DATA3 END")*/
 	time.Sleep(10 * time.Second)
 }

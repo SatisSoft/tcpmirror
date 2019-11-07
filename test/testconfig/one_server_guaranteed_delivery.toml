@@ -34,6 +34,9 @@ timeout_reconnect = 10
 # list of data consumers
 consumers_list = ["vis1"]
 
+#key expire sec
+key_ex = 1
+
 [vis1]
 id = 2
 address = "localhost:7051"
