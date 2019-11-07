@@ -39,7 +39,6 @@ func receiveAndReply(t *testing.T, c net.Conn, logger *logrus.Entry) (err error)
 		return
 	}
 	rep := p.Reply(0)
-	logger.Println("KATYA SEND REPLY",rep)
 	logger.Println("send:", rep)
 	err = send(c, rep)
 	if err != nil {
