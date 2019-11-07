@@ -32,9 +32,8 @@ func Test_serverStartOne(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 	time.Sleep(1 * time.Second)
 	res, err = getAllKeys(conn)
@@ -42,9 +41,8 @@ func Test_serverStartOne(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }
 
@@ -72,9 +70,8 @@ func Test_serverStartTwoTerminals(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 	time.Sleep(1 * time.Second)
 	res, err = getAllKeys(conn)
@@ -82,9 +79,8 @@ func Test_serverStartTwoTerminals(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }
 
@@ -112,9 +108,8 @@ func Test_serverStartTwo(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 	time.Sleep(1 * time.Second)
 	res, err = getAllKeys(conn)
@@ -122,9 +117,8 @@ func Test_serverStartTwo(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }
 
@@ -154,9 +148,8 @@ func Test_serverStartThree(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 	time.Sleep(1 * time.Second)
 	res, err = getAllKeys(conn)
@@ -164,9 +157,8 @@ func Test_serverStartThree(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }
 
@@ -196,9 +188,8 @@ func Test_serverStartOneNotMaster(t *testing.T) {
 	}
 	expected := numOfTerminals*(2+notConfirmed) + (numOfNdtpServers)*numOfTerminals + numOfEgtsServers +
 		numOfPackets*(numOfNdtpServers+notConfirmed)*numOfTerminals
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 	time.Sleep(1 * time.Second)
 	res, err = getAllKeys(conn)
@@ -207,9 +198,8 @@ func Test_serverStartOneNotMaster(t *testing.T) {
 	}
 	expected = numOfTerminals*(2+notConfirmed) + (numOfNdtpServers)*numOfTerminals +
 		numOfPackets*numOfTerminals + numOfEgtsServers*notConfirmed
-	logrus.Println("len res", len(res))
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }
 
@@ -239,7 +229,7 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	expected := numOfTerminals*(2+notConfirmed) + numOfEgtsServers +
 		numOfPackets*notConfirmed*numOfTerminals
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 	time.Sleep(2 * time.Second)
 	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", 0, 10)
@@ -251,7 +241,7 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }
 
@@ -281,7 +271,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	expected := numOfTerminals*(2+notConfirmed) + numOfEgtsServers +
 		numOfPackets*notConfirmed*numOfTerminals
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 	time.Sleep(2 * time.Second)
 	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7060", numOfPackets, 10)
@@ -294,7 +284,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }
 
@@ -324,7 +314,6 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected := numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
-	logrus.Println("len res", len(res))
 	logrus.Println("start 1 test")
 	checkKeyNum(t, res, expected)
 	time.Sleep(1 * time.Second)
@@ -333,10 +322,8 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
-	logrus.Println("len res", len(res))
 	logrus.Println("start 2 test")
 	checkKeyNum(t, res, expected)
-	logrus.Println("STOP EGTS SERVER")
 	mockEgtsServerStop(t)
 	time.Sleep(2 * time.Second)
 	res, err = getAllKeys(conn)
@@ -345,10 +332,8 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers + numOfTerminals + numOfPackets + 1
-	logrus.Println("len res", len(res))
 	logrus.Println("start 3 test")
 	checkKeyNum(t, res, expected)
-	logrus.Println("START EGTS SERVER")
 	go mockEgtsServer(t, "localhost:7073")
 	time.Sleep(3 * time.Second)
 	res, err = getAllKeys(conn)
@@ -356,13 +341,12 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 		t.Fatal(err)
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers //+ numOfPackets*numOfTerminals
-	logrus.Println("len res", len(res))
 	logrus.Println("start 4 test")
 	checkKeyNum(t, res, expected)
 }
 
 func checkKeyNum(t *testing.T, res [][]byte, expected int) {
 	if len(res) != expected {
-		t.Fatalf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }

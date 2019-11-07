@@ -7,7 +7,6 @@ import (
 	"net"
 	"testing"
 	"time"
-	"log"
 )
 
 var packetAuth = []byte{1, 2, 3, 126, 126, 59, 0, 2, 0, 14, 84, 2, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 1, 0, 0, 0, 0, 0, 6, 0, 2, 0, 2, 3, 90, 139, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 51, 53, 53, 48, 57, 52, 48, 52, 51, 49, 56, 56, 51, 49, 49, 50, 53, 48, 48, 49, 54, 53, 48, 53, 56, 49, 53, 53, 51, 55, 0, 1, 2, 3}
@@ -140,7 +139,6 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 		t.Error(err)
 	}
 	var i int
-	log.Printf("START DATA1")
 	for i = 0; i < num; i++ {
 		err = sendNewMessage(t, conn, i, logger)
 		if err != nil {
@@ -149,7 +147,6 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 		}
 	}
 	time.Sleep(2 * time.Second)
-	log.Printf("START DATA2")
 	for ; i < num*2; i++ {
 		err = sendNewMessage(t, conn, i, logger)
 		if err != nil {
@@ -157,9 +154,7 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 			t.Error(err)
 		}
 	}
-
 	time.Sleep(2 * time.Second)
-	log.Printf("START DATA3")
 	for ; i < num*3; i++ {
 		err = sendNewMessage(t, conn, i, logger)
 		if err != nil {

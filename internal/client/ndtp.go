@@ -249,7 +249,7 @@ func (c *Ndtp) old() {
 func (c *Ndtp) checkOld() {
 	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
-	c.logger.Tracef("receive old: %v, %v, %d", err, res, len(res))
+	c.logger.Tracef("receive old: %v, %v ", err, res)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
 	} else {
@@ -260,7 +260,6 @@ func (c *Ndtp) checkOld() {
 
 func (c *Ndtp) resend(messages [][]byte) {
 	messages = reverceSlice(messages)
-	c.logger.Tracef("resend")
 	for _, mes := range messages {
 		data := util.Deserialize(mes)
 		packet := data.Packet
