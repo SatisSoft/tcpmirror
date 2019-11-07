@@ -229,7 +229,7 @@ func (c *Ndtp) handleResult(packetData *ndtp.Packet) (err error) {
 }
 
 func (c *Ndtp) old() {
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	c.checkOld()
 	defer ticker.Stop()
 	for {
@@ -241,7 +241,7 @@ func (c *Ndtp) old() {
 				c.checkOld()
 			}
 		} else {
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}
 	}
 }

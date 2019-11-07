@@ -9,7 +9,7 @@ import (
 // WriteEgtsID maps EgtsID to NdtpID
 func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, packetID []byte) error {
 	key := util.EgtsName + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
-	_, err := conn.Do("SET", key, packetID, "ex", 20)
+	_, err := conn.Do("SET", key, packetID, "ex", KeyEx)
 	return err
 }
 
@@ -55,7 +55,7 @@ func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
 }
 
 func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
-	max := util.Milliseconds() - 60000
+	max := util.Milliseconds() - PeriodNotConfData
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 10000))
 }
 

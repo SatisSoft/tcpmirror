@@ -102,7 +102,7 @@ func (c *NdtpMaster) clientLoop() {
 				c.handleMessage(message)
 			}
 		} else {
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}
 	}
 }
@@ -241,7 +241,7 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 }
 
 func (c *NdtpMaster) old() {
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	c.logger.Traceln("start old ticker")
 	c.checkOld()
 	defer ticker.Stop()
@@ -254,7 +254,7 @@ func (c *NdtpMaster) old() {
 				c.checkOld()
 			}
 		} else {
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}
 	}
 }

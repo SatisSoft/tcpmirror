@@ -13,7 +13,7 @@ func WriteNDTPid(pool *Pool, sysID byte, terminalID int, nphID uint32, packID []
 	defer util.CloseAndLog(c, logger)
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
 	logger.Tracef("writeNdtpID key: %v", key)
-	_, err := c.Do("SET", key, packID, "ex", 20)
+	_, err := c.Do("SET", key, packID, "ex", KeyEx)
 	return err
 }
 
@@ -92,7 +92,7 @@ func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte, logger *
 }
 
 func allNotConfirmedNdtp(conn redis.Conn, terminalID int, logger *logrus.Entry) ([][]byte, error) {
-	max := util.Milliseconds() - 60000
+	max := util.Milliseconds() - PeriodNotConfData
 	logger.Tracef("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", 0, 60000))
 }

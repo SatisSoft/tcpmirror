@@ -52,6 +52,13 @@ func initialize(args *util.Args) (options *util.Options, err error) {
 		err = errors.New("no DB server address")
 	}
 	db.SysNumber = len(args.Systems)
+	db.KeyEx = args.KeyEx
+	db.PeriodNotConfData = args.PeriodNotConfData
+	db.PeriodOldData = args.PeriodOldData
+	client.TimeoutClose = args.TimeoutClose
+    client.TimeoutErrorReply = args.TimeoutErrorReply
+    client.TimeoutReconnect = args.TimeoutReconnect
+    client.PeriodCheckOld = args.PeriodCheckOld
 	return
 }
 
