@@ -80,6 +80,9 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.Systems = parseSystems(viper.GetStringSlice(consumers))
 	args.LogLevel, err = logrus.ParseLevel(viper.GetString(logLevel))
 	args.KeyEx = viper.GetInt(keyEx)
+	if args.KeyEx == 0 {
+	    args.KeyEx = 20
+	}
 	args.PeriodNotConfData = viper.GetInt64(periodNotConfData)
 	if args.PeriodNotConfData == 0 {
 		args.PeriodNotConfData = 60000
