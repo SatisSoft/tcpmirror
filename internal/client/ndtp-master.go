@@ -365,11 +365,11 @@ func (c *NdtpMaster) reconnect() {
 				c.logger.Warningf("can't reconnect: %s", err)
 			} else {
 				c.logger.Printf("start authorization")
+				c.conn = conn
+				c.open = true
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
-					c.conn = conn
-					c.open = true
 					go c.chanReconStatus()
 					return
 				}
