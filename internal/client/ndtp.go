@@ -63,6 +63,9 @@ func (c *Ndtp) start() {
 	} else {
 		c.conn = conn
 		c.open = true
+		if err = c.authorization(); err != nil {
+			c.logger.Errorf("error authorization: %s", err)
+		}
 	}
 	if c.serverClosed() {
 		return
@@ -92,12 +95,30 @@ func (c *Ndtp) SetID(terminalID int) {
 	c.terminalID = terminalID
 }
 
-func (c *Ndtp) clientLoop() {
+func (c *Ndtp) authorization() error {
+	c.logger.Traceln("start authorization")
 	err := c.sendFirstMessage()
 	if err != nil {
-		c.logger.Errorf("can't send first message: %s", err)
-		c.connStatus()
+		return err
 	}
+	var b [defaultBufferSize]byte
+	n, err := c.conn.Read(b[:])
+	c.logger.Tracef("received auth reply from server: %v; %v", err, b[:n])
+	if err != nil {
+		return err
+	}
+	_, err = c.processPacket(b[:n])
+	if err != nil {
+		return err
+	}
+	if !c.auth {
+		return errors.New("didn't receive auth packet during authorization")
+	}
+	c.logger.Traceln("authorization succeeded")
+	return nil
+}
+
+func (c *Ndtp) clientLoop() {
 	for {
 		if c.open {
 			select {
@@ -334,6 +355,7 @@ func (c *Ndtp) connStatus() {
 		c.logger.Debugf("can't close servConn: %s", err)
 	}
 	c.open = false
+	c.auth = false
 	c.reconnect()
 }
 
@@ -348,19 +370,13 @@ func (c *Ndtp) reconnect() {
 			conn, err := net.Dial("tcp", c.address)
 			if err != nil {
 				c.logger.Warningf("can't reconnect: %s", err)
-			} else {
-				c.logger.Printf("start sending first message again")
-				firstMessage, err := db.ReadConnDB(c.pool, c.terminalID, c.logger)
-				if err != nil {
-					c.logger.Errorf("can't readConnDB: %s", err)
-					return
-				}
-				util.PrintPacket(c.logger, "send first message again: ", firstMessage)
-				err = send(conn, firstMessage)
+			} else  {
+				c.logger.Printf("start authorization")
+				c.conn = conn
+				c.open = true
+				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
-					c.conn = conn
-					c.open = true
 					go c.chanReconStatus()
 					return
 				}
