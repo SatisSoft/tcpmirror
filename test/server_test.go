@@ -335,7 +335,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	logrus.Println("start 3 test")
 	checkKeyNum(t, res, expected)
 	go mockEgtsServer(t, "localhost:7073")
-	time.Sleep(30 * time.Second)
+	time.Sleep(35 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
