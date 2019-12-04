@@ -14,13 +14,13 @@ log_level = "trace"
 consumers_list = ["vis2", "vis3"]
 
 #key expire sec
-key_ex = 1
+key_ex = 4
 
 #period check not confirmed ms
-period_notconf_data = 2000
+period_notconf_data = 4000
 
 #period old data ms
-period_old_data = 2000
+period_old_data = 4000
 
 #period check old data sec
 period_check_old = 1
