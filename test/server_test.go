@@ -288,7 +288,6 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	}
 }
 
-/*
 func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
@@ -309,7 +308,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	go mockNdtpServer(t, "localhost:7072")
 	go mockEgtsServer(t, "localhost:7073")
 	go server.Start()
-	time.Sleep(5 * time.Second)
+	time.Sleep(4 * time.Second)
 	res, err := getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -317,7 +316,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	expected := numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
 	logrus.Println("start 1 test")
 	checkKeyNum(t, res, expected)
-	time.Sleep(3 * time.Second)
+	time.Sleep(4 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -326,7 +325,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	logrus.Println("start 2 test")
 	checkKeyNum(t, res, expected)
 	mockEgtsServerStop(t)
-	time.Sleep(3 * time.Second)
+	time.Sleep(6 * time.Second)
 	res, err = getAllKeys(conn)
 
 	if err != nil {
@@ -336,7 +335,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	logrus.Println("start 3 test")
 	checkKeyNum(t, res, expected)
 	go mockEgtsServer(t, "localhost:7073")
-	time.Sleep(3 * time.Second)
+	time.Sleep(6 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -346,7 +345,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	checkKeyNum(t, res, expected)
 
 }
-*/
+
 func checkKeyNum(t *testing.T, res [][]byte, expected int) {
 	if len(res) != expected {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
