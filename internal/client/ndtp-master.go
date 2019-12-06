@@ -137,9 +137,6 @@ func (c *NdtpMaster) sendFirstMessage() error {
 }
 
 func (c *NdtpMaster) handleMessage(message []byte) {
-	if db.IsOldData(c.pool, message, c.logger) {
-		return
-	}
 	data := util.Deserialize(message)
 	packet := data.Packet
 	service, err := ndtp.Service(data.Packet)
@@ -148,6 +145,9 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 		return
 	}
 	if service == ndtp.NphSrvNavdata {
+		if db.IsOldData(c.pool, message, c.logger) {
+			return
+		}
 		nphID, err := c.getNphID()
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
@@ -166,6 +166,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 			c.connStatus()
 		}
 	} else {
+		c.logger.Tracef("send control packet to server: %v", packet)
 		err := c.send2Server(packet)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)

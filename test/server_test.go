@@ -350,3 +350,31 @@ func checkKeyNum(t *testing.T, res [][]byte, expected int) {
 		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
 	}
 }
+
+func Test_controlMessage(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	err := flag.Set("conf", "./testconfig/control_message.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := db.Connect("localhost:9999")
+	if err := clearDB(conn); err != nil {
+		t.Fatal(err)
+	}
+	numOfPackets := 0
+	numOfNdtpServers := 1
+	numOfTerminals := 1
+	go mockTerminalWithControl(t, "localhost:7080", numOfPackets)
+	go mockNdtpMasterWithControl(t, "localhost:7081")
+	go server.Start()
+	time.Sleep(5 * time.Second)
+	res, err := getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := numOfTerminals + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
+	if len(res) != expected {
+		t.Fatalf("expected %d keys in DB. Got %d: %v", expected, len(res), res)
+	}
+}
