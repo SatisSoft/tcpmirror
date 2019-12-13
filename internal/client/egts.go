@@ -64,15 +64,9 @@ func (c *Egts) start() {
 		c.conn = conn
 		c.open = true
 	}
-	//todo handle reconnection
 	go c.old()
 	go c.replyHandler()
 	c.clientLoop()
-}
-
-func (c *Egts) stop() error {
-	//todo close connection to DB, tcp connection to EGTS server
-	return nil
 }
 
 func (c *Egts) clientLoop() {
@@ -80,7 +74,6 @@ func (c *Egts) clientLoop() {
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
 	if err != nil {
-		// todo monitor this error
 		c.logger.Errorf("can't getID: %v", err)
 	}
 	var buf []byte
@@ -247,7 +240,6 @@ func (c *Egts) handleReplies(dbConn db.Conn, packetData *egts.Packet) (err error
 }
 
 func (c *Egts) handleReply(dbConn db.Conn, sub *egts.SubRecord) (err error) {
-	// todo update navprot dep
 	conf, ok := sub.Data.(*egts.Confirmation)
 	if sub.Type != egts.EgtsPtResponse || !ok {
 		c.logger.Warningf("expected response subrecord but got %v", sub)

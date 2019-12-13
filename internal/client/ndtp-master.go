@@ -47,7 +47,6 @@ func (c *NdtpMaster) start() {
 	c.logger = c.logger.WithFields(logrus.Fields{"terminalID": c.terminalID})
 	err := c.setNph()
 	if err != nil {
-		// todo monitor this error
 		c.logger.Errorf("can't setNph: %v", err)
 	}
 	c.logger.Traceln("start")
@@ -68,11 +67,6 @@ func (c *NdtpMaster) start() {
 	go c.old()
 	go c.replyHandler()
 	c.clientLoop()
-}
-
-func (c *NdtpMaster) stop() error {
-	//todo close connection to DB, tcp connection to EGTS server
-	return nil
 }
 
 // InputChannel implements method of Client interface
