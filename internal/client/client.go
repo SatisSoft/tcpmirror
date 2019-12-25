@@ -26,7 +26,6 @@ type Client interface {
 	InputChannel() chan []byte
 	OutputChannel() chan []byte
 	start()
-	stop() error
 }
 
 type connection struct {
@@ -46,9 +45,4 @@ type info struct {
 // Start client
 func Start(client Client) {
 	client.start()
-}
-
-// Stop client
-func Stop(client Client) error {
-	return client.stop()
 }

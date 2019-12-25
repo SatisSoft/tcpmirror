@@ -69,12 +69,14 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 	return id, err
 }
 
+// IsOldData checks if message is old and should not be sending again
 func IsOldData(pool *Pool, message []byte, logger *logrus.Entry) bool {
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
 	return CheckOldData(c, message, logger)
 }
 
+// CheckOldData checks if message is old and should not be sending again
 func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
 	val, err := redis.Bytes(conn.Do("GET", message[:util.PacketStart]))
 	logger.Tracef("isOldData err: %v; key: %v; val: %v", err, message[:util.PacketStart], val)
@@ -170,15 +172,17 @@ func isConfirmed(conn redis.Conn, id []byte, sysID byte) (isConf bool, err error
 }
 
 func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
-	//val0, err := redis.Bytes(conn.Do("GET", key))
-	val0, err := conn.Do("GET", key)
-	val1, err := redis.Bytes(val0, err)
-	logrus.Tracef("findPack key = %v, val0 = %v, val1 = %v, err = %v", key, val0, val1, err)
+	val, err := redis.Bytes(conn.Do("GET", key))
+	logrus.Tracef("findPack key = %v, val = %v, err = %v", key, val, err)
 	if err != nil {
 		return
 	}
+	if len(val) < systemBytes {
+		err = fmt.Errorf("to short result: %v", val)
+		return
+	}
 	terminalID := util.TerminalID(key)
-	time := binary.LittleEndian.Uint64(val1[systemBytes:])
+	time := binary.LittleEndian.Uint64(val[systemBytes:])
 	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, time, time))
 	if err != nil {
 		return nil, err

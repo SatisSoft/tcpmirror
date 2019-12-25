@@ -1,5 +1,5 @@
 # listen address
-listen_address = "localhost:7000"
+listen_address = "localhost:7080"
 
 # DB server address
 db_address = "localhost:9999"
@@ -13,11 +13,8 @@ log_level = "trace"
 # list of data consumers
 consumers_list = ["vis1"]
 
-#key expire sec
-key_ex = 3
-
 [vis1]
 id = 2
-address = "localhost:7001"
+address = "localhost:7081"
 protocol = "NDTP"
 master = true

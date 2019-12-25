@@ -14,7 +14,7 @@ log_level = "trace"
 consumers_list = ["vis1", "vis2", "vis3"]
 
 #key expire sec
-key_ex = 4
+key_ex = 2
 
 [vis1]
 id = 1

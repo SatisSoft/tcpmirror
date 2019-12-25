@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bytes"
 	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
@@ -40,6 +41,56 @@ func mockTerminal(t *testing.T, addr string, num int) {
 		}
 	}
 	time.Sleep(10 * time.Second)
+}
+
+func mockTerminalWithControl(t *testing.T, addr string, num int) {
+	logger := logrus.WithFields(logrus.Fields{"test": "mock_terminal"})
+	time.Sleep(100 * time.Millisecond)
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Error(err)
+	}
+	defer util.CloseAndLog(conn, logger)
+	err = sendAndReceive(t, conn, packetAuth, logger)
+	if err != nil {
+		logger.Errorf("got error: %v", err)
+		t.Error(err)
+	}
+	err = receiveAndReplyControl(t, conn, logger)
+	if err != nil {
+		t.Error(err)
+	}
+	for i := 0; i < num; i++ {
+		err = sendNewMessage(t, conn, i, logger)
+		if err != nil {
+			logger.Errorf("got error: %v", err)
+			t.Error(err)
+		}
+	}
+	time.Sleep(10 * time.Second)
+}
+
+func receiveAndReplyControl(t *testing.T, c net.Conn, logger *logrus.Entry) (err error) {
+	var b [defaultBufferSize]byte
+	n, err := c.Read(b[:])
+	if err != nil {
+		return
+	}
+	if !bytes.Equal(b[:n], packetControl) {
+		t.Fatalf("expected control packet but received %s", b[:n])
+	}
+	p := new(ndtp.Packet)
+	_, err = p.Parse(b[:n])
+	logger.Println("received:", p.Packet)
+	if err != nil {
+		return
+	}
+	logger.Println("send:", packetControlReply)
+	err = send(c, packetControlReply)
+	if err != nil {
+		return
+	}
+	return
 }
 
 func mockTerminalSecond(t *testing.T, addr string, num int) {
@@ -146,7 +197,7 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 			t.Error(err)
 		}
 	}
-	time.Sleep(8 * time.Second)
+	time.Sleep(4 * time.Second)
 	for ; i < num*2; i++ {
 		err = sendNewMessage(t, conn, i, logger)
 		if err != nil {
@@ -154,13 +205,13 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 			t.Error(err)
 		}
 	}
-	time.Sleep(6 * time.Second)
-	for ; i < num*3; i++ {
-		err = sendNewMessage(t, conn, i, logger)
-		if err != nil {
-			logger.Errorf("got error: %v", err)
-			t.Error(err)
-		}
-	}
-	time.Sleep(10 * time.Second)
+	time.Sleep(8 * time.Second)
+     	for ; i < num*3; i++ {
+     		err = sendNewMessage(t, conn, i, logger)
+     		if err != nil {
+     			logger.Errorf("got error: %v", err)
+     			t.Error(err)
+     		}
+     	}
+	time.Sleep(30 * time.Second)
 }
