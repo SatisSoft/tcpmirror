@@ -20,7 +20,7 @@ func Test_serverStartOne(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 100
+	numOfPackets := 10
 	numOfNdtpServers := 1
 	numOfTerminals := 1
 	go mockTerminal(t, "localhost:7000", numOfPackets)
@@ -55,7 +55,7 @@ func Test_serverStartTwoTerminals(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 100
+	numOfPackets := 10
 	numOfNdtpServers := 1
 	numOfTerminals := 2
 	go mockTerminal(t, "localhost:7010", numOfPackets)
@@ -91,7 +91,7 @@ func Test_serverStartTwo(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 100
+	numOfPackets := 10
 	numOfNdtpServers := 2
 	numOfTerminals := 1
 	go mockTerminal(t, "localhost:7020", numOfPackets)
@@ -127,7 +127,7 @@ func Test_serverStartThree(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 100
+	numOfPackets := 10
 	numOfNdtpServers := 2
 	numOfEgtsServers := 1
 	numOfTerminals := 1
@@ -165,7 +165,7 @@ func Test_serverStartOneNotMaster(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 100
+	numOfPackets := 10
 	numOfNdtpServers := 1
 	numOfTerminals := 1
 	numOfEgtsServers := 1
@@ -204,7 +204,7 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 100
+	numOfPackets := 10
 	numOfNdtpServers := 1
 	numOfTerminals := 1
 	notConfirmed := 1
@@ -244,7 +244,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 100
+	numOfPackets := 10
 	numOfNdtpServers := 2
 	numOfTerminals := 1
 	notConfirmed := 1
