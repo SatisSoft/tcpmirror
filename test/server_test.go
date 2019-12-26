@@ -286,7 +286,7 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Fatal(err)
 	}
-	numOfPackets := 100
+	numOfPackets := 10
 	numOfNdtpServers := 2
 	numOfEgtsServers := 1
 	numOfTerminals := 1
