@@ -13,6 +13,9 @@ log_level = "trace"
 # list of data consumers
 consumers_list = ["vis1"]
 
+#key expire sec
+key_ex = 3
+
 [vis1]
 id = 2
 address = "localhost:7001"

@@ -14,6 +14,13 @@ const (
 	readTimeout       = 180 * time.Second
 )
 
+var (
+	PeriodCheckOld    int
+	TimeoutClose      int
+	TimeoutErrorReply int
+	TimeoutReconnect  int
+)
+
 // Client describes general client
 type Client interface {
 	InputChannel() chan []byte

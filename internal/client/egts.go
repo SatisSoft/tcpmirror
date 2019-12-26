@@ -102,7 +102,7 @@ func (c *Egts) clientLoop() {
 				}
 			}
 		} else {
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 			buf = []byte(nil)
 			count = 0
 		}
@@ -180,7 +180,7 @@ func (c *Egts) replyHandler() {
 		} else {
 			buf = []byte(nil)
 			c.logger.Warningf("EGTS server closed")
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}
 	}
 }
@@ -194,7 +194,7 @@ func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
 	if err != nil {
 		c.logger.Warningf("can't get reply from c server %s", err)
 		c.conStatus()
-		time.Sleep(5 * time.Second)
+		time.Sleep(time.Duration(TimeoutErrorReply) * time.Second)
 		return []byte(nil)
 	}
 	util.PrintPacket(c.logger, "received packet: ", b[:n])
@@ -260,7 +260,7 @@ func (c *Egts) handleSuccessReply(dbConn db.Conn, crn uint16) (err error) {
 
 func (c *Egts) old() {
 	dbConn := db.Connect(c.DB)
-	ticker := time.NewTicker(60 * time.Second)
+	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	defer ticker.Stop()
 OLDLOOP:
 	for {
@@ -293,7 +293,7 @@ OLDLOOP:
 				c.send(buf)
 			}
 		} else {
-			time.Sleep(5 * time.Second)
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}
 	}
 }
@@ -330,7 +330,7 @@ func (c *Egts) reconnect() {
 			}
 			c.logger.Warningf("error while reconnecting to EGTS server: %s", err)
 		}
-		time.Sleep(10 * time.Second)
+		time.Sleep(time.Duration(TimeoutReconnect) * time.Second)
 	}
 }
 
