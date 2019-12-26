@@ -365,3 +365,4 @@ func Test_controlMessage(t *testing.T) {
 	logrus.Println("start 1 test")
     checkKeyNum(t, res, expected)
 }
+
