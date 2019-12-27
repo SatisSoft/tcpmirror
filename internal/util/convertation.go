@@ -5,6 +5,7 @@ import (
 	"github.com/ashirko/navprot/pkg/ndtp"
 )
 
+// Ndtp2Egts converts binary NDTP packet to bynary EGTS packet
 func Ndtp2Egts(packet []byte, id uint32, packID, recID uint16) (res []byte, err error) {
 	ndtpData := new(ndtp.Packet)
 	if _, err = ndtpData.Parse(packet); err != nil {

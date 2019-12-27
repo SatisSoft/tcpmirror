@@ -25,6 +25,7 @@ const (
 	testMode          = "test_mode"
 )
 
+// System contains information about system which consumes data
 type System struct {
 	ID       byte
 	Address  string
@@ -32,7 +33,9 @@ type System struct {
 	IsMaster bool
 }
 
+// Args contains parsed params from configuration file
 type Args struct {
+	// Listen address
 	Listen            string
 	Protocol          string
 	Systems           []System
@@ -49,6 +52,7 @@ type Args struct {
 	TestMode          bool
 }
 
+// Options contains information about DB options and monitoring options
 type Options struct {
 	// Is monitoring enabled
 	Mon bool
@@ -59,10 +63,12 @@ type Options struct {
 const egtsKey = "egts"
 
 var (
-	conf     = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
+	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
+	// EgtsName is prefix for storing data in DB for different consumer systems
 	EgtsName string
 )
 
+// ParseArgs parses configuration file
 func ParseArgs() (args *Args, err error) {
 	flag.Parse()
 	args, err = parseConfig(*conf)
