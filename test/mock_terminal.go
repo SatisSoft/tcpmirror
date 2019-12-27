@@ -206,12 +206,12 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 		}
 	}
 	time.Sleep(8 * time.Second)
-     	for ; i < num*3; i++ {
-     		err = sendNewMessage(t, conn, i, logger)
-     		if err != nil {
-     			logger.Errorf("got error: %v", err)
-     			t.Error(err)
-     		}
-     	}
+	for ; i < num*3; i++ {
+		err = sendNewMessage(t, conn, i, logger)
+		if err != nil {
+			logger.Errorf("got error: %v", err)
+			t.Error(err)
+		}
+	}
 	time.Sleep(30 * time.Second)
 }

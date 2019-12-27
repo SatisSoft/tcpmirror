@@ -22,6 +22,7 @@ const (
 	timeoutClose      = "timeout_close"
 	timeoutErrorReply = "timeout_error_reply"
 	timeoutReconnect  = "timeout_reconnect"
+	testMode          = "test_mode"
 )
 
 type System struct {
@@ -45,6 +46,7 @@ type Args struct {
 	TimeoutClose      int
 	TimeoutErrorReply int
 	TimeoutReconnect  int
+	TestMode          bool
 }
 
 type Options struct {
@@ -81,7 +83,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.LogLevel, err = logrus.ParseLevel(viper.GetString(logLevel))
 	args.KeyEx = viper.GetInt(keyEx)
 	if args.KeyEx == 0 {
-	    args.KeyEx = 20
+		args.KeyEx = 20
 	}
 	args.PeriodNotConfData = viper.GetInt64(periodNotConfData)
 	if args.PeriodNotConfData == 0 {
@@ -107,6 +109,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	if args.TimeoutReconnect == 0 {
 		args.TimeoutReconnect = 10
 	}
+	args.TestMode = viper.GetBool(testMode)
 	EgtsName = egtsKey + ":" + strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
 	return
 }

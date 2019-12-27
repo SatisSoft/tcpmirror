@@ -41,7 +41,7 @@ func Test_serverStartOne(t *testing.T) {
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	logrus.Println("start 2 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 }
 
 func Test_serverStartTwoTerminals(t *testing.T) {
@@ -69,7 +69,7 @@ func Test_serverStartTwoTerminals(t *testing.T) {
 	}
 	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
 	logrus.Println("start 1 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 	time.Sleep(3 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
@@ -77,7 +77,7 @@ func Test_serverStartTwoTerminals(t *testing.T) {
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	logrus.Println("start 2 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 }
 
 func Test_serverStartTwo(t *testing.T) {
@@ -105,7 +105,7 @@ func Test_serverStartTwo(t *testing.T) {
 	}
 	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
 	logrus.Println("start 1 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 	time.Sleep(3 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
@@ -113,7 +113,7 @@ func Test_serverStartTwo(t *testing.T) {
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	logrus.Println("start 2 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 }
 
 func Test_serverStartThree(t *testing.T) {
@@ -143,7 +143,7 @@ func Test_serverStartThree(t *testing.T) {
 	}
 	expected := numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
 	logrus.Println("start 1 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 	time.Sleep(3 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
@@ -151,7 +151,7 @@ func Test_serverStartThree(t *testing.T) {
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
 	logrus.Println("start 2 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 }
 
 func Test_serverStartOneNotMaster(t *testing.T) {
@@ -181,7 +181,7 @@ func Test_serverStartOneNotMaster(t *testing.T) {
 	expected := numOfTerminals*(2+notConfirmed) + (numOfNdtpServers)*numOfTerminals + numOfEgtsServers +
 		numOfPackets*(numOfNdtpServers+notConfirmed)*numOfTerminals
 	logrus.Println("start 1 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 	time.Sleep(2 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
@@ -190,7 +190,7 @@ func Test_serverStartOneNotMaster(t *testing.T) {
 	expected = numOfTerminals*(2+notConfirmed) + (numOfNdtpServers)*numOfTerminals +
 		numOfPackets*numOfTerminals + numOfEgtsServers*notConfirmed
 	logrus.Println("start 2 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 }
 
 func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
@@ -219,7 +219,7 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	expected := numOfTerminals*(2+notConfirmed) + numOfEgtsServers +
 		numOfPackets*notConfirmed*numOfTerminals
 	logrus.Println("start 1 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 	time.Sleep(8 * time.Second)
 	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", 0, 30)
 	go mockNdtpMaster(t, "localhost:7051")
@@ -230,7 +230,7 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	logrus.Println("start 2 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 }
 
 func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
@@ -259,7 +259,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	expected := numOfTerminals*(2+notConfirmed) + numOfEgtsServers +
 		numOfPackets*notConfirmed*numOfTerminals
 	logrus.Println("start 1 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 	time.Sleep(8 * time.Second)
 	logrus.Println("START NDTP SERVERS")
 	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7060", numOfPackets, 30)
@@ -272,7 +272,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	}
 	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals
 	logrus.Println("start 2 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 }
 
 func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
@@ -363,6 +363,5 @@ func Test_controlMessage(t *testing.T) {
 	}
 	expected := numOfTerminals + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
 	logrus.Println("start 1 test")
-    checkKeyNum(t, res, expected)
+	checkKeyNum(t, res, expected)
 }
-
