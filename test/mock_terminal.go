@@ -248,10 +248,8 @@ func mockTerminals100(t *testing.T, addr string, num int, terminalID int) {
 		t.Error(err)
 	}
 	defer util.CloseAndLog(conn, logger)
-	log.Printf("packetAuth %v",packetAuth)
 	changes := map[string]int{ndtp.PeerAddress: terminalID}
     newPacketAuth := ndtp.Change(packetAuth, changes)
-    log.Printf("newPacketAuth %v",newPacketAuth)
 	err = sendAndReceive(t, conn, newPacketAuth, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
