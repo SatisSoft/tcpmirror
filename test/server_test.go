@@ -507,7 +507,7 @@ func Test_serverStartThreeTerminals100(t *testing.T) {
 	go mockNdtpServer(t, "localhost:7202")
 	go mockEgtsServer(t, "localhost:7203")
 	go server.Start()
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 	res, err := getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -516,7 +516,7 @@ func Test_serverStartThreeTerminals100(t *testing.T) {
 	logrus.Println("start 1 test")
     checkKeyNum(t, res, expected)
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -552,7 +552,7 @@ func Test_serverStartThreeNdtp3Egts3Terminals100(t *testing.T) {
 	go mockEgtsServer(t, "localhost:7302")
 	go mockEgtsServer(t, "localhost:7303")
 	go server.Start()
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 	res, err := getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
@@ -561,7 +561,7 @@ func Test_serverStartThreeNdtp3Egts3Terminals100(t *testing.T) {
 	logrus.Println("start 1 test")
     checkKeyNum(t, res, expected)
 
-	time.Sleep(20 * time.Second)
+	time.Sleep(10 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Fatal(err)
