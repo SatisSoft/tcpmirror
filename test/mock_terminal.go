@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var packetAuth = []byte{1, 2, 3, 126, 126, 59, 0, 2, 0, 14, 84, 2, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 1, 0, 0, 0, 0, 0, 6, 0, 2, 0, 2, 3, 90, 139, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 51, 53, 53, 48, 57, 52, 48, 52, 51, 49, 56, 56, 51, 49, 49, 50, 53, 48, 48, 49, 54, 53, 48, 53, 56, 49, 53, 53, 51, 55, 0, 1, 2, 3}
+var packetAuth = []byte{126, 126, 59, 0, 2, 0, 14, 84, 2, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 1, 0, 0, 0, 0, 0, 6, 0, 2, 0, 2, 3, 90, 139, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 51, 53, 53, 48, 57, 52, 48, 52, 51, 49, 56, 56, 51, 49, 49, 50, 53, 48, 48, 49, 54, 53, 48, 53, 56, 49, 53, 53, 51, 55, 0}
 var packetAuthSecond = []byte{1, 2, 3, 126, 126, 59, 0, 2, 0, 222, 186, 2, 0, 0, 0, 0, 0, 0, 0, 0, 100, 0, 1, 0, 0, 0, 0, 0, 6, 0, 2, 0, 2, 3, 90, 128, 1, 0, 0, 4, 0, 0, 0, 0, 0, 0, 51, 53, 53, 48, 57, 52, 48, 52, 51, 49, 56, 56, 51, 49, 49, 50, 53, 48, 48, 49, 54, 53, 48, 53, 56, 49, 53, 53, 51, 55, 0}
 
 var packetNav = []byte{126, 126, 74, 0, 2, 0, 107, 210, 2, 0, 0, 0, 0, 0, 0, 1, 0, 101, 0, 1, 0, 171,
@@ -214,4 +214,55 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
      		}
      	}
 	time.Sleep(30 * time.Second)
+}
+
+func mockTerminalAllOff(t *testing.T, addr string, num int) {
+	logger := logrus.WithFields(logrus.Fields{"test": "mock_terminal"})
+	time.Sleep(100 * time.Millisecond)
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Error(err)
+	}
+	defer util.CloseAndLog(conn, logger)
+	err = sendAndReceive(t, conn, packetAuth, logger)
+	if err != nil {
+		logger.Errorf("got error: %v", err)
+		t.Error(err)
+	}
+	var i int
+	for i = 0; i < num; i++ {
+		err = sendNewMessage(t, conn, i, logger)
+		if err != nil {
+			logger.Errorf("got error: %v", err)
+			t.Error(err)
+		}
+	}
+	time.Sleep(30 * time.Second)
+}
+
+func mockTerminals100(t *testing.T, addr string, num int, terminalID int) {
+	logger := logrus.WithFields(logrus.Fields{"test": "mock_terminal"})
+	time.Sleep(100 * time.Millisecond)
+	conn, err := net.Dial("tcp", addr)
+	if err != nil {
+		t.Error(err)
+	}
+	defer util.CloseAndLog(conn, logger)
+	log.Printf("packetAuth %v",packetAuth)
+	changes := map[string]int{ndtp.PeerAddress: terminalID}
+    newPacketAuth := ndtp.Change(packetAuth, changes)
+    log.Printf("newPacketAuth %v",newPacketAuth)
+	err = sendAndReceive(t, conn, newPacketAuth, logger)
+	if err != nil {
+		logger.Errorf("got error: %v", err)
+		t.Error(err)
+	}
+	for i := 0; i < num; i++ {
+		err = sendNewMessage(t, conn, i, logger)
+		if err != nil {
+			logger.Errorf("got error: %v", err)
+			t.Error(err)
+		}
+	}
+	time.Sleep(100 * time.Second)
 }

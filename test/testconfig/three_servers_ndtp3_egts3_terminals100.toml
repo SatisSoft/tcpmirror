@@ -1,0 +1,53 @@
+# listen address
+listen_address = "localhost:7300"
+
+# DB server address
+db_address = "localhost:9999"
+
+#listen protocol
+listen_protocol = "NDTP"
+
+#log level
+log_level = "trace"
+
+# list of data consumers
+consumers_list = ["vis1", "vis2", "vis3", "vis4", "vis5", "vis6"]
+
+#key expire sec
+key_ex = 20
+
+[vis1]
+id = 1
+address = "localhost:7301"
+protocol = "EGTS"
+master = false
+
+[vis2]
+id = 2
+address = "localhost:7302"
+protocol = "EGTS"
+master = false
+
+[vis3]
+id = 3
+address = "localhost:7303"
+protocol = "EGTS"
+master = false
+
+[vis4]
+id = 4
+address = "localhost:7304"
+protocol = "NDTP"
+master = true
+
+[vis5]
+id = 5
+address = "localhost:7305"
+protocol = "NDTP"
+master = false
+
+[vis6]
+id = 6
+address = "localhost:7306"
+protocol = "NDTP"
+master = false

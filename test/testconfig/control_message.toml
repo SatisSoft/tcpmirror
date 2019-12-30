@@ -1,5 +1,5 @@
 # listen address
-listen_address = "localhost:7080"
+listen_address = "localhost:6080"
 
 # DB server address
 db_address = "localhost:9999"
@@ -15,6 +15,6 @@ consumers_list = ["vis1"]
 
 [vis1]
 id = 2
-address = "localhost:7081"
+address = "localhost:6081"
 protocol = "NDTP"
 master = true
