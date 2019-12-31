@@ -13,6 +13,9 @@ log_level = "trace"
 # list of data consumers
 consumers_list = ["vis1"]
 
+# test mode provides more detailed logs but reduces system performance
+test_mode = true
+
 #key expire sec
 key_ex = 3
 

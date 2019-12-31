@@ -22,8 +22,10 @@ const (
 	timeoutClose      = "timeout_close"
 	timeoutErrorReply = "timeout_error_reply"
 	timeoutReconnect  = "timeout_reconnect"
+	testMode          = "test_mode"
 )
 
+// System contains information about system which consumes data
 type System struct {
 	ID       byte
 	Address  string
@@ -31,7 +33,9 @@ type System struct {
 	IsMaster bool
 }
 
+// Args contains parsed params from configuration file
 type Args struct {
+	// Listen address
 	Listen            string
 	Protocol          string
 	Systems           []System
@@ -45,8 +49,10 @@ type Args struct {
 	TimeoutClose      int
 	TimeoutErrorReply int
 	TimeoutReconnect  int
+	TestMode          bool
 }
 
+// Options contains information about DB options and monitoring options
 type Options struct {
 	// Is monitoring enabled
 	Mon bool
@@ -57,10 +63,12 @@ type Options struct {
 const egtsKey = "egts"
 
 var (
-	conf     = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
+	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
+	// EgtsName is prefix for storing data in DB for different consumer systems
 	EgtsName string
 )
 
+// ParseArgs parses configuration file
 func ParseArgs() (args *Args, err error) {
 	flag.Parse()
 	args, err = parseConfig(*conf)
@@ -81,7 +89,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.LogLevel, err = logrus.ParseLevel(viper.GetString(logLevel))
 	args.KeyEx = viper.GetInt(keyEx)
 	if args.KeyEx == 0 {
-	    args.KeyEx = 20
+		args.KeyEx = 20
 	}
 	args.PeriodNotConfData = viper.GetInt64(periodNotConfData)
 	if args.PeriodNotConfData == 0 {
@@ -107,6 +115,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	if args.TimeoutReconnect == 0 {
 		args.TimeoutReconnect = 10
 	}
+	args.TestMode = viper.GetBool(testMode)
 	EgtsName = egtsKey + ":" + strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
 	return
 }
