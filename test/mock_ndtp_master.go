@@ -81,7 +81,7 @@ func sendAndReceiveControl(t *testing.T, c net.Conn, logger *logrus.Entry) (err 
 	if !bytes.Equal(b[:n], packetControlReply) {
 		logger.Tracef("expected: %v", packetControlReply)
 		logger.Tracef("got: %v", b[:n])
-		t.Fatalf("expected control packet reply but received %s", b[:n])
+		t.Errorf("expected control packet reply but received %s", b[:n])
 	}
 	return
 }

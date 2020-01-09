@@ -75,7 +75,7 @@ func receiveAndReplyControl(t *testing.T, c net.Conn, logger *logrus.Entry) (err
 		return
 	}
 	if !bytes.Equal(b[:n], packetControl) {
-		t.Fatalf("expected control packet but received %s", b[:n])
+		t.Errorf("expected control packet but received %s", b[:n])
 	}
 	p := new(ndtp.Packet)
 	_, err = p.Parse(b[:n])
