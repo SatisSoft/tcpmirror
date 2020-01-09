@@ -84,6 +84,10 @@ func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
 		logger.Tracef("isOldData detected empty result: %v;", val)
 		return true
 	}
+	if len(val) < systemBytes {
+		_ = fmt.Errorf("got short result: %v", val)
+		return true
+	}
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
 	min := uint64(util.Milliseconds() - PeriodOldData)
 	logger.Tracef("isOldData key: %v; time: %d; now: %d", message[:util.PacketStart], time, min)
@@ -178,7 +182,7 @@ func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
 		return
 	}
 	if len(val) < systemBytes {
-		err = fmt.Errorf("to short result: %v", val)
+		err = fmt.Errorf("got short result: %v", val)
 		return
 	}
 	terminalID := util.TerminalID(key)
