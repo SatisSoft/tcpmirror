@@ -353,8 +353,8 @@ func Test_controlMessage(t *testing.T) {
 	numOfPackets := 0
 	numOfNdtpServers := 1
 	numOfTerminals := 1
-	go mockTerminalWithControl(t, "localhost:7080", numOfPackets)
-	go mockNdtpMasterWithControl(t, "localhost:7081")
+	go mockTerminalWithControl(t, "localhost:6080", numOfPackets)
+	go mockNdtpMasterWithControl(t, "localhost:6081")
 	go server.Start()
 	time.Sleep(3 * time.Second)
 	res, err := getAllKeys(conn)
@@ -363,5 +363,210 @@ func Test_controlMessage(t *testing.T) {
 	}
 	expected := numOfTerminals + numOfNdtpServers*numOfTerminals + numOfPackets*numOfNdtpServers*numOfTerminals
 	logrus.Println("start 1 test")
+	checkKeyNum(t, res, expected)
+}
+
+func Test_serverStartAllOff(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	err := flag.Set("conf", "./testconfig/all_off.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := db.Connect("localhost:9999")
+	if err := clearDB(conn); err != nil {
+		t.Fatal(err)
+	}
+	numOfPackets := 10
+	numOfNdtpServers := 2
+	numOfEgtsServers := 1
+	numOfTerminals := 1
+	go mockTerminalAllOff(t, "localhost:7080", numOfPackets)
+	go server.Start()
+	time.Sleep(1 * time.Second)
+	res, err := getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := numOfTerminals*2 + numOfTerminals + numOfPackets + 1
+	logrus.Println("start 1 test")
+	checkKeyNum(t, res, expected)
+	time.Sleep(8 * time.Second)
+	go mockTerminalAllOff(t, "localhost:7080", 0)
+	go mockNdtpMaster(t, "localhost:7082")
+	go mockNdtpServer(t, "localhost:7083")
+	go mockEgtsServer(t, "localhost:7081")
+	time.Sleep(11 * time.Second)
+	res, err = getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
+	logrus.Println("start 2 test")
+	checkKeyNum(t, res, expected)
+}
+
+func Test_serverStartThreeNdtp3(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	err := flag.Set("conf", "./testconfig/three_servers_ndtp3.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := db.Connect("localhost:9999")
+	if err := clearDB(conn); err != nil {
+		t.Fatal(err)
+	}
+	numOfPackets := 10
+	numOfNdtpServers := 3
+	numOfEgtsServers := 1
+	numOfTerminals := 1
+	go mockTerminal(t, "localhost:7090", numOfPackets)
+	go mockNdtpMaster(t, "localhost:7092")
+	go mockNdtpServer(t, "localhost:7093")
+	go mockNdtpServer(t, "localhost:7094")
+	go mockEgtsServer(t, "localhost:7091")
+	go server.Start()
+	time.Sleep(2 * time.Second)
+	res, err := getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
+	logrus.Println("start 1 test")
+	checkKeyNum(t, res, expected)
+	time.Sleep(2 * time.Second)
+	res, err = getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
+	logrus.Println("start 2 test")
+	checkKeyNum(t, res, expected)
+}
+
+func Test_serverStartThreeEgts3(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	err := flag.Set("conf", "./testconfig/three_servers_egts3.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := db.Connect("localhost:9999")
+	if err := clearDB(conn); err != nil {
+		t.Fatal(err)
+	}
+	numOfPackets := 10
+	numOfNdtpServers := 2
+	numOfEgtsServers := 3
+	numOfTerminals := 1
+	go mockTerminal(t, "localhost:7100", numOfPackets)
+	go mockNdtpMaster(t, "localhost:7104")
+	go mockNdtpServer(t, "localhost:7105")
+	go mockEgtsServer(t, "localhost:7101")
+	go mockEgtsServer(t, "localhost:7102")
+	go mockEgtsServer(t, "localhost:7103")
+	go server.Start()
+	time.Sleep(2 * time.Second)
+	res, err := getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := numOfTerminals*2 + (numOfNdtpServers+numOfEgtsServers)*numOfTerminals + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
+	logrus.Println("start 1 test")
+	checkKeyNum(t, res, expected)
+	time.Sleep(2 * time.Second)
+	res, err = getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
+	logrus.Println("start 2 test")
+	checkKeyNum(t, res, expected)
+}
+
+func Test_serverStartThreeTerminals100(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	err := flag.Set("conf", "./testconfig/three_servers_terminals100.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := db.Connect("localhost:9999")
+	if err := clearDB(conn); err != nil {
+		t.Fatal(err)
+	}
+	numOfPackets := 10
+	numOfNdtpServers := 2
+	numOfEgtsServers := 1
+	numOfTerminals := 3
+	for i := 0; i < numOfTerminals; i++ {
+		go mockTerminals100(t, "localhost:7200", numOfPackets, i)
+	}
+	go mockNdtpMaster(t, "localhost:7201")
+	go mockNdtpServer(t, "localhost:7202")
+	go mockEgtsServer(t, "localhost:7203")
+	go server.Start()
+	time.Sleep(10 * time.Second)
+	res, err := getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
+	logrus.Println("start 1 test")
+	checkKeyNum(t, res, expected)
+
+	time.Sleep(10 * time.Second)
+	res, err = getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
+	logrus.Println("start 2 test")
+	checkKeyNum(t, res, expected)
+
+}
+
+func Test_serverStartThreeNdtp3Egts3Terminals100(t *testing.T) {
+	logrus.SetReportCaller(true)
+	logrus.SetLevel(logrus.TraceLevel)
+	err := flag.Set("conf", "./testconfig/three_servers_ndtp3_egts3_terminals100.toml")
+	if err != nil {
+		t.Fatal(err)
+	}
+	conn := db.Connect("localhost:9999")
+	if err := clearDB(conn); err != nil {
+		t.Fatal(err)
+	}
+	numOfPackets := 10
+	numOfNdtpServers := 3
+	numOfEgtsServers := 3
+	numOfTerminals := 3
+	for i := 0; i < numOfTerminals; i++ {
+		go mockTerminals100(t, "localhost:7300", numOfPackets, i)
+	}
+	go mockNdtpMaster(t, "localhost:7304")
+	go mockNdtpServer(t, "localhost:7305")
+	go mockNdtpServer(t, "localhost:7306")
+	go mockEgtsServer(t, "localhost:7301")
+	go mockEgtsServer(t, "localhost:7302")
+	go mockEgtsServer(t, "localhost:7303")
+	go server.Start()
+	time.Sleep(10 * time.Second)
+	res, err := getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected := numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers + numOfPackets*(numOfNdtpServers+numOfEgtsServers)*numOfTerminals
+	logrus.Println("start 1 test")
+	checkKeyNum(t, res, expected)
+
+	time.Sleep(10 * time.Second)
+	res, err = getAllKeys(conn)
+	if err != nil {
+		t.Fatal(err)
+	}
+	expected = numOfTerminals*2 + numOfNdtpServers*numOfTerminals + numOfEgtsServers
+	logrus.Println("start 2 test")
 	checkKeyNum(t, res, expected)
 }
