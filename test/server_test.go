@@ -383,7 +383,7 @@ func Test_serverStartAllOff(t *testing.T) {
 	numOfTerminals := 1
 	go mockTerminalAllOff(t, "localhost:7080", numOfPackets)
 	go server.Start()
-	time.Sleep(1 * time.Second)
+	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
 	if err != nil {
 		t.Error(err)
