@@ -3,6 +3,7 @@ package db
 import (
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
+	"github.com/sirupsen/logrus"
 	"strconv"
 )
 
@@ -14,13 +15,21 @@ func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, packetID []byte) er
 }
 
 // ConfirmEgts sets confirm bite for corresponding system to 1 and deletes confirmed packets
-func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte) error {
+func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entry,
+	confChan chan *ConfMsg) error {
 	key := util.EgtsName + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
 	res, err := redis.Bytes(conn.Do("GET", key))
 	if err != nil {
 		return err
 	}
-	return markSysConfirmed(conn, sysID, res)
+	data := &ConfMsg{key: res, sysID: sysID}
+	select {
+	case confChan <- data:
+		return nil
+	default:
+		logger.Warningln("channel is full")
+	}
+	return nil
 }
 
 // OldPacketsEGTS returns not confirmed packets for corresponding system

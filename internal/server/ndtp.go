@@ -26,9 +26,10 @@ type ndtpServer struct {
 	ndtpClients []client.Client
 	channels    []chan []byte
 	packetNum   uint32
+	confChan	chan *db.ConfMsg
 }
 
-func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System) {
+func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
 	pool := db.NewPool(options.DB)
 	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}))
 	l, err := net.Listen("tcp", listen)
@@ -43,12 +44,13 @@ func startNdtpServer(listen string, options *util.Options, channels []chan []byt
 			logrus.Errorf("error while accepting: %s", err)
 		}
 		logrus.Printf("accepted connection (%s <-> %s)", c.RemoteAddr(), c.LocalAddr())
-		go initNdtpServer(c, pool, options, channels, systems)
+		go initNdtpServer(c, pool, options, channels, systems, confChan)
 	}
 }
 
-func initNdtpServer(c net.Conn, pool *db.Pool, options *util.Options, channels []chan []byte, systems []util.System) {
-	s, err := newNdtpServer(c, pool, options, channels, systems)
+func initNdtpServer(c net.Conn, pool *db.Pool, options *util.Options, channels []chan []byte, systems []util.System,
+	confChan chan *db.ConfMsg) {
+	s, err := newNdtpServer(c, pool, options, channels, systems, confChan)
 	if err != nil {
 		logrus.Errorf("error during initialization new ndtp server: %s", err)
 		return
@@ -65,9 +67,10 @@ func initNdtpServer(c net.Conn, pool *db.Pool, options *util.Options, channels [
 	s.serverLoop()
 }
 
-func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels []chan []byte, systems []util.System) (*ndtpServer, error) {
+func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels []chan []byte, systems []util.System,
+	confChan chan *db.ConfMsg) (*ndtpServer, error) {
 	exitChan := make(chan struct{})
-	master, clients, err := initNdtpClients(systems, options, pool, exitChan)
+	master, clients, err := initNdtpClients(systems, options, pool, exitChan, confChan)
 	if err != nil {
 		return nil, err
 	}
@@ -259,7 +262,8 @@ func ip(c net.Conn) net.IP {
 	return ip1.To4()
 }
 
-func initNdtpClients(systems []util.System, options *util.Options, pool *db.Pool, exitChan chan struct{}) (master client.Client, clients []client.Client, err error) {
+func initNdtpClients(systems []util.System, options *util.Options, pool *db.Pool, exitChan chan struct{},
+	confChan chan *db.ConfMsg) (master client.Client, clients []client.Client, err error) {
 	for _, sys := range systems {
 		if sys.IsMaster {
 			if master != nil {
@@ -268,12 +272,12 @@ func initNdtpClients(systems []util.System, options *util.Options, pool *db.Pool
 			}
 			logrus.Tracef("systems: %+v", sys)
 			logrus.Tracef("options: %+v", sys)
-			master = client.NewNdtpMaster(sys, options, pool, exitChan)
+			master = client.NewNdtpMaster(sys, options, pool, exitChan, confChan)
 			logrus.Tracef("master: %+v", master)
 		} else {
 			switch sys.Protocol {
 			case "NDTP":
-				c := client.NewNdtp(sys, options, pool, exitChan)
+				c := client.NewNdtp(sys, options, pool, exitChan, confChan)
 				clients = append(clients, c)
 			default:
 				continue

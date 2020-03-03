@@ -24,10 +24,12 @@ type NdtpMaster struct {
 	*info
 	*ndtpSession
 	*connection
+	confChan chan *db.ConfMsg
 }
 
 // NewNdtpMaster creates new NdtpMaster client
-func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitChan chan struct{}) *NdtpMaster {
+func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitChan chan struct{},
+	confChan chan *db.ConfMsg) *NdtpMaster {
 	c := new(NdtpMaster)
 	c.info = new(info)
 	c.ndtpSession = new(ndtpSession)
@@ -40,6 +42,7 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 	c.Output = make(chan []byte, NdtpMasterChanSize)
 	c.exitChan = exitChan
 	c.pool = pool
+	c.confChan = confChan
 	return c
 }
 
@@ -249,7 +252,7 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 	}
 	res := packetData.Nph.Data.(uint32)
 	if res == ndtp.NphResultOk {
-		err = db.ConfirmNdtp(c.pool, c.terminalID, packetData.Nph.ReqID, c.id, c.logger)
+		err = db.ConfirmNdtp(c.pool, c.terminalID, packetData.Nph.ReqID, c.id, c.logger, c.confChan)
 	} else {
 		c.logger.Warningf("got nph result error: %d", res)
 	}
@@ -288,7 +291,7 @@ func (c *NdtpMaster) checkOld() {
 }
 
 func (c *NdtpMaster) resend(messages [][]byte) {
-	messages = reverceSlice(messages)
+	messages = reverseSlice(messages)
 	for _, mes := range messages {
 		data := util.Deserialize(mes)
 		packet := data.Packet

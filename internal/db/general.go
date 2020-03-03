@@ -12,8 +12,9 @@ import (
 
 const systemBytes = 4
 
-// SysNumber is a number of clients
+
 var (
+	// SysNumber is a number of clients
 	SysNumber         int
 	KeyEx             int
 	PeriodNotConfData int64
@@ -102,48 +103,6 @@ func writeZeroConfirmation(c redis.Conn, time uint64, key []byte) error {
 	val := make([]byte, 12)
 	binary.LittleEndian.PutUint64(val[4:], time)
 	_, err := c.Do("SET", key, val, "ex", util.Sec3Days)
-	return err
-}
-func markSysConfirmed(conn redis.Conn, sysID byte, key []byte) error {
-	logrus.Tracef("markSysConfirmed sysID %d, key %v", sysID, key)
-	_, err := conn.Do("SETBIT", key, sysID, 1)
-	if err != nil {
-		return err
-	}
-	return maybeDelete(conn, key)
-}
-
-func maybeDelete(conn redis.Conn, key []byte) error {
-	n, err := redis.Int(conn.Do("BITCOUNT", key, 0, systemBytes-1))
-	logrus.Tracef("maybeDelete n = %d, key %v", n, key)
-	if err == nil && n == SysNumber {
-		err = deletePacket(conn, key)
-	}
-	return err
-}
-
-func deletePacket(conn redis.Conn, key []byte) error {
-	packet, err := findPacket(conn, key)
-	logrus.Tracef("deletePacket key = %v, packet = %v, err = %v", key, packet, err)
-	if err != nil {
-		return err
-	}
-	terminalID := util.TerminalID(key)
-	res, err := conn.Do("ZREM", util.EgtsName, key)
-	logrus.Tracef("del 1 res = %v, err = %v", res, err)
-	if err != nil {
-		return err
-	}
-	res, err = conn.Do("ZREM", terminalID, packet)
-	logrus.Tracef("del 2 res = %v, err = %v", res, err)
-	if err != nil {
-		return err
-	}
-	res, err = conn.Do("DEL", key)
-	logrus.Tracef("del 3 res = %v, err = %v", res, err)
-	if err != nil {
-		return err
-	}
 	return err
 }
 

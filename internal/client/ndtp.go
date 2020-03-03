@@ -30,10 +30,12 @@ type Ndtp struct {
 	*info
 	*ndtpSession
 	*connection
+	confChan chan *db.ConfMsg
 }
 
 // NewNdtp creates new Ndtp client
-func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan chan struct{}) *Ndtp {
+func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan chan struct{},
+	confChan chan *db.ConfMsg) *Ndtp {
 	c := new(Ndtp)
 	c.info = new(info)
 	c.ndtpSession = new(ndtpSession)
@@ -45,6 +47,7 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 	c.Input = make(chan []byte, NdtpChanSize)
 	c.exitChan = exitChan
 	c.pool = pool
+	c.confChan = confChan
 	return c
 }
 
@@ -236,7 +239,7 @@ func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
 func (c *Ndtp) handleResult(packetData *ndtp.Packet) (err error) {
 	res := packetData.Nph.Data.(uint32)
 	if res == ndtp.NphResultOk {
-		err = db.ConfirmNdtp(c.pool, c.terminalID, packetData.Nph.ReqID, c.id, c.logger)
+		err = db.ConfirmNdtp(c.pool, c.terminalID, packetData.Nph.ReqID, c.id, c.logger, c.confChan)
 	} else {
 		c.logger.Warningf("got nph result error: %d", res)
 	}
@@ -274,7 +277,7 @@ func (c *Ndtp) checkOld() {
 }
 
 func (c *Ndtp) resend(messages [][]byte) {
-	messages = reverceSlice(messages)
+	messages = reverseSlice(messages)
 	for _, mes := range messages {
 		data := util.Deserialize(mes)
 		packet := data.Packet
@@ -282,7 +285,7 @@ func (c *Ndtp) resend(messages [][]byte) {
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
 		}
-		c.logger.Tracef("set nphID %d to resended message %v", nphID, packet)
+		c.logger.Tracef("set nphID %d to resend message %v", nphID, packet)
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
 		newPacket := ndtp.Change(packet, changes)
 		util.PrintPacket(c.logger, "resend message: ", newPacket)
@@ -301,7 +304,7 @@ func (c *Ndtp) resend(messages [][]byte) {
 	}
 }
 
-func reverceSlice(res [][]byte) [][]byte {
+func reverseSlice(res [][]byte) [][]byte {
 	for i := len(res)/2 - 1; i >= 0; i-- {
 		opp := len(res) - 1 - i
 		res[i], res[opp] = res[opp], res[i]

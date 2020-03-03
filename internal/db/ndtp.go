@@ -49,7 +49,8 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 }
 
 // ConfirmNdtp sets confirm bite for corresponding system to 1 and deletes confirmed packets
-func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *logrus.Entry) error {
+func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *logrus.Entry,
+	confChan chan *ConfMsg) error {
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
@@ -58,7 +59,16 @@ func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *l
 	if err != nil {
 		return err
 	}
-	return markSysConfirmed(conn, sysID, res)
+	data := &ConfMsg{key: res, sysID: sysID}
+	logger.Tracef("Send to confChan: %v", data)
+	logger.Tracef("deleteManChan: %v", confChan)
+	select {
+	case confChan <- data:
+		return nil
+	default:
+		logger.Warningln("channel is full")
+	}
+	return nil
 }
 
 // SetNph writes Nph ID to db

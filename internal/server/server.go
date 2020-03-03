@@ -30,13 +30,19 @@ func Start() {
 		logrus.Error("can't init server:", err)
 		os.Exit(1)
 	}
-	egtsClients, err := initEgtsClients(options, args)
+	deleteManager := initDeleteManager(options, args)
+	egtsClients, err := initEgtsClients(options, args, deleteManager.Chan)
 	if err != nil {
 		logrus.Error("can't init clients:", err)
 		os.Exit(1)
 	}
 	startClients(egtsClients)
-	startServer(args, options, egtsClients)
+	startServer(args, options, egtsClients, deleteManager.Chan)
+}
+
+func initDeleteManager(options *util.Options, args *util.Args) *db.DeleteManager {
+	systemIds := getSystemIds(args.Systems)
+	return db.InitDeleteManager(options.DB, systemIds)
 }
 
 func initialize(args *util.Args) (options *util.Options, err error) {
@@ -50,23 +56,45 @@ func initialize(args *util.Args) (options *util.Options, err error) {
 	options.DB = args.DB
 	if options.DB == "" {
 		err = errors.New("no DB server address")
+		return
 	}
+	initParams(args)
+	return
+}
+
+func initParams(args *util.Args) {
+	initDBParams(args)
+	initClientParams(args)
+}
+
+func initDBParams(args *util.Args) {
 	db.SysNumber = len(args.Systems)
 	db.KeyEx = args.KeyEx
 	db.PeriodNotConfData = args.PeriodNotConfData
 	db.PeriodOldData = args.PeriodOldData
+}
+
+func initClientParams(args *util.Args) {
 	client.TimeoutClose = args.TimeoutClose
 	client.TimeoutErrorReply = args.TimeoutErrorReply
 	client.TimeoutReconnect = args.TimeoutReconnect
 	client.PeriodCheckOld = args.PeriodCheckOld
-	return
 }
 
-func initEgtsClients(options *util.Options, args *util.Args) (egtsClients []client.Client, err error) {
+
+func getSystemIds(systems []util.System) []byte {
+	ids := make([]byte, len(systems))
+	for i, system := range systems {
+		ids[i] = system.ID
+	}
+	return ids
+}
+
+func initEgtsClients(options *util.Options, args *util.Args, confChan chan *db.ConfMsg) (egtsClients []client.Client, err error) {
 	for _, sys := range args.Systems {
 		switch sys.Protocol {
 		case "EGTS":
-			c := client.NewEgts(sys, options)
+			c := client.NewEgts(sys, options, confChan)
 			egtsClients = append(egtsClients, c)
 		default:
 			continue
@@ -75,14 +103,14 @@ func initEgtsClients(options *util.Options, args *util.Args) (egtsClients []clie
 	return
 }
 
-func startServer(args *util.Args, options *util.Options, egtsClients []client.Client) {
+func startServer(args *util.Args, options *util.Options, egtsClients []client.Client, confChan chan *db.ConfMsg) {
 	listen := args.Listen
 	logrus.Tracef("egts clients: %v", egtsClients)
 	channels := inputChanels(egtsClients)
 	logrus.Tracef("input channels: %v", channels)
 	switch args.Protocol {
 	case "NDTP":
-		startNdtpServer(listen, options, channels, args.Systems)
+		startNdtpServer(listen, options, channels, args.Systems, confChan)
 	default:
 		logrus.Errorf("undefined server protocol: %s", args.Protocol)
 	}

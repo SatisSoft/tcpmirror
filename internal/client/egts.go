@@ -20,8 +20,8 @@ type Egts struct {
 	dbConn db.Conn
 	*info
 	*egtsSession
-	//dbConn db.Conn
 	*connection
+	confChan chan *db.ConfMsg
 }
 
 type egtsSession struct {
@@ -31,7 +31,7 @@ type egtsSession struct {
 }
 
 // NewEgts creates new Egts client
-func NewEgts(sys util.System, options *util.Options) *Egts {
+func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) *Egts {
 	c := new(Egts)
 	c.info = new(info)
 	c.egtsSession = new(egtsSession)
@@ -41,6 +41,7 @@ func NewEgts(sys util.System, options *util.Options) *Egts {
 	c.logger = logrus.WithFields(logrus.Fields{"type": "egts_client", "vis": sys.ID})
 	c.Options = options
 	c.Input = make(chan []byte, EgtsChanSize)
+	c.confChan = confChan
 	return c
 }
 
@@ -254,7 +255,7 @@ func (c *Egts) handleReply(dbConn db.Conn, sub *egts.SubRecord) (err error) {
 }
 
 func (c *Egts) handleSuccessReply(dbConn db.Conn, crn uint16) (err error) {
-	err = db.ConfirmEgts(dbConn, crn, c.id)
+	err = db.ConfirmEgts(dbConn, crn, c.id, c.logger, c.confChan)
 	return
 }
 
