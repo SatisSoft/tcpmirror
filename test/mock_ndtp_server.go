@@ -46,7 +46,7 @@ func startMockNdtpClient(t *testing.T, conn net.Conn, logger *logrus.Entry) {
 	for {
 		err := receiveAndReply(t, conn, logger)
 		if err != nil {
-			logger.Tracef("got error: %v", err)
+			logger.Errorf("got error: %v", err)
 			return
 		}
 	}
@@ -56,7 +56,7 @@ func startMockNdtpClientGuaranteedDelivery(t *testing.T, conn net.Conn, logger *
 	for i := 0; i < num; i++ {
 		err := receiveAndReply(t, conn, logger)
 		if err != nil {
-			logger.Tracef("got error: %v", err)
+			logger.Errorf("got error: %v", err)
 			return
 		}
 	}

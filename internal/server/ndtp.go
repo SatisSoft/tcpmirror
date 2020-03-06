@@ -55,7 +55,6 @@ func initNdtpServer(c net.Conn, pool *db.Pool, options *util.Options, channels [
 		logrus.Errorf("error during initialization new ndtp server: %s", err)
 		return
 	}
-	s.logger.Tracef("newNdtpServer: %+v", s)
 	err = s.waitFirstMessage()
 	if err != nil {
 		s.logger.Errorf("error getting new message: %s", err)
@@ -97,7 +96,6 @@ func (s *ndtpServer) receiveFromMaster() {
 		case <-s.exitChan:
 			return
 		case packet := <-s.masterOut:
-			s.logger.Tracef("received packet from master: %v", packet)
 			err := s.send2terminal(packet)
 			if err != nil {
 				close(s.exitChan)
@@ -111,31 +109,24 @@ func (s *ndtpServer) serverLoop() {
 	var buf []byte
 	var b [defaultBufferSize]byte
 	for {
-		s.logger.Debug("start reading from client")
 		if err := s.conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
 			s.logger.Warningf("can't set read dead line: %s", err)
 		}
 		n, err := s.conn.Read(b[:])
-		s.logger.Debugf("received %d from client", n)
 		util.PrintPacket(s.logger, "packet from client: ", b[:n])
-		//todo remove after testing
-		util.PrintPacketForDebugging(s.logger, "parsed packet from client:", b[:n])
 		if err != nil {
 			s.logger.Info("close ndtpServer: ", err)
 			close(s.exitChan)
 			return
 		}
 		buf = append(buf, b[:n]...)
-		s.logger.Debugf("len(buf) = %d", len(buf))
 		buf = s.processBuf(buf)
 	}
 }
 
 func (s *ndtpServer) processBuf(buf []byte) []byte {
 	for len(buf) > 0 {
-		packet, rest, service, _, nphID, err := ndtp.SimpleParse(buf)
-		s.logger.Tracef("service: %d, nphID: %d, packet: %v, err: %v", service, nphID, packet, err)
-		s.logger.Tracef("len packet: %d, len buf: %d, service: %d", len(packet), len(rest), service)
+		packet, rest, service, _, _, err := ndtp.SimpleParse(buf)
 		if err != nil {
 			if len(rest) > defaultBufferSize {
 				s.logger.Warningf("drop buffer: %s", err)
@@ -186,13 +177,11 @@ func (s *ndtpServer) waitFirstMessage() error {
 		s.logger.Warningf("can't get first message from client: %s", err)
 		return err
 	}
-	s.logger.Debugf("got first message from client %s", s.conn.RemoteAddr())
 	util.PrintPacket(s.logger, "receive first packet: ", b[:n])
 	return s.handleFirstMessage(b[:n])
 }
 
 func (s *ndtpServer) startClients() {
-	s.logger.Tracef("start clients: %v", s.ndtpClients)
 	for _, c := range s.ndtpClients {
 		go client.Start(c)
 	}
@@ -236,8 +225,6 @@ func (s *ndtpServer) handleFirstMessage(mes []byte) (err error) {
 func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 	util.PrintPacket(s.logger, "send to terminal:", packet)
 	err = s.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
-	//todo remove after testing
-	util.PrintPacketForDebugging(s.logger, "parsed packet to client:", packet)
 	if err != nil {
 		return
 	}
@@ -270,10 +257,7 @@ func initNdtpClients(systems []util.System, options *util.Options, pool *db.Pool
 				err = errors.New("could be only one master system")
 				return
 			}
-			logrus.Tracef("systems: %+v", sys)
-			logrus.Tracef("options: %+v", sys)
 			master = client.NewNdtpMaster(sys, options, pool, exitChan, confChan)
-			logrus.Tracef("master: %+v", master)
 		} else {
 			switch sys.Protocol {
 			case "NDTP":
@@ -288,7 +272,6 @@ func initNdtpClients(systems []util.System, options *util.Options, pool *db.Pool
 }
 
 func (s *ndtpServer) send2Channels(data []byte) {
-	s.logger.Tracef("send2Channels %v : %v", s.channels, data)
 	for _, channel := range s.channels {
 		s.send2Channel(channel, data)
 	}

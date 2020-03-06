@@ -12,7 +12,6 @@ func WriteNDTPid(pool *Pool, sysID byte, terminalID int, nphID uint32, packID []
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
-	logger.Tracef("writeNdtpID key: %v", key)
 	_, err := c.Do("SET", key, packID, "ex", KeyEx)
 	return err
 }
@@ -32,7 +31,6 @@ func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error
 	defer util.CloseAndLog(c, logger)
 	key := "conn:" + strconv.Itoa(terminalID)
 	res, err := redis.Bytes(c.Do("GET", key))
-	logger.Tracef("ReadConnDB err: %v; key: %v; res: %v", err, key, res)
 	return res, err
 }
 
@@ -41,7 +39,6 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 	all, err := allNotConfirmedNdtp(conn, terminalID, logger)
-	logger.Tracef("allNotConfirmed: %v, %v", err, all)
 	if err != nil {
 		return nil, err
 	}
@@ -60,8 +57,6 @@ func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *l
 		return err
 	}
 	data := &ConfMsg{key: res, sysID: sysID}
-	logger.Tracef("Send to confChan: %v", data)
-	logger.Tracef("deleteManChan: %v", confChan)
 	select {
 	case confChan <- data:
 		return nil
@@ -76,8 +71,7 @@ func SetNph(pool *Pool, sysID byte, terminalID int, nphID uint32, logger *logrus
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 	key := "max:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID)
-	res, err := conn.Do("SET", key, nphID)
-	logger.Tracef("SetNph key: %v, r: %v, nphID: %v; err: %v", key, res, nphID, err)
+	_, err := conn.Do("SET", key, nphID)
 	return err
 }
 
@@ -87,7 +81,6 @@ func GetNph(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) (uint3
 	defer util.CloseAndLog(conn, logger)
 	key := "max:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID)
 	nphID, err := redis.Int(conn.Do("GET", key))
-	logger.Tracef("GetNph key: %v, nphID: %d, err: %v", key, nphID, err)
 	if err == redis.ErrNil {
 		return 0, nil
 	}
@@ -95,15 +88,12 @@ func GetNph(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) (uint3
 }
 
 func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte, logger *logrus.Entry) error {
-	logger.Tracef("write2Ndtp terminalID: %v, time: %v; sdata: %v", terminalID, time, sdata)
-	res, err := c.Do("ZADD", terminalID, time, sdata)
-	logger.Tracef("write2Ndtp terminalID: %v, time: %v; sdata: %v; res: %v; err: %v", terminalID, time, sdata, res, err)
+	_, err := c.Do("ZADD", terminalID, time, sdata)
 	return err
 }
 
 func allNotConfirmedNdtp(conn redis.Conn, terminalID int, logger *logrus.Entry) ([][]byte, error) {
 	max := util.Milliseconds() - PeriodNotConfData
-	logger.Tracef("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", 0, 60000))
 }
 
@@ -113,13 +103,11 @@ func getNotConfirmed(conn redis.Conn, sysID byte, packets [][]byte, logger *logr
 		id := packet[:util.PacketStart]
 		isConf, err := isConfirmed(conn, id, sysID)
 		if err != nil {
-			logger.Tracef("getNotConfirmed 1: sysID: %v, err: %v", sysID, res)
 			return nil, err
 		}
 		if !isConf {
 			res = append(res, packet)
 		}
 	}
-	logger.Tracef("getNotConfirmed 2: sysID: %v, res: %v", sysID, res)
 	return res, nil
 }

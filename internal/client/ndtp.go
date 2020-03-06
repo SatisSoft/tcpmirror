@@ -57,7 +57,6 @@ func (c *Ndtp) start() {
 	if err != nil {
 		c.logger.Errorf("can't setNph: %v", err)
 	}
-	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
 		c.logger.Errorf("error while connecting to NDTP server %d: %s", c.id, err)
@@ -93,14 +92,12 @@ func (c *Ndtp) SetID(terminalID int) {
 }
 
 func (c *Ndtp) authorization() error {
-	c.logger.Traceln("start authorization")
 	err := c.sendFirstMessage()
 	if err != nil {
 		return err
 	}
 	var b [defaultBufferSize]byte
 	n, err := c.conn.Read(b[:])
-	c.logger.Tracef("received auth reply from server: %v; %v", err, b[:n])
 	if err != nil {
 		return err
 	}
@@ -111,7 +108,6 @@ func (c *Ndtp) authorization() error {
 	if !c.auth {
 		return errors.New("didn't receive auth packet during authorization")
 	}
-	c.logger.Traceln("authorization succeeded")
 	return nil
 }
 
@@ -145,7 +141,6 @@ func (c *Ndtp) handleMessage(message []byte) {
 	data := util.Deserialize(message)
 	packet := data.Packet
 	nphID, err := c.getNphID()
-	c.logger.Tracef("set nphID %d to packet %v", nphID, packet)
 	if err != nil {
 		c.logger.Errorf("can't get NPH ID: %v", err)
 		return
@@ -207,13 +202,11 @@ func (c *Ndtp) waitServerMessage(buf []byte) []byte {
 func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
 	var err error
 	for len(buf) > 0 {
-		c.logger.Tracef("process buff: %v", buf)
 		packetData := new(ndtp.Packet)
 		buf, err = packetData.Parse(buf)
 		if err != nil {
 			return buf, err
 		}
-		c.logger.Tracef("packet: %d buf: %d service: %d packetType: %s", len(packetData.Packet), len(buf), packetData.Service(), packetData.PacketType())
 		if packetData.IsResult() && packetData.Service() == ndtp.NphSrvNavdata {
 			err = c.handleResult(packetData)
 			if err != nil {
@@ -224,7 +217,6 @@ func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
 				if c.auth {
 					c.logger.Warningf("expected result navdata, but received %v", packetData)
 				} else {
-					c.logger.Tracef("received auth reply")
 					c.auth = true
 				}
 			} else {
@@ -265,9 +257,7 @@ func (c *Ndtp) old() {
 }
 
 func (c *Ndtp) checkOld() {
-	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
-	c.logger.Tracef("receive old: %v, %v ", err, res)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
 	} else {
@@ -285,7 +275,6 @@ func (c *Ndtp) resend(messages [][]byte) {
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
 		}
-		c.logger.Tracef("set nphID %d to resend message %v", nphID, packet)
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
 		newPacket := ndtp.Change(packet, changes)
 		util.PrintPacket(c.logger, "resend message: ", newPacket)
@@ -331,11 +320,9 @@ func send(conn net.Conn, packet []byte) error {
 }
 
 func (c *Ndtp) getNphID() (uint32, error) {
-	c.logger.Tracef("getNphID")
 	c.mu.Lock()
 	nphID := c.nphID
 	c.nphID++
-	c.logger.Tracef("getNphID: %v", c.nphID)
 	err := db.SetNph(c.pool, c.id, c.terminalID, c.nphID, c.logger)
 	c.mu.Unlock()
 	return nphID, err
@@ -349,7 +336,7 @@ func (c *Ndtp) connStatus() {
 	}
 	c.reconnecting = true
 	if err := c.conn.Close(); err != nil {
-		c.logger.Debugf("can't close servConn: %s", err)
+		c.logger.Warningf("can't close servConn: %s", err)
 	}
 	c.open = false
 	c.auth = false

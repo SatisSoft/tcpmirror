@@ -19,13 +19,11 @@ var packetControlReply = []byte{126, 126, 18, 0, 2, 0, 95, 251, 2, 0, 4, 0, 0, 0
 
 func sendAndReceive(t *testing.T, c net.Conn, packet []byte, logger *logrus.Entry) (err error) {
 	err = send(c, packet)
-	logger.Tracef("send: %v", packet)
 	if err != nil {
 		return
 	}
 	var b [defaultBufferSize]byte
-	n, err := c.Read(b[:])
-	logger.Tracef("receive: %v", b[:n])
+	_, err = c.Read(b[:])
 	return
 }
 

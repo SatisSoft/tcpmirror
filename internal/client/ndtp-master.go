@@ -52,7 +52,6 @@ func (c *NdtpMaster) start() {
 	if err != nil {
 		c.logger.Errorf("can't setNph: %v", err)
 	}
-	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
 		c.logger.Errorf("error while connecting to NDTP master server %d: %s", c.id, err)
@@ -88,14 +87,12 @@ func (c *NdtpMaster) SetID(terminalID int) {
 }
 
 func (c *NdtpMaster) authorization() error {
-	c.logger.Traceln("start authorization")
 	err := c.sendFirstMessage()
 	if err != nil {
 		return err
 	}
 	var b [defaultBufferSize]byte
 	n, err := c.conn.Read(b[:])
-	c.logger.Tracef("received auth reply from server: %v; %v", err, b[:n])
 	if err != nil {
 		return err
 	}
@@ -106,7 +103,6 @@ func (c *NdtpMaster) authorization() error {
 	if !c.auth {
 		return errors.New("didn't receive auth packet during authorization")
 	}
-	c.logger.Traceln("authorization succeeded")
 	return nil
 }
 
@@ -163,7 +159,6 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 			c.connStatus()
 		}
 	} else {
-		c.logger.Tracef("send control packet to server: %v", packet)
 		err := c.send2Server(packet)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
@@ -213,14 +208,11 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 }
 
 func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
-	//c.logger.Tracef("start process packet: %d, %d", len(buf), len(rest))
 	for len(buf) > 0 {
-		c.logger.Tracef("process buff: %v", buf)
 		var service, packetType uint16
 		var err error
 		var packet []byte
 		packet, buf, service, packetType, _, err = ndtp.SimpleParse(buf)
-		c.logger.Tracef("packet: %d buf: %d service: %d packetType: %d", len(packet), len(buf), service, packetType)
 		if err != nil {
 			return buf, err
 		}
@@ -233,7 +225,6 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 			if c.auth {
 				c.send2Channel(c.Output, packet)
 			} else {
-				c.logger.Tracef("received auth reply")
 				c.auth = true
 			}
 			continue
@@ -261,7 +252,6 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 
 func (c *NdtpMaster) old() {
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
-	c.logger.Traceln("start old ticker")
 	c.checkOld()
 	defer ticker.Stop()
 	for {
@@ -279,9 +269,7 @@ func (c *NdtpMaster) old() {
 }
 
 func (c *NdtpMaster) checkOld() {
-	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
-	c.logger.Tracef("receive old: %v, %v ", err, res)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
 	} else {
@@ -343,7 +331,7 @@ func (c *NdtpMaster) connStatus() {
 	}
 	c.reconnecting = true
 	if err := c.conn.Close(); err != nil {
-		c.logger.Debugf("can't close servConn: %s", err)
+		c.logger.Warningf("can't close servConn: %s", err)
 	}
 	c.open = false
 	c.auth = false

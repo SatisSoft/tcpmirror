@@ -16,8 +16,7 @@ func PrintPacket(logger *logrus.Entry, s string, slice []byte) {
 		text := strconv.Itoa(int(number))
 		sliceText = append(sliceText, text)
 	}
-	result := strings.Join(sliceText, ",")
-	logger.Debugf("%s {%s}", s, result)
+	_ = strings.Join(sliceText, ",")
 }
 
 // CloseAndLog closes entity and log message if error occurs
@@ -31,8 +30,7 @@ func CloseAndLog(c io.Closer, logger *logrus.Entry) {
 // PrintPacketForDebugging prints packet for debugging purpose
 func PrintPacketForDebugging(logger *logrus.Entry, s string, slice []byte) {
 	packetData := new(ndtp.Packet)
-	rest, err := packetData.Parse(slice)
-	logger.Debugf("%s: %v; rest: %v, err: %v", s, packetData, rest, err)
+	_, _ = packetData.Parse(slice)
 }
 
 // Copy creates copy of binary packet

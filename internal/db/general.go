@@ -16,18 +16,20 @@ const systemBytes = 4
 var (
 	// SysNumber is a number of clients
 	SysNumber         int
+	// KeyEx is time before packet is expired
 	KeyEx             int
+	// PeriodNodConfData is how old data must be before sending it again
 	PeriodNotConfData int64
+	// PeriodOldData is how old data must be for considering old
 	PeriodOldData     int64
+
 )
 
 // Write2DB writes packet with metadata to DB
 func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (err error) {
-	logger.Tracef("Write2DB terminalID: %d, sdata: %v", terminalID, sdata)
 	time := util.Milliseconds()
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
-	logger.Tracef("writeZeroConfirmation time: %v; key: %v", time, sdata[:util.PacketStart])
 	err = writeZeroConfirmation(c, uint64(time), sdata[:util.PacketStart])
 	if err != nil {
 		return
@@ -80,9 +82,7 @@ func IsOldData(pool *Pool, message []byte, logger *logrus.Entry) bool {
 // CheckOldData checks if message is old and should not be sending again
 func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
 	val, err := redis.Bytes(conn.Do("GET", message[:util.PacketStart]))
-	logger.Tracef("isOldData err: %v; key: %v; val: %v", err, message[:util.PacketStart], val)
 	if err == redis.ErrNil {
-		logger.Tracef("isOldData detected empty result: %v;", val)
 		return true
 	}
 	if len(val) < systemBytes {
@@ -91,9 +91,7 @@ func CheckOldData(conn redis.Conn, message []byte, logger *logrus.Entry) bool {
 	}
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
 	min := uint64(util.Milliseconds() - PeriodOldData)
-	logger.Tracef("isOldData key: %v; time: %d; now: %d", message[:util.PacketStart], time, min)
 	if time < min {
-		logger.Tracef("isOldData detected old time: %d, val: %v", time, val)
 		return true
 	}
 	return false
@@ -122,12 +120,10 @@ func sysNotConfirmed(conn redis.Conn, data [][]byte, sysID byte) ([][]byte, erro
 
 func isConfirmed(conn redis.Conn, id []byte, sysID byte) (isConf bool, err error) {
 	ex, err := redis.Int(conn.Do("EXISTS", id))
-	logrus.Tracef("isConfirmed ex: %v; err: %v", ex, err)
 	if ex == 0 {
 		return true, err
 	}
 	b, err := redis.Int(conn.Do("GETBIT", id, sysID))
-	logrus.Tracef("isConfirmed b: %v; err: %v; sysID: %d; id %v;", b, err, sysID, id)
 	if b == 1 {
 		isConf = true
 	}
@@ -136,7 +132,6 @@ func isConfirmed(conn redis.Conn, id []byte, sysID byte) (isConf bool, err error
 
 func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
 	val, err := redis.Bytes(conn.Do("GET", key))
-	logrus.Tracef("findPack key = %v, val = %v, err = %v", key, val, err)
 	if err != nil {
 		return
 	}

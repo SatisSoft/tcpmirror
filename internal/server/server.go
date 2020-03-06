@@ -105,9 +105,7 @@ func initEgtsClients(options *util.Options, args *util.Args, confChan chan *db.C
 
 func startServer(args *util.Args, options *util.Options, egtsClients []client.Client, confChan chan *db.ConfMsg) {
 	listen := args.Listen
-	logrus.Tracef("egts clients: %v", egtsClients)
 	channels := inputChanels(egtsClients)
-	logrus.Tracef("input channels: %v", channels)
 	switch args.Protocol {
 	case "NDTP":
 		startNdtpServer(listen, options, channels, args.Systems, confChan)
@@ -117,7 +115,6 @@ func startServer(args *util.Args, options *util.Options, egtsClients []client.Cl
 }
 
 func startClients(clients []client.Client) {
-	logrus.Tracef("start clients: %v", clients)
 	for _, c := range clients {
 		go client.Start(c)
 	}

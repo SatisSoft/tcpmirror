@@ -15,9 +15,13 @@ const (
 )
 
 var (
+	// PeriodCheckOld is period for checking old data
 	PeriodCheckOld    int
+	// TimeoutClose is period for checking if connection is open
 	TimeoutClose      int
+	// TimeoutErrorReply is time before retrying receive reply from server
 	TimeoutErrorReply int
+	// TimeoutReconnect is timeout between reconnection
 	TimeoutReconnect  int
 )
 

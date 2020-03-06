@@ -10,7 +10,7 @@ import (
 
 func mockNdtpMaster(t *testing.T, addr string) {
 	logger := logrus.WithFields(logrus.Fields{"test": "mock_master"})
-	logger.Tracef("start mock_master")
+	logger.Debugf("start mock_master")
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		t.Error(err)
@@ -29,7 +29,7 @@ func mockNdtpMaster(t *testing.T, addr string) {
 
 func mockNdtpMasterWithControl(t *testing.T, addr string) {
 	logger := logrus.WithFields(logrus.Fields{"test": "mock_master"})
-	logger.Tracef("start mock_master")
+	logger.Debugf("start mock_master")
 	l, err := net.Listen("tcp", addr)
 	if err != nil {
 		t.Error(err)
@@ -50,7 +50,7 @@ func startMockNdtpMaster(t *testing.T, conn net.Conn, logger *logrus.Entry) {
 	for {
 		err := receiveAndReply(t, conn, logger)
 		if err != nil {
-			logger.Tracef("got error: %v", err)
+			logger.Errorf("can't start master terminal: %v", err)
 			return
 		}
 	}
@@ -59,7 +59,7 @@ func startMockNdtpMaster(t *testing.T, conn net.Conn, logger *logrus.Entry) {
 func startWithControl(t *testing.T, conn net.Conn, logger *logrus.Entry) {
 	err := sendAndReceiveControl(t, conn, logger)
 	if err != nil {
-		logger.Tracef("got error: %v", err)
+		logger.Errorf("got error: %v", err)
 		return
 	}
 }
@@ -67,20 +67,20 @@ func startWithControl(t *testing.T, conn net.Conn, logger *logrus.Entry) {
 func sendAndReceiveControl(t *testing.T, c net.Conn, logger *logrus.Entry) (err error) {
 	err = receiveAndReply(t, c, logger)
 	if err != nil {
-		logger.Tracef("got error: %v", err)
+		logger.Errorf("got error: %v", err)
 		return
 	}
 	err = send(c, packetControl)
-	logger.Tracef("send: %v", packetControl)
+	logger.Debugf("send: %v", packetControl)
 	if err != nil {
 		return
 	}
 	var b [defaultBufferSize]byte
 	n, err := c.Read(b[:])
-	logger.Tracef("receive: %v", b[:n])
+	logger.Debugf("receive: %v", b[:n])
 	if !bytes.Equal(b[:n], packetControlReply) {
-		logger.Tracef("expected: %v", packetControlReply)
-		logger.Tracef("got: %v", b[:n])
+		logger.Errorf("expected: %v", packetControlReply)
+		logger.Errorf("got: %v", b[:n])
 		t.Errorf("expected control packet reply but received %s", b[:n])
 	}
 	return

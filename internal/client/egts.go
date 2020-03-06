@@ -56,7 +56,6 @@ func (c *Egts) OutputChannel() chan []byte {
 }
 
 func (c *Egts) start() {
-	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
 		c.logger.Errorf("error while connecting to EGTS server: %s", err)
@@ -113,7 +112,6 @@ func (c *Egts) clientLoop() {
 func (c *Egts) processMessage(dbConn db.Conn, message []byte, buf []byte) []byte {
 	util.PrintPacket(c.logger, "serialized data: ", message)
 	data := util.Deserialize(message)
-	c.logger.Tracef("data: %+v", data)
 	messageID, recID, err := c.ids(dbConn)
 	if err != nil {
 		c.logger.Errorf("can't get ids: %s", err)
@@ -177,7 +175,6 @@ func (c *Egts) replyHandler() {
 	for {
 		if c.open {
 			buf = c.waitReply(dbConn, buf)
-			c.logger.Tracef("replyRestBuf: %v", buf)
 		} else {
 			buf = []byte(nil)
 			c.logger.Warningf("EGTS server closed")
@@ -199,7 +196,6 @@ func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
 		return []byte(nil)
 	}
 	util.PrintPacket(c.logger, "received packet: ", b[:n])
-	c.logger.Tracef("packetLen: %d", n)
 	restBuf = append(restBuf, b[:n]...)
 	return c.handleReplyLoop(dbConn, restBuf)
 }
@@ -267,22 +263,19 @@ OLDLOOP:
 	for {
 		if c.open {
 			<-ticker.C
-			c.logger.Debugf("start checking old data")
 			messages, err := db.OldPacketsEGTS(dbConn, c.id)
 			if err != nil {
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue
 			}
-			c.logger.Debugf("get %d old packets", len(messages))
 			var buf []byte
 			var i int
 			for _, msg := range messages {
 				buf = c.processMessage(dbConn, msg, buf)
 				i++
 				if i > 9 {
-					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
 					if err = c.sendOld(buf); err != nil {
-						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
+						c.logger.Errorf("can't send packet to EGTS server: %v; %v", err, buf)
 						continue OLDLOOP
 					}
 					i = 0
@@ -290,7 +283,6 @@ OLDLOOP:
 				}
 			}
 			if len(buf) > 0 {
-				c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
 				c.send(buf)
 			}
 		} else {
@@ -304,7 +296,6 @@ func (c *Egts) conStatus() {
 	logger.Println("start conStatus")
 	c.mu.Lock()
 	defer c.mu.Unlock()
-	logger.Debugf("closed: %t; recon: %t", c.open, c.reconnecting)
 	if !c.open || c.reconnecting {
 		return
 	}
