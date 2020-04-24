@@ -2,7 +2,8 @@ package monitoring
 
 import (
 	"github.com/ashirko/go-metrics"
-	graphite "github.com/ashirko/go-metrics-graphite"
+	"github.com/ashirko/tcpmirror/internal/util"
+	graphite "github.com/egorban/go-metrics-graphite"
 	"github.com/sirupsen/logrus"
 	"net"
 )
@@ -12,14 +13,15 @@ func Init(address string) (enable bool, err error) {
 		logrus.Println("start without sending metrics to graphite")
 		return
 	}
-	addr, err := net.ResolveTCPAddr("tcp", address)
+	addr, err := net.ResolveUDPAddr("udp", address)
 	if err != nil {
 		logrus.Errorf("error while connecting to graphite: %s\n", err)
 		return
 	}
 	regitsterMetrics()
-	logrus.Println("start sending metrics to graphite")
-	go graphite.Graphite(metrics.DefaultRegistry, 10*10e8, "ndtpserv.metrics", addr)
+	logrus.Infof("start sending metrics to graphite to %+s, prefix: %+s",
+    	    address, util.InstancePrefix)
+	go graphite.Graphite(metrics.DefaultRegistry, 3e10, util.InstancePrefix, addr)
 	go periodicSysMon()
 	return true, nil
 }

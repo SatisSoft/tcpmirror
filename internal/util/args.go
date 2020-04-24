@@ -66,6 +66,7 @@ var (
 	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
 	// EgtsName is prefix for storing data in DB for different consumer systems
 	EgtsName string
+	InstancePrefix string
 )
 
 // ParseArgs parses configuration file
@@ -81,6 +82,8 @@ func parseConfig(conf string) (args *Args, err error) {
 	if err = viper.ReadInConfig(); err != nil {
 		return
 	}
+	confName := strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
+	InstancePrefix = "tcpmirror."+confName + "_instance.metrics"
 	args.DB = viper.GetString(db)
 	args.Listen = viper.GetString(listen)
 	args.Protocol = viper.GetString(protocol)
@@ -116,7 +119,7 @@ func parseConfig(conf string) (args *Args, err error) {
 		args.TimeoutReconnect = 10
 	}
 	args.TestMode = viper.GetBool(testMode)
-	EgtsName = egtsKey + ":" + strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
+	EgtsName = egtsKey + ":" + confName
 	return
 }
 
