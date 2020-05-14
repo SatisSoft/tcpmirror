@@ -317,6 +317,7 @@ func (c *Egts) conStatus() {
 	if err := c.conn.Close(); err != nil {
 		logger.Errorf("can't close egtsConn: %s", err)
 	}
+	c.open = false
 	monitoring.DelConn(c.Options, c.name)
 	res := c.reconnect()
 	if res {
