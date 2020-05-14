@@ -82,7 +82,7 @@ func monSystemConns(monClient *influx.Client) {
 }
 
 func monRedisPkts(monClient *influx.Client) {
-	logrus.Println("start monitoring redis unconfirmed packets with period:", periodMonRedisUnConfPkts)
+	logrus.Println("start monitoring redis connections with period:", periodMonRedisUnConfPkts)
 	for {
 		time.Sleep(periodMonRedisUnConfPkts)
 		conn := db.Connect(dbAddress)
