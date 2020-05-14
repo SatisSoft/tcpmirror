@@ -1,11 +1,12 @@
 package client
 
 import (
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -40,6 +41,7 @@ type info struct {
 	address string
 	logger  *logrus.Entry
 	*util.Options
+	name string
 }
 
 // Start client

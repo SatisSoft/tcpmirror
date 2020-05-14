@@ -2,13 +2,14 @@ package server
 
 import (
 	"errors"
+	"os"
+	"time"
+
 	"github.com/ashirko/tcpmirror/internal/client"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
-	"os"
-	"time"
 )
 
 const (
@@ -49,7 +50,7 @@ func initialize(args *util.Args) (options *util.Options, err error) {
 	logrus.SetReportCaller(args.TestMode)
 	logrus.SetLevel(args.LogLevel)
 	options = new(util.Options)
-	options.Mon, err = monitoring.Init(args.Monitoring)
+	options.MonEnable, options.MonСlient, err = monitoring.Init(args)
 	if err != nil {
 		return
 	}
@@ -80,7 +81,6 @@ func initClientParams(args *util.Args) {
 	client.TimeoutReconnect = args.TimeoutReconnect
 	client.PeriodCheckOld = args.PeriodCheckOld
 }
-
 
 func getSystemIds(systems []util.System) []byte {
 	ids := make([]byte, len(systems))

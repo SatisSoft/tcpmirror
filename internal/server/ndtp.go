@@ -3,30 +3,33 @@ package server
 import (
 	"errors"
 	"fmt"
-	"github.com/ashirko/navprot/pkg/ndtp"
-	"github.com/ashirko/tcpmirror/internal/client"
-	"github.com/ashirko/tcpmirror/internal/db"
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/ashirko/navprot/pkg/ndtp"
+	"github.com/ashirko/tcpmirror/internal/client"
+	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 type ndtpServer struct {
-	conn        net.Conn
-	terminalID  int
-	sessionID   int
-	logger      *logrus.Entry
-	pool        *db.Pool
-	exitChan    chan struct{}
-	mon         bool
+	conn       net.Conn
+	terminalID int
+	sessionID  int
+	logger     *logrus.Entry
+	pool       *db.Pool
+	exitChan   chan struct{}
+	*util.Options
 	masterIn    chan []byte
 	masterOut   chan []byte
 	ndtpClients []client.Client
 	channels    []chan []byte
 	packetNum   uint32
-	confChan	chan *db.ConfMsg
+	confChan    chan *db.ConfMsg
+	name        string
 }
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
@@ -83,11 +86,12 @@ func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 		logger:      logrus.WithField("type", "ndtp_server"),
 		pool:        pool,
 		exitChan:    exitChan,
-		mon:         options.Mon,
+		Options:     options,
 		masterIn:    master.InputChannel(),
 		masterOut:   master.OutputChannel(),
 		ndtpClients: append(clients, master),
 		channels:    channels,
+		name:        monitoring.TerminalName,
 	}, nil
 }
 
@@ -97,17 +101,20 @@ func (s *ndtpServer) receiveFromMaster() {
 		case <-s.exitChan:
 			return
 		case packet := <-s.masterOut:
+			monitoring.SendMetric(s.Options, s.name, monitoring.QueuedPkts, len(s.masterOut))
 			s.logger.Tracef("received packet from master: %v", packet)
 			err := s.send2terminal(packet)
 			if err != nil {
 				close(s.exitChan)
 				return
 			}
+			monitoring.SendMetric(s.Options, s.name, monitoring.SentPkts, 1)
 		}
 	}
 }
 
 func (s *ndtpServer) serverLoop() {
+	monitoring.NewConn(s.Options, s.name)
 	var buf []byte
 	var b [defaultBufferSize]byte
 	for {
@@ -116,22 +123,27 @@ func (s *ndtpServer) serverLoop() {
 			s.logger.Warningf("can't set read dead line: %s", err)
 		}
 		n, err := s.conn.Read(b[:])
+		monitoring.SendMetric(s.Options, s.name, monitoring.RcvdBytes, n)
 		s.logger.Debugf("received %d from client", n)
 		util.PrintPacket(s.logger, "packet from client: ", b[:n])
 		//todo remove after testing
 		util.PrintPacketForDebugging(s.logger, "parsed packet from client:", b[:n])
 		if err != nil {
 			s.logger.Info("close ndtpServer: ", err)
+			monitoring.DelConn(s.Options, s.name)
 			close(s.exitChan)
 			return
 		}
 		buf = append(buf, b[:n]...)
 		s.logger.Debugf("len(buf) = %d", len(buf))
-		buf = s.processBuf(buf)
+		var numPacks uint
+		buf, numPacks = s.processBuf(buf)
+		monitoring.SendMetric(s.Options, s.name, monitoring.RcvdPkts, numPacks)
 	}
 }
 
-func (s *ndtpServer) processBuf(buf []byte) []byte {
+func (s *ndtpServer) processBuf(buf []byte) ([]byte, uint) {
+	countPack := uint(0)
 	for len(buf) > 0 {
 		packet, rest, service, _, nphID, err := ndtp.SimpleParse(buf)
 		s.logger.Tracef("service: %d, nphID: %d, packet: %v, err: %v", service, nphID, packet, err)
@@ -139,18 +151,19 @@ func (s *ndtpServer) processBuf(buf []byte) []byte {
 		if err != nil {
 			if len(rest) > defaultBufferSize {
 				s.logger.Warningf("drop buffer: %s", err)
-				return []byte(nil)
+				return []byte(nil), countPack
 			}
-			return rest
+			return rest, countPack
 		}
 		buf = rest
 		err = s.processPacket(packet, service)
 		if err != nil {
 			s.logger.Warningf("can't process message from client: %s", err)
-			return []byte(nil)
+			return []byte(nil), countPack
 		}
+		countPack++
 	}
-	return buf
+	return buf, countPack
 }
 
 func (s *ndtpServer) processPacket(packet []byte, service uint16) (err error) {
@@ -182,6 +195,7 @@ func (s *ndtpServer) waitFirstMessage() error {
 		s.logger.Warningf("can't set ReadDeadLine for client connection: %s", err)
 	}
 	n, err := s.conn.Read(b[:])
+	monitoring.SendMetric(s.Options, s.name, monitoring.RcvdBytes, n)
 	if err != nil {
 		s.logger.Warningf("can't get first message from client: %s", err)
 		return err
@@ -215,6 +229,7 @@ func (s *ndtpServer) handleFirstMessage(mes []byte) (err error) {
 		err = fmt.Errorf("setSessionID error: %s", err)
 		return
 	}
+	monitoring.SendMetric(s.Options, s.name, monitoring.RcvdPkts, 1)
 	s.setIDClients()
 	ip := ip(s.conn)
 	packetData.ChangeAddress(ip)
@@ -241,7 +256,9 @@ func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 	if err != nil {
 		return
 	}
-	_, err = s.conn.Write(packet)
+	var n int
+	n, err = s.conn.Write(packet)
+	monitoring.SendMetric(s.Options, s.name, monitoring.SentBytes, n)
 	return
 }
 

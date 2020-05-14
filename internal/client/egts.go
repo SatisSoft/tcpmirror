@@ -2,13 +2,15 @@ package client
 
 import (
 	"fmt"
-	"github.com/ashirko/navprot/pkg/egts"
-	"github.com/ashirko/tcpmirror/internal/db"
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/ashirko/navprot/pkg/egts"
+	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 // EgtsChanSize defines size of EGTS client input chanel buffer
@@ -37,6 +39,7 @@ func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) 
 	c.egtsSession = new(egtsSession)
 	c.connection = new(connection)
 	c.id = sys.ID
+	c.name = sys.Name
 	c.address = sys.Address
 	c.logger = logrus.WithFields(logrus.Fields{"type": "egts_client", "vis": sys.ID})
 	c.Options = options
@@ -71,6 +74,7 @@ func (c *Egts) start() {
 }
 
 func (c *Egts) clientLoop() {
+	monitoring.NewConn(c.Options, c.name)
 	dbConn := db.Connect(c.DB)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
@@ -85,19 +89,26 @@ func (c *Egts) clientLoop() {
 		if c.open {
 			select {
 			case message := <-c.Input:
+				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				if db.CheckOldData(dbConn, message, c.logger) {
 					continue
 				}
 				buf = c.processMessage(dbConn, message, buf)
 				count++
 				if count == 10 {
-					c.send(buf)
+					err := c.send(buf)
+					if err == nil {
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+					}
 					buf = []byte(nil)
 					count = 0
 				}
 			case <-sendTicker.C:
 				if (count > 0) && (count < 10) {
-					c.send(buf)
+					err := c.send(buf)
+					if err == nil {
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+					}
 					buf = []byte(nil)
 					count = 0
 				}
@@ -144,28 +155,17 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 	return egtsMessageID, egtsRecID, err
 }
 
-func (c *Egts) send(buf []byte) {
-	if c.open {
-		util.PrintPacket(c.logger, "sending packet: ", buf)
-		if err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
-			c.logger.Warningf("can't SetWriteDeadline: %s", err)
-		}
-		_, err := c.conn.Write(buf)
-		if err != nil {
-			c.conStatus()
-		}
-	}
-}
-
-func (c *Egts) sendOld(buf []byte) (err error) {
+func (c *Egts) send(buf []byte) (err error) {
 	if c.open {
 		util.PrintPacket(c.logger, "sending packet: ", buf)
 		if err = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
 			c.logger.Warningf("can't SetWriteDeadline: %s", err)
 		}
-		_, err = c.conn.Write(buf)
+		n, err := c.conn.Write(buf)
 		if err != nil {
 			c.conStatus()
+		} else {
+			monitoring.SendMetric(c.Options, c.name, monitoring.SentBytes, n)
 		}
 	}
 	return err
@@ -198,6 +198,7 @@ func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
 		time.Sleep(time.Duration(TimeoutErrorReply) * time.Second)
 		return []byte(nil)
 	}
+	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
 	util.PrintPacket(c.logger, "received packet: ", b[:n])
 	c.logger.Tracef("packetLen: %d", n)
 	restBuf = append(restBuf, b[:n]...)
@@ -281,17 +282,21 @@ OLDLOOP:
 				i++
 				if i > 9 {
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
-					if err = c.sendOld(buf); err != nil {
+					if err = c.send(buf); err != nil {
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 						continue OLDLOOP
 					}
+					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
 					i = 0
 					buf = []byte(nil)
 				}
 			}
 			if len(buf) > 0 {
 				c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
-				c.send(buf)
+				err := c.send(buf)
+				if err == nil {
+					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
+				}
 			}
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
@@ -312,11 +317,14 @@ func (c *Egts) conStatus() {
 	if err := c.conn.Close(); err != nil {
 		logger.Errorf("can't close egtsConn: %s", err)
 	}
-	c.open = false
-	c.reconnect()
+	monitoring.DelConn(c.Options, c.name)
+	res := c.reconnect()
+	if res {
+		monitoring.NewConn(c.Options, c.name)
+	}
 }
 
-func (c *Egts) reconnect() {
+func (c *Egts) reconnect() (res bool) {
 	c.logger.Println("start reconnecting")
 	for {
 		for i := 0; i < 3; i++ {
@@ -327,7 +335,7 @@ func (c *Egts) reconnect() {
 				c.open = true
 				c.logger.Println("reconnected")
 				go c.updateRecStatus()
-				return
+				return true
 			}
 			c.logger.Warningf("error while reconnecting to EGTS server: %s", err)
 		}

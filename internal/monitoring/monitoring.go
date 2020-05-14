@@ -1,43 +1,81 @@
 package monitoring
 
 import (
-	"github.com/ashirko/go-metrics"
-	"github.com/shirou/gopsutil/load"
-	"github.com/shirou/gopsutil/mem"
-	"github.com/sirupsen/logrus"
 	"time"
+
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/egorban/influx/pkg/influx"
+	"github.com/sirupsen/logrus"
+)
+
+const (
+	TerminalName = "terminal"
+
+	visTable   = "vis"
+	attTable   = "source"
+	redisTable = "redis"
+
+	periodMonSystemConns     = 10 * time.Second
+	periodMonRedisConns      = 60 * time.Second
+	periodMonRedisUnConfPkts = 60 * time.Second
 )
 
 var (
-	countClientNDTP     metrics.Counter
-	countToServerNDTP   metrics.Counter
-	countFromServerNDTP metrics.Counter
-	countServerEGTS     metrics.Counter
-	memFree             metrics.Gauge
-	memUsed             metrics.Gauge
-	cpu15               metrics.GaugeFloat64
-	cpu1                metrics.GaugeFloat64
-	usedPercent         metrics.GaugeFloat64
-	EnableMetrics       bool
+	host      string
+	dbAddress string
+	dbPort    uint16
 )
 
-func periodicSysMon() {
-	for {
-		v, err := mem.VirtualMemory()
-		if err != nil {
-			logrus.Errorf("periodic mem mon error: %s", err)
-		} else {
-			memFree.Update(int64(v.Free))
-			memUsed.Update(int64(v.Used))
-			usedPercent.Update(v.UsedPercent)
-		}
-		c, err := load.Avg()
-		if err != nil {
-			logrus.Errorf("periodic cpu mon error: %s", err)
-		} else {
-			cpu1.Update(c.Load1)
-			cpu15.Update(c.Load15)
-		}
-		time.Sleep(10 * time.Second)
+func Init(args *util.Args) (monEnable bool, monClient *influx.Client, err error) {
+	monAddress := args.Monitoring
+	if monAddress == "" {
+		logrus.Println("start without sending metrics to influx")
+		return
 	}
+	monClient, err = influx.NewClient(monAddress)
+	if err != nil {
+		logrus.Println("error while connecting to influx", err)
+		return
+	}
+	host = getHost()
+	monEnable = true
+	startRedisPeriodicMon(monClient, args)
+	startSystemsPeriodicMon(monClient, args)
+	return
+}
+func startSystemsPeriodicMon(monClient *influx.Client, args *util.Args) {
+	systems := args.Systems
+	if systems == nil {
+		logrus.Println("start without monitoring system connections")
+		return
+	}
+
+	sysConns.muNums.Lock()
+	defer sysConns.muNums.Unlock()
+	sysConns.nums = make(map[string]uint64, len(systems)+1)
+	sysConns.nums[TerminalName] = 0
+	for _, sys := range systems {
+		sysConns.nums[sys.Name] = 0
+	}
+
+	go monSystemConns(monClient)
+}
+
+func startRedisPeriodicMon(monClient *influx.Client, args *util.Args) {
+	dbAddress = args.DB
+	if dbAddress == "" {
+		logrus.Println("start without monitoring redis")
+		return
+	}
+
+	go monRedisPkts(monClient)
+
+	go func() {
+		dbPort = getRedisPort()
+		if dbPort == 0 {
+			logrus.Println("start without monitoring redis connections")
+			return
+		}
+		monRedisConns(monClient)
+	}()
 }

@@ -2,10 +2,13 @@ package util
 
 import (
 	"flag"
+	"path/filepath"
+	"strconv"
+	"strings"
+
+	"github.com/egorban/influx/pkg/influx"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"path/filepath"
-	"strings"
 )
 
 const (
@@ -31,6 +34,7 @@ type System struct {
 	Address  string
 	Protocol string
 	IsMaster bool
+	Name     string
 }
 
 // Args contains parsed params from configuration file
@@ -55,7 +59,9 @@ type Args struct {
 // Options contains information about DB options and monitoring options
 type Options struct {
 	// Is monitoring enabled
-	Mon bool
+	MonEnable bool
+	// Monitoring client
+	MonСlient *influx.Client
 	// DB sever address
 	DB string
 }
@@ -66,7 +72,7 @@ var (
 	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
 	// EgtsName is prefix for storing data in DB for different consumer systems
 	EgtsName string
-	InstancePrefix string
+	Instance string
 )
 
 // ParseArgs parses configuration file
@@ -82,8 +88,6 @@ func parseConfig(conf string) (args *Args, err error) {
 	if err = viper.ReadInConfig(); err != nil {
 		return
 	}
-	confName := strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
-	InstancePrefix = "tcpmirror."+confName + "_instance.metrics"
 	args.DB = viper.GetString(db)
 	args.Listen = viper.GetString(listen)
 	args.Protocol = viper.GetString(protocol)
@@ -119,7 +123,8 @@ func parseConfig(conf string) (args *Args, err error) {
 		args.TimeoutReconnect = 10
 	}
 	args.TestMode = viper.GetBool(testMode)
-	EgtsName = egtsKey + ":" + confName
+	Instance = strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
+	EgtsName = egtsKey + ":" + Instance
 	return
 }
 
@@ -135,9 +140,11 @@ func parseSystems(list []string) []System {
 func parseSystem(key string) System {
 	data := viper.GetStringMap(key)
 	sys := System{}
-	sys.ID = byte(data["id"].(int64))
+	id := data["id"].(int64)
+	sys.ID = byte(id)
 	sys.Address = data["address"].(string)
 	sys.Protocol = data["protocol"].(string)
 	sys.IsMaster = data["master"].(bool)
+	sys.Name = strconv.FormatInt(id, 10) + "_" + key + "_" + sys.Protocol
 	return sys
 }

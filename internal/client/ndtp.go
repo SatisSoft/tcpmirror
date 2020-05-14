@@ -2,13 +2,15 @@ package client
 
 import (
 	"errors"
-	"github.com/ashirko/navprot/pkg/ndtp"
-	"github.com/ashirko/tcpmirror/internal/db"
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"sync"
 	"time"
+
+	"github.com/ashirko/navprot/pkg/ndtp"
+	"github.com/ashirko/tcpmirror/internal/db"
+	"github.com/ashirko/tcpmirror/internal/monitoring"
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 // NdtpChanSize defines size of Ndtp client input chanel buffer
@@ -41,6 +43,7 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 	c.ndtpSession = new(ndtpSession)
 	c.connection = new(connection)
 	c.id = sys.ID
+	c.name = sys.Name
 	c.address = sys.Address
 	c.logger = logrus.WithFields(logrus.Fields{"type": "ndtp_client", "vis": sys.ID})
 	c.Options = options
@@ -104,6 +107,7 @@ func (c *Ndtp) authorization() error {
 	if err != nil {
 		return err
 	}
+	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
 	_, err = c.processPacket(b[:n])
 	if err != nil {
 		return err
@@ -116,12 +120,14 @@ func (c *Ndtp) authorization() error {
 }
 
 func (c *Ndtp) clientLoop() {
+	monitoring.NewConn(c.Options, c.name)
 	for {
 		if c.open {
 			select {
 			case <-c.exitChan:
 				return
 			case message := <-c.Input:
+				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessage(message)
 			}
 		} else {
@@ -192,6 +198,7 @@ func (c *Ndtp) waitServerMessage(buf []byte) []byte {
 		time.Sleep(5 * time.Second)
 		return nil
 	}
+	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
 	util.PrintPacket(c.logger, "received packet from server ", b[:n])
 	buf = append(buf, b[:n]...)
 	buf, err = c.processPacket(buf)
@@ -225,6 +232,7 @@ func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
 					c.logger.Warningf("expected result navdata, but received %v", packetData)
 				} else {
 					c.logger.Tracef("received auth reply")
+					monitoring.SendMetric(c.Options, c.name, monitoring.RcvdPkts, 1)
 					c.auth = true
 				}
 			} else {
@@ -315,18 +323,22 @@ func reverseSlice(res [][]byte) [][]byte {
 func (c *Ndtp) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
 	if c.open {
-		return send(c.conn, packet)
+		return c.send(packet)
 	}
 	c.connStatus()
 	return errors.New("connection to server is closed")
 }
 
-func send(conn net.Conn, packet []byte) error {
-	err := conn.SetWriteDeadline(time.Now().Add(writeTimeout))
+func (c *Ndtp) send(packet []byte) error {
+	err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	if err != nil {
 		return err
 	}
-	_, err = conn.Write(packet)
+	n, err := c.conn.Write(packet)
+	if err == nil {
+		monitoring.SendMetric(c.Options, c.name, monitoring.SentBytes, n)
+		monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, 1)
+	}
 	return err
 }
 
@@ -353,16 +365,20 @@ func (c *Ndtp) connStatus() {
 	}
 	c.open = false
 	c.auth = false
-	c.reconnect()
+	monitoring.DelConn(c.Options, c.name)
+	res := c.reconnect()
+	if res {
+		monitoring.NewConn(c.Options, c.name)
+	}
 }
 
-func (c *Ndtp) reconnect() {
+func (c *Ndtp) reconnect() (res bool) {
 	c.logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {
 			if c.serverClosed() {
 				c.logger.Println("close because server is closed")
-				return
+				return false
 			}
 			conn, err := net.Dial("tcp", c.address)
 			if err != nil {
@@ -375,7 +391,7 @@ func (c *Ndtp) reconnect() {
 				if err == nil {
 					c.logger.Printf("reconnected")
 					go c.chanReconStatus()
-					return
+					return true
 				}
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
 			}
