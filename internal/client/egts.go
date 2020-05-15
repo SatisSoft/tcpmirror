@@ -74,7 +74,7 @@ func (c *Egts) start() {
 }
 
 func (c *Egts) clientLoop() {
-	monitoring.NewConn(c.Options, c.name)
+	//	monitoring.NewConn(c.Options, c.name)
 	dbConn := db.Connect(c.DB)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
@@ -318,10 +318,10 @@ func (c *Egts) conStatus() {
 		logger.Errorf("can't close egtsConn: %s", err)
 	}
 	c.open = false
-	monitoring.DelConn(c.Options, c.name)
+	//	monitoring.DelConn(c.Options, c.name)
 	res := c.reconnect()
 	if res {
-		monitoring.NewConn(c.Options, c.name)
+		//	monitoring.NewConn(c.Options, c.name)
 	}
 }
 

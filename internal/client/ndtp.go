@@ -120,7 +120,7 @@ func (c *Ndtp) authorization() error {
 }
 
 func (c *Ndtp) clientLoop() {
-	monitoring.NewConn(c.Options, c.name)
+	//monitoring.NewConn(c.Options, c.name)
 	for {
 		if c.open {
 			select {
@@ -365,10 +365,10 @@ func (c *Ndtp) connStatus() {
 	}
 	c.open = false
 	c.auth = false
-	monitoring.DelConn(c.Options, c.name)
+	//	monitoring.DelConn(c.Options, c.name)
 	res := c.reconnect()
 	if res {
-		monitoring.NewConn(c.Options, c.name)
+		//monitoring.NewConn(c.Options, c.name)
 	}
 }
 

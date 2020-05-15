@@ -2,8 +2,6 @@ package monitoring
 
 import (
 	"bytes"
-	"math"
-	"sync"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/db"
@@ -14,10 +12,10 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type systemConns struct {
-	nums   map[string]uint64
-	muNums sync.Mutex
-}
+// type systemConns struct {
+// 	nums   map[string]uint64
+// 	muNums sync.Mutex
+// }
 
 const (
 	SentBytes  = "sentBytes"
@@ -30,10 +28,6 @@ const (
 	unConfPkts = "unConfPkts"
 )
 
-var (
-	sysConns systemConns
-)
-
 func SendMetric(options *util.Options, systemName string, metricName string, value interface{}) {
 	if !options.MonEnable {
 		return
@@ -41,44 +35,52 @@ func SendMetric(options *util.Options, systemName string, metricName string, val
 	options.MonСlient.WritePoint(formPoint(systemName, metricName, value))
 }
 
-func NewConn(options *util.Options, systemName string) {
-	if !options.MonEnable {
-		return
-	}
-	sysConns.muNums.Lock()
-	numConn := sysConns.nums[systemName]
-	if numConn < math.MaxUint64 {
-		numConn++
-		sysConns.nums[systemName] = numConn
-	}
-	sysConns.muNums.Unlock()
-	options.MonСlient.WritePoint(formPoint(systemName, numConns, numConn))
-}
-
-func DelConn(options *util.Options, systemName string) {
-	if !options.MonEnable {
-		return
-	}
-	sysConns.muNums.Lock()
-	numConn := sysConns.nums[systemName]
-	if numConn > 0 {
-		numConn--
-		sysConns.nums[systemName] = numConn
-	}
-	sysConns.muNums.Unlock()
-	options.MonСlient.WritePoint(formPoint(systemName, numConns, numConn))
-}
-
-func monSystemConns(monClient *influx.Client) {
+func monSystemConns(monClient *influx.Client, systems []sysInfo) {
 	logrus.Println("start monitoring system connections with period:", periodMonSystemConns)
 	for {
 		time.Sleep(periodMonSystemConns)
-		sysConns.muNums.Lock()
-		for systemName, n := range sysConns.nums {
-			monClient.WritePoint(formPoint(systemName, numConns, n))
+		n, err := getSourceConns()
+		if err == nil {
+			monClient.WritePoint(formPoint(TerminalName, numConns, n))
 		}
-		sysConns.muNums.Unlock()
+		for _, sys := range systems {
+			n, _ := getSystemConns(sys)
+			monClient.WritePoint(formPoint(sys.name, numConns, n))
+		}
 	}
+}
+
+func getSourceConns() (n int, err error) {
+	tabs, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
+		return s.State == netstat.Established && s.LocalAddr.Port == listenPort
+	})
+	if err != nil {
+		logrus.Println("error get source connections:", err)
+		return
+	}
+	n = len(tabs)
+	return
+}
+
+func getSystemConns(sys sysInfo) (n int, err error) {
+	tabs, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
+		return s.State == netstat.Established &&
+			s.RemoteAddr.IP.String() == sys.ipAddress &&
+			s.RemoteAddr.Port == sys.port
+	})
+	if err != nil {
+		logrus.Println("error get source connections:", err)
+		return
+	}
+
+	for _, e := range tabs {
+		if e.Process != nil {
+			if e.Process.Pid == pidInstance {
+				n = n + 1
+			}
+		}
+	}
+	return
 }
 
 func monRedisPkts(monClient *influx.Client) {

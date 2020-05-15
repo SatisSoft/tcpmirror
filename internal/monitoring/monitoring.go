@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"os"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -21,10 +22,19 @@ const (
 )
 
 var (
-	host      string
-	dbAddress string
-	dbPort    uint16
+	host        string
+	dbPort      uint16
+	dbAddress   string
+	listenPort  uint16
+	pidInstance int
+	systems     []sysInfo
 )
+
+type sysInfo struct {
+	name      string
+	ipAddress string
+	port      uint16
+}
 
 func Init(args *util.Args) (monEnable bool, monClient *influx.Client, err error) {
 	monAddress := args.Monitoring
@@ -44,21 +54,43 @@ func Init(args *util.Args) (monEnable bool, monClient *influx.Client, err error)
 	return
 }
 func startSystemsPeriodicMon(monClient *influx.Client, args *util.Args) {
-	systems := args.Systems
-	if systems == nil {
-		logrus.Println("start without monitoring system connections")
+	s := args.Systems
+	if s == nil {
+		logrus.Println("error get systems, start without monitoring system connections")
 		return
 	}
-
-	sysConns.muNums.Lock()
-	defer sysConns.muNums.Unlock()
-	sysConns.nums = make(map[string]uint64, len(systems)+1)
-	sysConns.nums[TerminalName] = 0
-	for _, sys := range systems {
-		sysConns.nums[sys.Name] = 0
+	systems = make([]sysInfo, len(s))
+	for _, sys := range s {
+		ipAddress, port, err := splitAddrPort(sys.Address)
+		if err != nil {
+			logrus.Println("error get systems, start without monitoring system connections", err)
+			return
+		}
+		system := sysInfo{
+			name:      sys.Name,
+			ipAddress: ipAddress,
+			port:      port,
+		}
+		systems = append(systems, system)
 	}
 
-	go monSystemConns(monClient)
+	listenAddress := args.Listen
+	if listenAddress == "" {
+		logrus.Println("error get listen address, start without monitoring redis")
+		return
+	}
+	var err error
+	_, listenPort, err = splitAddrPort(listenAddress)
+	if err != nil {
+		logrus.Println("error get port, start without monitoring system connections", err)
+		return
+	}
+	pidInstance = os.Getpid()
+	if pidInstance == 0 {
+		logrus.Println("error get pid, start without monitoring system connections")
+		return
+	}
+	go monSystemConns(monClient, systems)
 }
 
 func startRedisPeriodicMon(monClient *influx.Client, args *util.Args) {
@@ -71,7 +103,7 @@ func startRedisPeriodicMon(monClient *influx.Client, args *util.Args) {
 	go monRedisPkts(monClient)
 
 	go func() {
-		dbPort = getRedisPort()
+		_, dbPort, _ = splitAddrPort(dbAddress)
 		if dbPort == 0 {
 			logrus.Println("start without monitoring redis connections")
 			return
