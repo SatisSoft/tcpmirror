@@ -35,10 +35,16 @@ func monSystemConns(monClient *influx.Client) {
 		if err == nil {
 			monClient.WritePoint(formPoint(TerminalName, numConns, n))
 		}
+		sysConns := make(map[string]int, len(systems))
 		for _, sys := range systems {
 			n, err := getSystemConns(sys)
 			if err == nil {
-				monClient.WritePoint(formPoint(sys.name, numConns, n))
+				sysConns[sys.name] = n
+			}
+		}
+		if len(sysConns) > 0 {
+			for name, count := range sysConns {
+				monClient.WritePoint(formPoint(name, numConns, count))
 			}
 		}
 	}
