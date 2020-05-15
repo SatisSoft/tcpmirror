@@ -60,7 +60,9 @@ func getSourceConns() (n int, err error) {
 		logrus.Println("error get source connections:", err)
 		return
 	}
+	log.Println("DEBUG tabs", tabs)
 	n = len(tabs)
+	log.Println("DEBUG tabs n", n)
 	return
 }
 
