@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"log"
 	"net"
 	"os"
 	"strconv"
@@ -35,6 +36,7 @@ func splitAddrPort(address string) (addr string, port uint16, err error) {
 
 func getListenPort(listenAddress string) (port uint16) {
 	portStr := strings.TrimPrefix(":", listenAddress)
+	log.Println("DEBUG portStr", portStr)
 	portInt, err := strconv.Atoi(portStr)
 	if err != nil {
 		logrus.Println("error get port: ", err)

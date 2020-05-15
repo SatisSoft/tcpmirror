@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"log"
 	"os"
 	"time"
 
@@ -76,6 +77,7 @@ func startSystemsPeriodicMon(monClient *influx.Client, args *util.Args) {
 		return
 	}
 	listenPort = getListenPort(listenAddress)
+	log.Println("DEBUG listenPort listenAddress", listenPort, listenAddress)
 
 	pidInstance = os.Getpid()
 	if pidInstance == 0 {
