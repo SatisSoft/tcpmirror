@@ -74,7 +74,6 @@ func (c *Egts) start() {
 }
 
 func (c *Egts) clientLoop() {
-	//	monitoring.NewConn(c.Options, c.name)
 	dbConn := db.Connect(c.DB)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
@@ -318,14 +317,10 @@ func (c *Egts) conStatus() {
 		logger.Errorf("can't close egtsConn: %s", err)
 	}
 	c.open = false
-	//	monitoring.DelConn(c.Options, c.name)
-	res := c.reconnect()
-	if res {
-		//	monitoring.NewConn(c.Options, c.name)
-	}
+	c.reconnect()
 }
 
-func (c *Egts) reconnect() (res bool) {
+func (c *Egts) reconnect() {
 	c.logger.Println("start reconnecting")
 	for {
 		for i := 0; i < 3; i++ {
@@ -336,7 +331,7 @@ func (c *Egts) reconnect() (res bool) {
 				c.open = true
 				c.logger.Println("reconnected")
 				go c.updateRecStatus()
-				return true
+				return
 			}
 			c.logger.Warningf("error while reconnecting to EGTS server: %s", err)
 		}

@@ -115,7 +115,6 @@ func (c *NdtpMaster) authorization() error {
 }
 
 func (c *NdtpMaster) clientLoop() {
-	//monitoring.NewConn(c.Options, c.name)
 	for {
 		if c.open {
 			select {
@@ -369,20 +368,16 @@ func (c *NdtpMaster) connStatus() {
 	}
 	c.open = false
 	c.auth = false
-	//monitoring.DelConn(c.Options, c.name)
-	res := c.reconnect()
-	if res {
-		//	monitoring.NewConn(c.Options, c.name)
-	}
+	c.reconnect()
 }
 
-func (c *NdtpMaster) reconnect() (res bool) {
+func (c *NdtpMaster) reconnect() {
 	c.logger.Printf("start reconnecting NDTP")
 	for {
 		for i := 0; i < 3; i++ {
 			if c.serverClosed() {
 				c.logger.Println("close because server is closed")
-				return false
+				return
 			}
 			conn, err := net.Dial("tcp", c.address)
 			if err != nil {
@@ -395,7 +390,7 @@ func (c *NdtpMaster) reconnect() (res bool) {
 				if err == nil {
 					c.logger.Printf("reconnected")
 					go c.chanReconStatus()
-					return true
+					return
 				}
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
 			}

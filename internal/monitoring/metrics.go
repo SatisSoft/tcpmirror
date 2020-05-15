@@ -35,7 +35,7 @@ func SendMetric(options *util.Options, systemName string, metricName string, val
 	options.MonСlient.WritePoint(formPoint(systemName, metricName, value))
 }
 
-func monSystemConns(monClient *influx.Client, systems []sysInfo) {
+func monSystemConns(monClient *influx.Client) {
 	logrus.Println("start monitoring system connections with period:", periodMonSystemConns)
 	for {
 		time.Sleep(periodMonSystemConns)
@@ -44,8 +44,10 @@ func monSystemConns(monClient *influx.Client, systems []sysInfo) {
 			monClient.WritePoint(formPoint(TerminalName, numConns, n))
 		}
 		for _, sys := range systems {
-			n, _ := getSystemConns(sys)
-			monClient.WritePoint(formPoint(sys.name, numConns, n))
+			n, err := getSystemConns(sys)
+			if err == nil {
+				monClient.WritePoint(formPoint(sys.name, numConns, n))
+			}
 		}
 	}
 }
@@ -72,7 +74,6 @@ func getSystemConns(sys sysInfo) (n int, err error) {
 		logrus.Println("error get source connections:", err)
 		return
 	}
-
 	for _, e := range tabs {
 		if e.Process != nil {
 			if e.Process.Pid == pidInstance {
