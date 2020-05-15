@@ -12,8 +12,6 @@ func getTable(systemName string) string {
 	switch systemName {
 	case TerminalName:
 		return attTable
-	case redisTable:
-		return redisTable
 	default:
 		return visTable
 	}

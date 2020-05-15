@@ -12,19 +12,14 @@ import (
 const (
 	TerminalName = "terminal"
 
-	visTable   = "vis"
-	attTable   = "source"
-	redisTable = "redis"
+	visTable = "vis"
+	attTable = "source"
 
-	periodMonSystemConns     = 10 * time.Second
-	periodMonRedisConns      = 60 * time.Second
-	periodMonRedisUnConfPkts = 60 * time.Second
+	periodMonSystemConns = 10 * time.Second
 )
 
 var (
 	host        string
-	dbPort      uint16
-	dbAddress   string
 	listenPort  uint16
 	pidInstance int
 	systems     []sysInfo
@@ -49,7 +44,6 @@ func Init(args *util.Args) (monEnable bool, monClient *influx.Client, err error)
 	}
 	host = getHost()
 	monEnable = true
-	startRedisPeriodicMon(monClient, args)
 	startSystemsPeriodicMon(monClient, args)
 	return
 }
@@ -94,23 +88,4 @@ func startSystemsPeriodicMon(monClient *influx.Client, args *util.Args) {
 		return
 	}
 	go monSystemConns(monClient)
-}
-
-func startRedisPeriodicMon(monClient *influx.Client, args *util.Args) {
-	dbAddress = args.DB
-	if dbAddress == "" {
-		logrus.Println("start without monitoring redis")
-		return
-	}
-
-	go monRedisPkts(monClient)
-
-	go func() {
-		_, dbPort, _ = splitAddrPort(dbAddress)
-		if dbPort == 0 {
-			logrus.Println("start without monitoring redis connections")
-			return
-		}
-		monRedisConns(monClient)
-	}()
 }
