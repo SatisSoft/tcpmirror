@@ -75,12 +75,7 @@ func startSystemsPeriodicMon(monClient *influx.Client, args *util.Args) {
 		logrus.Println("error get listen address, start without monitoring redis")
 		return
 	}
-	var err error
-	_, listenPort, err = splitAddrPort(listenAddress)
-	if err != nil {
-		logrus.Println("error get port, start without monitoring system connections", err)
-		return
-	}
+	listenPort = getListenPort(listenAddress)
 
 	pidInstance = os.Getpid()
 	if pidInstance == 0 {

@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"log"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -51,6 +52,7 @@ func monSystemConns(monClient *influx.Client) {
 }
 
 func getSourceConns() (n int, err error) {
+	log.Println("DEBUG getSourceConns", listenPort)
 	tabs, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
 		return s.State == netstat.Established && s.LocalAddr.Port == listenPort
 	})

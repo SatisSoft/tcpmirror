@@ -4,6 +4,7 @@ import (
 	"net"
 	"os"
 	"strconv"
+	"strings"
 
 	"github.com/sirupsen/logrus"
 )
@@ -26,6 +27,17 @@ func splitAddrPort(address string) (addr string, port uint16, err error) {
 	portInt, err := strconv.Atoi(portStr)
 	if err != nil {
 		logrus.Println("error split addr and port: ", err)
+		return
+	}
+	port = uint16(portInt)
+	return
+}
+
+func getListenPort(listenAddress string) (port uint16) {
+	portStr := strings.TrimPrefix(":", listenAddress)
+	portInt, err := strconv.Atoi(portStr)
+	if err != nil {
+		logrus.Println("error get port: ", err)
 		return
 	}
 	port = uint16(portInt)
