@@ -1,7 +1,6 @@
 package monitoring
 
 import (
-	"log"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -52,34 +51,46 @@ func monSystemConns(monClient *influx.Client) {
 }
 
 func getSourceConns() (n int, err error) {
-	log.Println("DEBUG getSourceConns", listenPort)
-	tabs, err := netstat.TCP6Socks(func(s *netstat.SockTabEntry) bool {
+	tabsTcp, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
 		return s.State == netstat.Established && s.LocalAddr.Port == listenPort
 	})
 	if err != nil {
 		logrus.Println("error get source connections:", err)
-		return
 	}
-	log.Println("DEBUG tabs", tabs)
-	n = len(tabs)
-	log.Println("DEBUG tabs n", n)
+	tabsTcp6, err := netstat.TCP6Socks(func(s *netstat.SockTabEntry) bool {
+		return s.State == netstat.Established && s.LocalAddr.Port == listenPort
+	})
+	if err != nil {
+		logrus.Println("error get source connections:", err)
+	}
+	n = len(tabsTcp) + len(tabsTcp6)
 	return
 }
 
 func getSystemConns(sys sysInfo) (n int, err error) {
-	tabs, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
+	tabsTcp, err := netstat.TCPSocks(func(s *netstat.SockTabEntry) bool {
 		return s.State == netstat.Established &&
 			s.RemoteAddr.IP.String() == sys.ipAddress &&
 			s.RemoteAddr.Port == sys.port
 	})
 	if err != nil {
 		logrus.Println("error get source connections:", err)
-		return
 	}
-	for _, e := range tabs {
-		if e.Process != nil {
-			if e.Process.Pid == pidInstance {
-				n = n + 1
+	tabsTcp6, err := netstat.TCP6Socks(func(s *netstat.SockTabEntry) bool {
+		return s.State == netstat.Established &&
+			s.RemoteAddr.IP.String() == sys.ipAddress &&
+			s.RemoteAddr.Port == sys.port
+	})
+	if err != nil {
+		logrus.Println("error get source connections:", err)
+	}
+	if tabsTcp != nil && tabsTcp6 != nil {
+		tabs := append(tabsTcp, tabsTcp6...)
+		for _, e := range tabs {
+			if e.Process != nil {
+				if e.Process.Pid == pidInstance {
+					n = n + 1
+				}
 			}
 		}
 	}
