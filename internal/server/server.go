@@ -59,7 +59,21 @@ func initialize(args *util.Args) (options *util.Options, err error) {
 		err = errors.New("no DB server address")
 		return
 	}
+	numMaster := checkMasterSystems(args.Systems)
+	if numMaster != 1 {
+		err = errors.New("number Master systems is not 1")
+		return
+	}
 	initParams(args)
+	return
+}
+
+func checkMasterSystems(systems []util.System) (num uint) {
+	for _, system := range systems {
+		if system.IsMaster {
+			num++
+		}
+	}
 	return
 }
 
