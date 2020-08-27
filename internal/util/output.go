@@ -5,7 +5,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ashirko/navprot/pkg/egts"
+	"github.com/egorban/navprot/pkg/egts"
 	"github.com/egorban/navprot/pkg/ndtp"
 	"github.com/sirupsen/logrus"
 )

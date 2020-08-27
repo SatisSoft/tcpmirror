@@ -2,6 +2,7 @@ package test
 
 import (
 	"flag"
+	"fmt"
 	"testing"
 	"time"
 
@@ -337,6 +338,9 @@ func Test_serverStartThreeEgtsDisconnect(t *testing.T) {
 func checkKeyNum(t *testing.T, res [][]byte, expected int) {
 	if len(res) != expected {
 		t.Errorf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
+	}
+	for _, k := range res {
+		fmt.Printf("%v - %s\n", k, k)
 	}
 
 }

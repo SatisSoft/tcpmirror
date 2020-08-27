@@ -5,7 +5,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/ashirko/navprot/pkg/egts"
+	"github.com/egorban/navprot/pkg/egts"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/sirupsen/logrus"
 )
