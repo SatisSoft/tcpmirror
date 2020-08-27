@@ -2,7 +2,6 @@ package client
 
 import (
 	"encoding/binary"
-	"fmt"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/db"
@@ -32,34 +31,40 @@ func (c *Egts) clientLoop4Egts() {
 				if db.CheckOldData(dbConn, message[:util.PacketStartEgts], c.logger) {
 					continue
 				}
-				fmt.Println("KATYA process message 1")
-				records = c.processMessage4Egts(dbConn, message, records)
-				countRec++
+				record := c.processMessage4Egts(dbConn, message)
+				if record != nil {
+					records = append(records, record)
+					countRec++
+				}
 				if countRec == 3 {
-					buf, _ = c.formPacketEgts(records, buf)
-					countPack++
+					buf, err = c.formPacketEgts(records, buf)
+					if err == nil {
+						countPack++
+					}
 					records = [][]byte(nil)
 					countRec = 0
 				}
 				if countPack == 10 {
 					err := c.send(buf)
 					if err == nil {
-						//monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)
 					}
 					buf = []byte(nil)
 					countPack = 0
 				}
 			case <-sendTicker.C:
 				if (countRec > 0) && (countRec < 3) {
-					buf, _ = c.formPacketEgts(records, buf)
-					countPack++
+					buf, err = c.formPacketEgts(records, buf)
+					if err == nil {
+						countPack++
+					}
 					records = [][]byte(nil)
 					countRec = 0
 				}
 				if (countPack > 0) && (countPack <= 10) {
 					err := c.send(buf)
 					if err == nil {
-						//	monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)
 					}
 					buf = []byte(nil)
 					countPack = 0
@@ -75,22 +80,21 @@ func (c *Egts) clientLoop4Egts() {
 	}
 }
 
-func (c *Egts) processMessage4Egts(dbConn db.Conn, message []byte, records [][]byte) [][]byte {
-	//util.PrintPacket(c.logger, "serialized data: ", message)
+func (c *Egts) processMessage4Egts(dbConn db.Conn, message []byte) []byte {
+	util.PrintPacket(c.logger, "serialized data: ", message)
 	data := util.Deserialize4Egts(message)
-	//c.logger.Tracef("data: %+v", data)
+	c.logger.Tracef("data: %+v", data)
 	recID, err := c.idRec(dbConn)
 	if err != nil {
 		c.logger.Errorf("can't get ids: %s", err)
-		return records
+		return []byte(nil)
 	}
 	record := changeRecNum(recID, data.Record)
-	records = append(records, record)
 	err = db.WriteEgtsID(dbConn, c.id, recID, data.ID)
 	if err != nil {
 		c.logger.Errorf("error WriteEgtsID: %s", err)
 	}
-	return records
+	return record
 }
 
 func changeRecNum(recID uint16, record []byte) []byte {
@@ -132,7 +136,10 @@ func (c *Egts) formPacketEgts(recordsBin [][]byte, buf []byte) ([]byte, error) {
 		Records: records,
 		Data:    nil,
 	}
-	pack, _ := packetData.Form()
+	pack, err := packetData.Form()
+	if err != nil {
+		return buf, err
+	}
 	buf = append(buf, pack...)
 	return buf, nil
 }
@@ -157,18 +164,21 @@ OLDLOOP:
 			var countRec int
 			var countPack int
 			for _, msg := range messages {
-				fmt.Println("KATYA process message 2")
-				records = c.processMessage4Egts(dbConn, msg, records)
-				countRec++
+				record := c.processMessage4Egts(dbConn, msg)
+				if record != nil {
+					records = append(records, record)
+					countRec++
+				}
 				if countRec == 3 {
-					buf, _ = c.formPacketEgts(records, buf)
-					countPack++
+					buf, err = c.formPacketEgts(records, buf)
+					if err == nil {
+						countPack++
+					}
 					records = [][]byte(nil)
 					countRec = 0
 				}
 				if countPack > 9 {
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
-					fmt.Println("KATYA SEND BUF", buf)
 					if err = c.send(buf); err != nil {
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 						continue OLDLOOP
@@ -179,14 +189,15 @@ OLDLOOP:
 				}
 			}
 			if countRec > 0 {
-				buf, _ = c.formPacketEgts(records, buf)
-				countPack++
+				buf, err = c.formPacketEgts(records, buf)
+				if err == nil {
+					countPack++
+				}
 				records = [][]byte(nil)
 				countRec = 0
 			}
 			if len(buf) > 0 {
 				c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
-				fmt.Println("KATYA SEND BUF", buf)
 				err := c.send(buf)
 				if err == nil {
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)

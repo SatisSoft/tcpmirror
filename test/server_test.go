@@ -2,11 +2,12 @@ package test
 
 import (
 	"flag"
+	"testing"
+	"time"
+
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/server"
 	"github.com/sirupsen/logrus"
-	"testing"
-	"time"
 )
 
 func Test_serverStartOne(t *testing.T) {
@@ -337,6 +338,7 @@ func checkKeyNum(t *testing.T, res [][]byte, expected int) {
 	if len(res) != expected {
 		t.Errorf("expected %d keys in DB. Got %d: %s", expected, len(res), res)
 	}
+
 }
 
 func Test_controlMessage(t *testing.T) {

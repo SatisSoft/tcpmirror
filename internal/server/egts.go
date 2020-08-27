@@ -49,7 +49,7 @@ func startEgtsServer(listen string, options *util.Options, channels []chan []byt
 
 func initEgtsServer(c net.Conn, pool *db.Pool, options *util.Options, channels []chan []byte, systems []util.System,
 	confChan chan *db.ConfMsg, sessionID uint64) {
-	s, err := newEgtsServer(c, pool, options, channels, systems, confChan)
+	s, err := newEgtsServer(c, pool, options, channels, systems, confChan, sessionID)
 	if err != nil {
 		logrus.Errorf("error during initialization new egts server: %s", err)
 		return

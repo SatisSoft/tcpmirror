@@ -1,7 +1,6 @@
 package db
 
 import (
-	"fmt"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -12,7 +11,6 @@ import (
 // WriteEgtsID maps EgtsID to NdtpID or received EgtsID to sent EgtsID
 func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, ID []byte) error {
 	key := util.EgtsName + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
-	fmt.Println("KATYA WriteEgtsID", KeyEx, key, ID)
 	_, err := conn.Do("SET", key, ID, "ex", KeyEx)
 	return err
 }
@@ -89,8 +87,8 @@ func write2EGTS(c redis.Conn, time int64, key []byte) error {
 }
 
 func write2Egts4Egts(c redis.Conn, OID int, time int64, sdata []byte, logger *logrus.Entry) error {
-	//logger.Tracef("write2Ndtp terminalID: %v, time: %v; sdata: %v", terminalID, time, sdata)
-	_, err := c.Do("ZADD", OID, time, sdata)
-	//logger.Tracef("write2Ndtp terminalID: %v, time: %v; sdata: %v; res: %v; err: %v", terminalID, time, sdata, res, err)
+	logger.Tracef("write2Egts4Egts OID: %v, time: %v; sdata: %v", OID, time, sdata)
+	res, err := c.Do("ZADD", OID, time, sdata)
+	logger.Tracef("write2Egts4Egts OID: %v, time: %v; sdata: %v; res: %v; err: %v", OID, time, sdata, res, err)
 	return err
 }

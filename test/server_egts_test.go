@@ -13,7 +13,7 @@ import (
 func Test_OneSourceOneIDOneServerEGTS(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_one_server.toml")
+	err := flag.Set("conf", "./testconfig/egts_one_source_one_id_one_server.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -26,9 +26,9 @@ func Test_OneSourceOneIDOneServerEGTS(t *testing.T) {
 	numOfEgtsServers := 1
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, numOfOids)
+		go mockSourceEgts(t, "localhost:7400", numOfRecs, numOfOids)
 	}
-	go mockEgtsServer(t, "localhost:7001")
+	go mockEgtsServer(t, "localhost:7401")
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -52,7 +52,7 @@ func Test_OneSourceOneIDOneServerEGTS(t *testing.T) {
 func Test_OneSourceOneIDThreeServer(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_three_servers.toml")
+	err := flag.Set("conf", "./testconfig/egts_one_source_one_id_three_servers.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -65,11 +65,11 @@ func Test_OneSourceOneIDThreeServer(t *testing.T) {
 	numOfEgtsServers := 3
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, numOfOids)
+		go mockSourceEgts(t, "localhost:7405", numOfRecs, numOfOids)
 	}
-	go mockEgtsServer(t, "localhost:7001")
-	go mockEgtsServer(t, "localhost:7002")
-	go mockEgtsServer(t, "localhost:7003")
+	go mockEgtsServer(t, "localhost:7406")
+	go mockEgtsServer(t, "localhost:7407")
+	go mockEgtsServer(t, "localhost:7408")
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -93,7 +93,7 @@ func Test_OneSourceOneIDThreeServer(t *testing.T) {
 func Test_OneSourceSeveralIDOneServer(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_one_server.toml")
+	err := flag.Set("conf", "./testconfig/egts_one_source_several_id_one_server.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -106,9 +106,9 @@ func Test_OneSourceSeveralIDOneServer(t *testing.T) {
 	numOfEgtsServers := 1
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, numOfOids)
+		go mockSourceEgts(t, "localhost:7410", numOfRecs, numOfOids)
 	}
-	go mockEgtsServer(t, "localhost:7001")
+	go mockEgtsServer(t, "localhost:7411")
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -132,7 +132,7 @@ func Test_OneSourceSeveralIDOneServer(t *testing.T) {
 func Test_OneSourceSeveralIDThreeServer(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_three_servers.toml")
+	err := flag.Set("conf", "./testconfig/egts_one_source_several_id_three_servers.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -145,11 +145,11 @@ func Test_OneSourceSeveralIDThreeServer(t *testing.T) {
 	numOfEgtsServers := 3
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, numOfOids)
+		go mockSourceEgts(t, "localhost:7415", numOfRecs, numOfOids)
 	}
-	go mockEgtsServer(t, "localhost:7001")
-	go mockEgtsServer(t, "localhost:7002")
-	go mockEgtsServer(t, "localhost:7003")
+	go mockEgtsServer(t, "localhost:7416")
+	go mockEgtsServer(t, "localhost:7417")
+	go mockEgtsServer(t, "localhost:7418")
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -173,7 +173,7 @@ func Test_OneSourceSeveralIDThreeServer(t *testing.T) {
 func Test_ThreeSourceOneIDOneServer(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_one_server.toml")
+	err := flag.Set("conf", "./testconfig/egts_three_source_one_id_one_server.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -186,9 +186,9 @@ func Test_ThreeSourceOneIDOneServer(t *testing.T) {
 	numOfEgtsServers := 1
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, numOfOids)
+		go mockSourceEgts(t, "localhost:7420", numOfRecs, numOfOids)
 	}
-	go mockEgtsServer(t, "localhost:7001")
+	go mockEgtsServer(t, "localhost:7421")
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -212,7 +212,7 @@ func Test_ThreeSourceOneIDOneServer(t *testing.T) {
 func Test_ThreeSourceOneIDThreeServer(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_three_servers.toml")
+	err := flag.Set("conf", "./testconfig/egts_three_source_one_id_three_servers.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -225,11 +225,11 @@ func Test_ThreeSourceOneIDThreeServer(t *testing.T) {
 	numOfEgtsServers := 3
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, numOfOids)
+		go mockSourceEgts(t, "localhost:7425", numOfRecs, numOfOids)
 	}
-	go mockEgtsServer(t, "localhost:7001")
-	go mockEgtsServer(t, "localhost:7002")
-	go mockEgtsServer(t, "localhost:7003")
+	go mockEgtsServer(t, "localhost:7426")
+	go mockEgtsServer(t, "localhost:7427")
+	go mockEgtsServer(t, "localhost:7428")
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -253,7 +253,7 @@ func Test_ThreeSourceOneIDThreeServer(t *testing.T) {
 func Test_ThreeSourceSeveralIDOneServer(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_one_server.toml")
+	err := flag.Set("conf", "./testconfig/egts_three_source_several_id_one_server.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -266,9 +266,9 @@ func Test_ThreeSourceSeveralIDOneServer(t *testing.T) {
 	numOfEgtsServers := 1
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, numOfOids)
+		go mockSourceEgts(t, "localhost:7430", numOfRecs, numOfOids)
 	}
-	go mockEgtsServer(t, "localhost:7001")
+	go mockEgtsServer(t, "localhost:7431")
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -292,7 +292,7 @@ func Test_ThreeSourceSeveralIDOneServer(t *testing.T) {
 func Test_ThreeSourceSeveralIDThreeServer(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_three_servers.toml")
+	err := flag.Set("conf", "./testconfig/egts_three_source_several_id_three_servers.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -305,11 +305,11 @@ func Test_ThreeSourceSeveralIDThreeServer(t *testing.T) {
 	numOfEgtsServers := 3
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, numOfOids)
+		go mockSourceEgts(t, "localhost:7435", numOfRecs, numOfOids)
 	}
-	go mockEgtsServer(t, "localhost:7001")
-	go mockEgtsServer(t, "localhost:7002")
-	go mockEgtsServer(t, "localhost:7003")
+	go mockEgtsServer(t, "localhost:7436")
+	go mockEgtsServer(t, "localhost:7437")
+	go mockEgtsServer(t, "localhost:7438")
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -333,7 +333,7 @@ func Test_ThreeSourceSeveralIDThreeServer(t *testing.T) {
 func Test_ThreeSourceSeveralIDThreeServerOff(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_three_servers_disconnect.toml")
+	err := flag.Set("conf", "./testconfig/egts_three_servers_off.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -346,7 +346,7 @@ func Test_ThreeSourceSeveralIDThreeServerOff(t *testing.T) {
 	numOfEgtsServers := 3
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, uint32(numOfOids))
+		go mockSourceEgts(t, "localhost:7440", numOfRecs, uint32(numOfOids))
 	}
 	go server.Start()
 	time.Sleep(2 * time.Second)
@@ -359,9 +359,9 @@ func Test_ThreeSourceSeveralIDThreeServerOff(t *testing.T) {
 	checkKeyNum(t, res, expected)
 
 	time.Sleep(8 * time.Second)
-	go mockEgtsServer(t, "localhost:7001")
-	go mockEgtsServer(t, "localhost:7002")
-	go mockEgtsServer(t, "localhost:7003")
+	go mockEgtsServer(t, "localhost:7441")
+	go mockEgtsServer(t, "localhost:7442")
+	go mockEgtsServer(t, "localhost:7443")
 	time.Sleep(15 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
@@ -375,7 +375,7 @@ func Test_ThreeSourceSeveralIDThreeServerOff(t *testing.T) {
 func Test_OneSourceSeveralIDOneServerDisconnect(t *testing.T) {
 	logrus.SetReportCaller(true)
 	logrus.SetLevel(logrus.TraceLevel)
-	err := flag.Set("conf", "./testconfig/egts_one_server.toml")
+	err := flag.Set("conf", "./testconfig/egts_one_server_disconnect.toml")
 	if err != nil {
 		t.Error(err)
 	}
@@ -388,9 +388,9 @@ func Test_OneSourceSeveralIDOneServerDisconnect(t *testing.T) {
 	numOfEgtsServers := 1
 	numOfRecs := 20
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, uint32(numOfOids))
+		go mockSourceEgts(t, "localhost:7445", numOfRecs, uint32(numOfOids))
 	}
-	go mockEgtsServer(t, "localhost:7001")
+	go mockEgtsServer(t, "localhost:7446")
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -412,7 +412,7 @@ func Test_OneSourceSeveralIDOneServerDisconnect(t *testing.T) {
 
 	go mockEgtsServerStop(t)
 	for i := 0; i < numEgtsSource; i++ {
-		go mockSourceEgts(t, "localhost:7000", numOfRecs, uint32(numOfOids))
+		go mockSourceEgts(t, "localhost:7445", numOfRecs, uint32(numOfOids))
 	}
 	time.Sleep(2 * time.Second)
 	res, err = getAllKeys(conn)
@@ -424,7 +424,7 @@ func Test_OneSourceSeveralIDOneServerDisconnect(t *testing.T) {
 	checkKeyNum(t, res, expected)
 
 	time.Sleep(8 * time.Second)
-	go mockEgtsServer(t, "localhost:7001")
+	go mockEgtsServer(t, "localhost:7446")
 	time.Sleep(15 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {

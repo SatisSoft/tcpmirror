@@ -1,0 +1,56 @@
+# listen address
+listen_address = "localhost:7440"
+
+# DB server address
+db_address = "localhost:9999"
+
+#listen protocol
+listen_protocol = "EGTS"
+
+#log level
+log_level = "trace"
+
+# list of data consumers
+consumers_list = ["vis1","vis2","vis3"]
+
+# test mode provides more detailed logs but reduces system performance
+test_mode = true
+
+#key expire sec
+key_ex = 2
+
+#period check not confirmed ms
+period_notconf_data = 8000
+
+#period old data ms
+period_old_data = 7000
+
+#period check old data sec
+period_check_old = 8
+
+#timeout close sec
+timeout_close = 1
+
+#timeout error reply sec
+timeout_error_reply = 1
+
+#timeout reconnect sec
+timeout_reconnect = 1
+
+[vis1]
+id = 1
+address = "localhost:7441"
+protocol = "EGTS"
+master = false
+
+[vis2]
+id = 2
+address = "localhost:7442"
+protocol = "EGTS"
+master = false
+
+[vis3]
+id = 3
+address = "localhost:7443"
+protocol = "EGTS"
+master = false
