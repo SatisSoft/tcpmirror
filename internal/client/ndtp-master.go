@@ -5,10 +5,10 @@ import (
 	"net"
 	"time"
 
-	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/egorban/navprot/pkg/ndtp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -147,7 +147,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 		return
 	}
 	if service == ndtp.NphSrvNavdata {
-		if db.IsOldData(c.pool, message, c.logger) {
+		if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
 			return
 		}
 		nphID, err := c.getNphID()

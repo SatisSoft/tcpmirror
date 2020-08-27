@@ -1,11 +1,12 @@
 package test
 
 import (
-	"github.com/ashirko/navprot/pkg/ndtp"
-	"github.com/sirupsen/logrus"
 	"net"
 	"testing"
 	"time"
+
+	"github.com/egorban/navprot/pkg/ndtp"
+	"github.com/sirupsen/logrus"
 )
 
 const (

@@ -1,16 +1,19 @@
 package db
 
 import (
+	"fmt"
+	"strconv"
+
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
-	"strconv"
 )
 
-// WriteEgtsID maps EgtsID to NdtpID
-func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, packetID []byte) error {
+// WriteEgtsID maps EgtsID to NdtpID or received EgtsID to sent EgtsID
+func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, ID []byte) error {
 	key := util.EgtsName + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
-	_, err := conn.Do("SET", key, packetID, "ex", KeyEx)
+	fmt.Println("KATYA WriteEgtsID", KeyEx, key, ID)
+	_, err := conn.Do("SET", key, ID, "ex", KeyEx)
 	return err
 }
 
@@ -33,7 +36,7 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 }
 
 // OldPacketsEGTS returns not confirmed packets for corresponding system
-func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
+func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int) ([][]byte, error) {
 	all, err := allNotConfirmedEGTS(conn)
 	if err != nil {
 		return nil, err
@@ -42,7 +45,7 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	return notConfirmed(conn, notConfirmedKeys)
+	return notConfirmed(conn, notConfirmedKeys, packetStart)
 }
 
 // SetEgtsID writes Egts IDs to db
@@ -68,10 +71,10 @@ func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 10000))
 }
 
-func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error) {
+func notConfirmed(conn redis.Conn, notConfKeys [][]byte, packetStart int) ([][]byte, error) {
 	res := [][]byte{}
 	for _, key := range notConfKeys {
-		packet, err := findPacket(conn, key)
+		packet, err := findPacket(conn, key, packetStart)
 		if err != nil {
 			return nil, err
 		}
@@ -82,5 +85,12 @@ func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error) {
 
 func write2EGTS(c redis.Conn, time int64, key []byte) error {
 	_, err := c.Do("ZADD", util.EgtsName, time, key)
+	return err
+}
+
+func write2Egts4Egts(c redis.Conn, OID int, time int64, sdata []byte, logger *logrus.Entry) error {
+	//logger.Tracef("write2Ndtp terminalID: %v, time: %v; sdata: %v", terminalID, time, sdata)
+	_, err := c.Do("ZADD", OID, time, sdata)
+	//logger.Tracef("write2Ndtp terminalID: %v, time: %v; sdata: %v; res: %v; err: %v", terminalID, time, sdata, res, err)
 	return err
 }

@@ -7,11 +7,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/ashirko/navprot/pkg/ndtp"
 	"github.com/ashirko/tcpmirror/internal/client"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/egorban/navprot/pkg/ndtp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -41,6 +41,7 @@ func startNdtpServer(listen string, options *util.Options, channels []chan []byt
 		return
 	}
 	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}))
+	logrus.Printf("Start NDTP server")
 	for {
 		c, err := l.Accept()
 		if err != nil {

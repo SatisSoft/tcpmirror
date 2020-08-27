@@ -64,6 +64,8 @@ type Options struct {
 	MonСlient *influx.Client
 	// DB sever address
 	DB string
+	// Server protocol
+	ServerProtocol string
 }
 
 const egtsKey = "egts"

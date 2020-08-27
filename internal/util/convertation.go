@@ -1,8 +1,8 @@
 package util
 
 import (
-	"github.com/ashirko/navprot/pkg/convertation"
-	"github.com/ashirko/navprot/pkg/ndtp"
+	"github.com/egorban/navprot/pkg/convertation"
+	"github.com/egorban/navprot/pkg/ndtp"
 )
 
 // Ndtp2Egts converts binary NDTP packet to bynary EGTS packet

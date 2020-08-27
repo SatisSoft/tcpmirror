@@ -11,12 +11,13 @@ const DeleteChanSize = 10000
 
 // DeleteManager describes goroutine which manages deleting records from DB
 type DeleteManager struct {
-	Chan chan *ConfMsg
-	dbConn Conn
-	toDelete map[string]uint64
-	deleted map[string]bool
-	logger *logrus.Entry
-	all uint64
+	Chan        chan *ConfMsg
+	dbConn      Conn
+	toDelete    map[string]uint64
+	deleted     map[string]bool
+	logger      *logrus.Entry
+	all         uint64
+	packetStart int
 }
 
 // ConfMsg is type of messages from client to delete manager
@@ -26,7 +27,7 @@ type ConfMsg struct {
 }
 
 // InitDeleteManager initializes delete manager
-func InitDeleteManager(db string, systemIds []byte) *DeleteManager {
+func InitDeleteManager(db string, systemIds []byte, serverProtocol string) *DeleteManager {
 	Manager := new(DeleteManager)
 	Manager.dbConn = Connect(db)
 	Manager.Chan = make(chan *ConfMsg, DeleteChanSize)
@@ -35,6 +36,7 @@ func InitDeleteManager(db string, systemIds []byte) *DeleteManager {
 	Manager.all = calcAll(systemIds)
 	Manager.toDelete = make(map[string]uint64)
 	Manager.deleted = make(map[string]bool)
+	Manager.packetStart = getPacketStart(serverProtocol)
 	go Manager.receiveLoop()
 	return Manager
 }
@@ -47,10 +49,22 @@ func calcAll(systemIds []byte) uint64 {
 	return all
 }
 
+func getPacketStart(serverProtocol string) (packetStart int) {
+	switch serverProtocol {
+	case "NDTP":
+		packetStart = util.PacketStart
+	case "EGTS":
+		packetStart = util.PacketStartEgts
+	default:
+		logrus.Errorf("undefined server protocol: %s", serverProtocol)
+	}
+	return
+}
+
 func (m *DeleteManager) receiveLoop() {
 	for {
 		select {
-		case message := <- m.Chan:
+		case message := <-m.Chan:
 			err := m.handleMessage(message)
 			if err != nil {
 				m.logger.Errorf("can't delete message: %s", err)
@@ -101,7 +115,7 @@ func (m *DeleteManager) handleNotExisted(msg string, message *ConfMsg) (err erro
 }
 
 func (m *DeleteManager) delete(msg string, message *ConfMsg) (err error) {
-	err = deletePacket(m.dbConn, message.key)
+	err = deletePacket(m.dbConn, message.key, m.packetStart)
 	if err != nil {
 		m.deleted[msg] = true
 		delete(m.toDelete, msg)
@@ -123,8 +137,8 @@ func (m *DeleteManager) countBits(key []byte) (int, error) {
 	return n, err
 }
 
-func deletePacket(conn redis.Conn, key []byte) error {
-	packet, err := findPacket(conn, key)
+func deletePacket(conn redis.Conn, key []byte, packetStart int) error {
+	packet, err := findPacket(conn, key, packetStart)
 	logrus.Tracef("deletePacket key = %v, packet = %v, err = %v", key, packet, err)
 	if err != nil {
 		return err

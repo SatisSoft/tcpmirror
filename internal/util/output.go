@@ -1,11 +1,13 @@
 package util
 
 import (
-	"github.com/ashirko/navprot/pkg/ndtp"
-	"github.com/sirupsen/logrus"
 	"io"
 	"strconv"
 	"strings"
+
+	"github.com/ashirko/navprot/pkg/egts"
+	"github.com/egorban/navprot/pkg/ndtp"
+	"github.com/sirupsen/logrus"
 )
 
 // PrintPacket prints packet in []byte{} format
@@ -31,6 +33,13 @@ func CloseAndLog(c io.Closer, logger *logrus.Entry) {
 // PrintPacketForDebugging prints packet for debugging purpose
 func PrintPacketForDebugging(logger *logrus.Entry, s string, slice []byte) {
 	packetData := new(ndtp.Packet)
+	rest, err := packetData.Parse(slice)
+	logger.Debugf("%s: %v; rest: %v, err: %v", s, packetData, rest, err)
+}
+
+// PrintEGTSPacketForDebugging prints packet for debugging purpose
+func PrintEGTSPacketForDebugging(logger *logrus.Entry, s string, slice []byte) {
+	packetData := new(egts.Packet)
 	rest, err := packetData.Parse(slice)
 	logger.Debugf("%s: %v; rest: %v, err: %v", s, packetData, rest, err)
 }
