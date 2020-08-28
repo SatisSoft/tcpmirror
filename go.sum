@@ -24,6 +24,8 @@ github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZm
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
 github.com/egorban/egtsServ v1.0.3 h1:DXdNoz2yVsTbhxQJeEU/pAlntKD1SJunXSE97DyGdAg=
 github.com/egorban/egtsServ v1.0.3/go.mod h1:ax/5tL+oOKTz6J2tvRCvoBfTq387pj+hMfIKrJu29f0=
+github.com/egorban/egtsServ v1.0.4 h1:KyEZPAi2HehaWYsTt9ER7gM2kT8HDIk151Hq6YMTf3I=
+github.com/egorban/egtsServ v1.0.4/go.mod h1:3j1ecw2kYfMAX+o1wQZW78r/dKEp6uqpV3YxzYBN4yw=
 github.com/egorban/influx v1.0.0 h1:Yby2VVx4O6ckHdxms+X3GMt4CgEdEx9v+5N7JS4JvJ8=
 github.com/egorban/influx v1.0.0/go.mod h1:oGFemiCKL/+ccPIh/YF8FpSRWUJo/mRnNXRK8Bpvi60=
 github.com/egorban/navprot v1.4.5 h1:b1NkvH6CMhwAreryACKrKymR2FoJMgkBJKqjSVcxrf4=

@@ -464,7 +464,7 @@ func Test_serverStartThreeEgts3(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
-	numOfPackets := 10
+	numOfPackets := 5
 	numOfNdtpServers := 2
 	numOfEgtsServers := 3
 	numOfTerminals := 1
@@ -504,7 +504,7 @@ func Test_serverStartThreeTerminals100(t *testing.T) {
 	if err := clearDB(conn); err != nil {
 		t.Error(err)
 	}
-	numOfPackets := 10
+	numOfPackets := 6
 	numOfNdtpServers := 2
 	numOfEgtsServers := 1
 	numOfTerminals := 3
