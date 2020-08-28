@@ -5,8 +5,6 @@ github.com/OneOfOne/xxhash v1.2.2/go.mod h1:HSdplMjZKSmBqAxg5vPj2TmRDmfkzw+cTzAE
 github.com/alecthomas/template v0.0.0-20160405071501-a0175ee3bccc/go.mod h1:LOuyumcjzFXgccqObfd/Ljyb9UuFJ6TxHnclSeseNhc=
 github.com/alecthomas/units v0.0.0-20151022065526-2efee857e7cf/go.mod h1:ybxpYRFXyAe+OPACYpWeL0wqObRcbAqCMya13uyzqw0=
 github.com/armon/consul-api v0.0.0-20180202201655-eb2c6b5be1b6/go.mod h1:grANhF5doyWs3UAsr3K4I6qtAmlQcZDesFNEHPZAzj8=
-github.com/ashirko/navprot v1.4.3 h1:RD/GJ0WT39lFFeBGRBt849421HLA8qxUt/Eps+Cq3z4=
-github.com/ashirko/navprot v1.4.3/go.mod h1:vVyXreMz5OioVr5XAbWqd8Kb8XtgOEP1oWymrdgoiKM=
 github.com/beorn7/perks v0.0.0-20180321164747-3a771d992973/go.mod h1:Dwedo/Wpr24TaqPxmxbtue+5NUziq4I4S80YR8gNf3Q=
 github.com/beorn7/perks v1.0.0/go.mod h1:KWe93zE9D1o94FZ5RNwFwVgaQK1VOXiVxmqh+CedLV8=
 github.com/cakturk/go-netstat v0.0.0-20200220111822-e5b49efee7a5 h1:BjkPE3785EwPhhyuFkbINB+2a1xATwk8SNDWnJiD41g=
@@ -22,14 +20,10 @@ github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/dgrijalva/jwt-go v3.2.0+incompatible/go.mod h1:E3ru+11k8xSBh+hMPgOLZmtrrCbhqsmaPHjLKYnJCaQ=
 github.com/dgryski/go-sip13 v0.0.0-20181026042036-e10d5fee7954/go.mod h1:vAd38F8PWV+bWy6jNmig1y/TA+kYO4g3RSRF0IAv0no=
-github.com/egorban/egtsServ v1.0.3 h1:DXdNoz2yVsTbhxQJeEU/pAlntKD1SJunXSE97DyGdAg=
-github.com/egorban/egtsServ v1.0.3/go.mod h1:ax/5tL+oOKTz6J2tvRCvoBfTq387pj+hMfIKrJu29f0=
 github.com/egorban/egtsServ v1.0.4 h1:KyEZPAi2HehaWYsTt9ER7gM2kT8HDIk151Hq6YMTf3I=
 github.com/egorban/egtsServ v1.0.4/go.mod h1:3j1ecw2kYfMAX+o1wQZW78r/dKEp6uqpV3YxzYBN4yw=
 github.com/egorban/influx v1.0.0 h1:Yby2VVx4O6ckHdxms+X3GMt4CgEdEx9v+5N7JS4JvJ8=
 github.com/egorban/influx v1.0.0/go.mod h1:oGFemiCKL/+ccPIh/YF8FpSRWUJo/mRnNXRK8Bpvi60=
-github.com/egorban/navprot v1.4.5 h1:b1NkvH6CMhwAreryACKrKymR2FoJMgkBJKqjSVcxrf4=
-github.com/egorban/navprot v1.4.5/go.mod h1:TirvQBqQv2FcYWSO6BA7GldjENmLTe5tcTfSzkDVa9k=
 github.com/egorban/navprot v1.4.8 h1:qcT3lgCgwi9Qf7T9uSF8/re3x0riRNzqOh8af5Nazno=
 github.com/egorban/navprot v1.4.8/go.mod h1:WAXCJ2yLrCP/4XLGzuQ0eKrIcU8awBKuMwFZDZeVqzU=
 github.com/fsnotify/fsnotify v1.4.7 h1:IXs+QLmnXW2CcXuY+8Mzv/fWEsPGWxqefPtCP5CnV9I=
