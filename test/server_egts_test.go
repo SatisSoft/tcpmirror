@@ -35,7 +35,7 @@ func Test_OneSourceOneIDOneServerEGTS(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
+	expected := 1 + numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -44,7 +44,7 @@ func Test_OneSourceOneIDOneServerEGTS(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }
@@ -76,7 +76,7 @@ func Test_OneSourceOneIDThreeServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
+	expected := 1 + numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -85,7 +85,7 @@ func Test_OneSourceOneIDThreeServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }
@@ -115,7 +115,7 @@ func Test_OneSourceSeveralIDOneServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
+	expected := 1 + numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -124,7 +124,7 @@ func Test_OneSourceSeveralIDOneServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }
@@ -156,7 +156,7 @@ func Test_OneSourceSeveralIDThreeServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
+	expected := 1 + numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -165,7 +165,7 @@ func Test_OneSourceSeveralIDThreeServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }
@@ -195,7 +195,7 @@ func Test_ThreeSourceOneIDOneServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
+	expected := 1 + numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -204,7 +204,7 @@ func Test_ThreeSourceOneIDOneServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }
@@ -236,7 +236,7 @@ func Test_ThreeSourceOneIDThreeServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
+	expected := 1 + numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -245,7 +245,7 @@ func Test_ThreeSourceOneIDThreeServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }
@@ -275,7 +275,7 @@ func Test_ThreeSourceSeveralIDOneServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
+	expected := 1 + numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -284,7 +284,7 @@ func Test_ThreeSourceSeveralIDOneServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }
@@ -316,7 +316,7 @@ func Test_ThreeSourceSeveralIDThreeServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
+	expected := 1 + numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -325,7 +325,7 @@ func Test_ThreeSourceSeveralIDThreeServer(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }
@@ -354,7 +354,7 @@ func Test_ThreeSourceSeveralIDThreeServerOff(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numEgtsSource*numOfRecs + 1 + numOfOids
+	expected := 1 + 1 + 1 + numEgtsSource*numOfRecs //1 + numEgtsSource*numOfRecs + 1 + numOfOids
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -367,7 +367,7 @@ func Test_ThreeSourceSeveralIDThreeServerOff(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }
@@ -397,7 +397,7 @@ func Test_OneSourceSeveralIDOneServerDisconnect(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected := numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
+	expected := 1 + numOfEgtsServers + numOfEgtsServers*numOfRecs*numEgtsSource
 	logrus.Println("start 1 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -406,7 +406,7 @@ func Test_OneSourceSeveralIDOneServerDisconnect(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 2 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -419,7 +419,7 @@ func Test_OneSourceSeveralIDOneServerDisconnect(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numEgtsSource*numOfRecs + 1 + numOfOids + 1
+	expected = 1 + 1 + 1 + numEgtsSource + numEgtsSource*numOfRecs
 	logrus.Println("start 3 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 
@@ -430,7 +430,7 @@ func Test_OneSourceSeveralIDOneServerDisconnect(t *testing.T) {
 	if err != nil {
 		t.Error(err)
 	}
-	expected = numOfEgtsServers
+	expected = 1 + numOfEgtsServers
 	logrus.Println("start 4 test", expected, len(res))
 	checkKeyNum(t, res, expected)
 }

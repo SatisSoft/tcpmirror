@@ -14,7 +14,10 @@ const (
 	RcvdBytes  = "rcvdBytes"
 	SentPkts   = "sentPkts"
 	RcvdPkts   = "rcvdPkts"
+	SentRecs   = "sentRecs"
+	RcvdRecs   = "rcvdRecs"
 	QueuedPkts = "queuedPkts"
+	QueuedRecs = "queuedRecs"
 
 	numConns   = "numConns"
 	unConfPkts = "unConfPkts"

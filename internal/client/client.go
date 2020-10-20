@@ -10,9 +10,11 @@ import (
 )
 
 const (
-	defaultBufferSize = 1024
+	defaultBufferSize = 65536 //1024
 	writeTimeout      = 10 * time.Second
 	readTimeout       = 180 * time.Second
+	recsAtPacketEgts  = 3
+	numPcktsToSend    = 10
 )
 
 var (

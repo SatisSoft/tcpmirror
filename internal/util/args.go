@@ -73,8 +73,9 @@ const egtsKey = "egts"
 var (
 	conf = flag.String("conf", "", "configuration file (e.g. 'config/example.toml')")
 	// EgtsName is prefix for storing data in DB for different consumer systems
-	EgtsName string
-	Instance string
+	EgtsName   string
+	Instance   string
+	EgtsSource string
 )
 
 // ParseArgs parses configuration file
@@ -127,6 +128,9 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.TestMode = viper.GetBool(testMode)
 	Instance = strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
 	EgtsName = egtsKey + ":" + Instance
+	if args.Protocol == "EGTS" {
+		EgtsSource = "source" + ":" + Instance
+	}
 	return
 }
 

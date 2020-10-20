@@ -41,7 +41,9 @@ func PrintPacketForDebugging(logger *logrus.Entry, s string, slice []byte) {
 func PrintEGTSPacketForDebugging(logger *logrus.Entry, s string, slice []byte) {
 	packetData := new(egts.Packet)
 	rest, err := packetData.Parse(slice)
-	logger.Debugf("%s: %v; rest: %v, err: %v", s, packetData, rest, err)
+	if err == nil {
+		logger.Debugf("%s: %v; rest: %v, err: %v", s, packetData, rest, err)
+	}
 }
 
 // Copy creates copy of binary packet

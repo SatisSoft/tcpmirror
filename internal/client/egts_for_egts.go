@@ -27,7 +27,7 @@ func (c *Egts) clientLoop4Egts() {
 		if c.open {
 			select {
 			case message := <-c.Input:
-				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
+				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedRecs, len(c.Input))
 				if db.CheckOldData(dbConn, message[:util.PacketStartEgts], c.logger) {
 					continue
 				}
@@ -36,7 +36,7 @@ func (c *Egts) clientLoop4Egts() {
 					records = append(records, record)
 					countRec++
 				}
-				if countRec == 3 {
+				if countRec == recsAtPacketEgts {
 					buf, err = c.formPacketEgts(records, buf)
 					if err == nil {
 						countPack++
@@ -44,16 +44,17 @@ func (c *Egts) clientLoop4Egts() {
 					records = [][]byte(nil)
 					countRec = 0
 				}
-				if countPack == 10 {
+				if countPack == numPcktsToSend {
 					err := c.send(buf)
 					if err == nil {
 						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentRecs, countPack*recsAtPacketEgts)
 					}
 					buf = []byte(nil)
 					countPack = 0
 				}
 			case <-sendTicker.C:
-				if (countRec > 0) && (countRec < 3) {
+				if (countRec > 0) && (countRec < recsAtPacketEgts) {
 					buf, err = c.formPacketEgts(records, buf)
 					if err == nil {
 						countPack++
@@ -61,10 +62,11 @@ func (c *Egts) clientLoop4Egts() {
 					records = [][]byte(nil)
 					countRec = 0
 				}
-				if (countPack > 0) && (countPack <= 10) {
+				if (countPack > 0) && (countPack <= numPcktsToSend) {
 					err := c.send(buf)
 					if err == nil {
 						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentRecs, countPack*recsAtPacketEgts)
 					}
 					buf = []byte(nil)
 					countPack = 0
@@ -169,7 +171,7 @@ OLDLOOP:
 					records = append(records, record)
 					countRec++
 				}
-				if countRec == 3 {
+				if countRec == recsAtPacketEgts {
 					buf, err = c.formPacketEgts(records, buf)
 					if err == nil {
 						countPack++
@@ -177,13 +179,14 @@ OLDLOOP:
 					records = [][]byte(nil)
 					countRec = 0
 				}
-				if countPack > 9 {
+				if countPack > numPcktsToSend-1 {
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
 					if err = c.send(buf); err != nil {
 						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 						continue OLDLOOP
 					}
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)
+					monitoring.SendMetric(c.Options, c.name, monitoring.SentRecs, countPack*recsAtPacketEgts)
 					countPack = 0
 					buf = []byte(nil)
 				}
@@ -201,6 +204,7 @@ OLDLOOP:
 				err := c.send(buf)
 				if err == nil {
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, countPack)
+					monitoring.SendMetric(c.Options, c.name, monitoring.SentRecs, countPack*recsAtPacketEgts)
 				}
 			}
 		} else {

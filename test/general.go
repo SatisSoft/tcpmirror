@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultBufferSize = 1024
+	defaultBufferSize = 65536 //1024
 	writeTimeout      = 10 * time.Second
 )
 

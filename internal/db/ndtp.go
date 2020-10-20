@@ -1,10 +1,12 @@
 package db
 
 import (
+	"encoding/binary"
+	"strconv"
+
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
-	"strconv"
 )
 
 // WriteNDTPid maps ClientNdtpID to ServerNdtpID
@@ -94,6 +96,19 @@ func GetNph(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) (uint3
 	return uint32(nphID), err
 }
 
+// RemoveExpired removes expired packet from DB
+func RemoveExpired(pool *Pool, terminalID int, logger *logrus.Entry) (err error) {
+	c := pool.Get()
+	defer util.CloseAndLog(c, logger)
+	max := util.Milliseconds() - util.Millisec3Days
+	_, err = c.Do("ZREMRANGEBYSCORE", terminalID, 0, max)
+	if err != nil {
+		return
+	}
+	_, err = c.Do("ZREMRANGEBYSCORE", util.EgtsName, 0, max)
+	return
+}
+
 func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte, logger *logrus.Entry) error {
 	logger.Tracef("write2Ndtp terminalID: %v, time: %v; sdata: %v", terminalID, time, sdata)
 	res, err := c.Do("ZADD", terminalID, time, sdata)
@@ -122,4 +137,14 @@ func getNotConfirmed(conn redis.Conn, sysID byte, packets [][]byte, logger *logr
 	}
 	logger.Tracef("getNotConfirmed 2: sysID: %v, res: %v", sysID, res)
 	return res, nil
+}
+
+func findPacketNdtp(conn redis.Conn, key []byte, val []byte, packetStart int) ([][]byte, error) {
+	terminalID := util.TerminalID(key)
+	time := binary.LittleEndian.Uint64(val[systemBytes:])
+	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, time, time))
+	if err != nil {
+		return nil, err
+	}
+	return packets, nil
 }

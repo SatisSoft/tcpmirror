@@ -11,6 +11,7 @@ import (
 
 const (
 	TerminalName = "terminal"
+	SourceName   = "sourceEgts"
 
 	visTable = "vis"
 	attTable = "source"

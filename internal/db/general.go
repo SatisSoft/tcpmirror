@@ -41,8 +41,8 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 }
 
 // Write2DB4Egts writes packet with metadata to DB
-func Write2DB4Egts(pool *Pool, OID int, sdata []byte, logger *logrus.Entry) (err error) {
-	logger.Tracef("Write2DB4Egts OID: %d, sdata: %v", OID, sdata)
+func Write2DB4Egts(pool *Pool, sdata []byte, logger *logrus.Entry) (err error) {
+	logger.Tracef("Write2DB4Egts, sdata: %v", sdata)
 	time := util.Milliseconds()
 	c := pool.Get()
 	defer util.CloseAndLog(c, logger)
@@ -51,24 +51,11 @@ func Write2DB4Egts(pool *Pool, OID int, sdata []byte, logger *logrus.Entry) (err
 	if err != nil {
 		return
 	}
-	err = write2Egts4Egts(c, OID, time, sdata, logger)
+	err = write2Egts4Egts(c, time, sdata, logger)
 	if err != nil {
 		return
 	}
 	err = write2EGTS(c, time, sdata[:util.PacketStartEgts])
-	return
-}
-
-// RemoveExpired removes expired packet from DB
-func RemoveExpired(pool *Pool, terminalID int, logger *logrus.Entry) (err error) {
-	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
-	max := util.Milliseconds() - util.Millisec3Days
-	_, err = c.Do("ZREMRANGEBYSCORE", terminalID, 0, max)
-	if err != nil {
-		return
-	}
-	_, err = c.Do("ZREMRANGEBYSCORE", util.EgtsName, 0, max)
 	return
 }
 
@@ -163,9 +150,12 @@ func findPacket(conn redis.Conn, key []byte, packetStart int) (pack []byte, err 
 		err = fmt.Errorf("got short result: %v", val)
 		return
 	}
-	terminalID := util.TerminalID(key)
-	time := binary.LittleEndian.Uint64(val[systemBytes:])
-	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, time, time))
+	var packets [][]byte
+	if util.EgtsSource != "" {
+		packets, err = findPacketEgts(conn, val, packetStart)
+	} else {
+		packets, err = findPacketNdtp(conn, key, val, packetStart)
+	}
 	if err != nil {
 		return nil, err
 	}

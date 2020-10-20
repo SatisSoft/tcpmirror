@@ -211,7 +211,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 	buf, err = c.processPacket(buf)
 	if err != nil {
 		c.logger.Warningf("can't process packet: %s", err)
-		if len(buf) > 1024 {
+		if len(buf) > defaultBufferSize {
 			return []byte{}
 		}
 	}

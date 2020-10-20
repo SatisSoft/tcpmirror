@@ -50,13 +50,10 @@ func calcAll(systemIds []byte) uint64 {
 }
 
 func getPacketStart(serverProtocol string) (packetStart int) {
-	switch serverProtocol {
-	case "NDTP":
-		packetStart = util.PacketStart
-	case "EGTS":
+	if serverProtocol == "EGTS" {
 		packetStart = util.PacketStartEgts
-	default:
-		logrus.Errorf("undefined server protocol: %s", serverProtocol)
+	} else {
+		packetStart = util.PacketStart
 	}
 	return
 }
@@ -143,13 +140,17 @@ func deletePacket(conn redis.Conn, key []byte, packetStart int) error {
 	if err != nil {
 		return err
 	}
-	terminalID := util.TerminalID(key)
 	res, err := conn.Do("ZREM", util.EgtsName, key)
 	logrus.Tracef("del 1 res = %v, err = %v", res, err)
 	if err != nil {
 		return err
 	}
-	res, err = conn.Do("ZREM", terminalID, packet)
+	if util.EgtsSource != "" {
+		res, err = conn.Do("ZREM", util.EgtsSource, packet)
+	} else {
+		terminalID := util.TerminalID(key)
+		res, err = conn.Do("ZREM", terminalID, packet)
+	}
 	logrus.Tracef("del 2 res = %v, err = %v", res, err)
 	if err != nil {
 		return err
