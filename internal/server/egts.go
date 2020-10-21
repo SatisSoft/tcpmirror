@@ -77,7 +77,7 @@ func newEgtsServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 		exitChan: exitChan,
 		Options:  options,
 		channels: channels,
-		name:     monitoring.SourceName,
+		name:     monitoring.TerminalName,
 	}, nil
 }
 
