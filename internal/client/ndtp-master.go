@@ -350,6 +350,7 @@ func (c *NdtpMaster) send(packet []byte) error {
 		monitoring.SendMetric(c.Options, c.name, monitoring.SentBytes, n)
 		monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, 1)
 	}
+	c.logger.Infof("send: n=%v, len=%v", n, len(packet))
 	return err
 }
 
