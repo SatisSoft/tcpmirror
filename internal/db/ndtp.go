@@ -43,7 +43,7 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 	all, err := allNotConfirmedNdtp(conn, terminalID, logger)
-	logger.Infof("allNotConfirmed: %v, %v", err, all)
+	logger.Infof("allNotConfirmed: %v, %v", err, len(all))
 	if err != nil {
 		return nil, err
 	}
