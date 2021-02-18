@@ -225,7 +225,7 @@ func (s *egtsServer) send2Channel(channel chan []byte, data []byte) {
 	case channel <- copyData:
 		return
 	default:
-		s.logger.Warningln("channel is full")
+		s.logger.Warningln("channel is full 4")
 	}
 }
 

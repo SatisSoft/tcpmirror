@@ -30,7 +30,7 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 	case confChan <- data:
 		return nil
 	default:
-		logger.Warningln("channel is full")
+		logger.Warningln("channel is full 2")
 	}
 	return nil
 }

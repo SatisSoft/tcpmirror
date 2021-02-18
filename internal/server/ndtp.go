@@ -316,7 +316,7 @@ func (s *ndtpServer) send2Channel(channel chan []byte, data []byte) {
 	case channel <- copyData:
 		return
 	default:
-		s.logger.Warningln("channel is full for data")
+		s.logger.Warningln("channel is full 5")
 	}
 }
 

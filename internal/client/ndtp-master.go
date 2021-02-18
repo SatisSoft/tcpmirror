@@ -419,7 +419,7 @@ func (c *NdtpMaster) send2Channel(channel chan []byte, data []byte) {
 	case channel <- data:
 		return
 	default:
-		c.logger.Warningln("channel is full")
+		c.logger.Warningln("channel is full 1")
 	}
 }
 

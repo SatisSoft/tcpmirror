@@ -68,7 +68,7 @@ func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *l
 	case confChan <- data:
 		return nil
 	default:
-		logger.Warningln("channel is full for conf")
+		logger.Warningln("channel is full 3")
 	}
 	return nil
 }
