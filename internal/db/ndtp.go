@@ -43,7 +43,7 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 	all, err := allNotConfirmedNdtp(conn, terminalID, logger)
-	logger.Tracef("allNotConfirmed: %v, %v", err, all)
+	logger.Infof("allNotConfirmed: %v, %v", err, all)
 	if err != nil {
 		return nil, err
 	}
@@ -68,7 +68,7 @@ func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *l
 	case confChan <- data:
 		return nil
 	default:
-		logger.Warningln("channel is full")
+		logger.Warningln("channel is full for conf")
 	}
 	return nil
 }
