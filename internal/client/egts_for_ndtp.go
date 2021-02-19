@@ -90,6 +90,7 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 }
 
 func (c *Egts) old4Ndtp() {
+	c.logger.Infof("old4Ndtp")
 	dbConn := db.Connect(c.DB)
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	defer ticker.Stop()
