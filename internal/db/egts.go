@@ -2,6 +2,7 @@ package db
 
 import (
 	"encoding/binary"
+	"log"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -38,6 +39,7 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 // OldPacketsEGTS returns not confirmed packets for corresponding system
 func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int) ([][]byte, error) {
 	all, err := allNotConfirmedEGTS(conn)
+	log.Println("OldPacketsEGTS", len(all))
 	if err != nil {
 		return nil, err
 	}
@@ -97,6 +99,7 @@ func NewSessionIDEgts(pool *Pool, logger *logrus.Entry) (uint64, error) {
 }
 
 func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
+	log.Println("allNotConfirmedEGTS")
 	max := util.Milliseconds() - PeriodNotConfData
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 30000000))
 }
