@@ -98,7 +98,7 @@ func NewSessionIDEgts(pool *Pool, logger *logrus.Entry) (uint64, error) {
 
 func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
 	max := util.Milliseconds() - PeriodNotConfData
-	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 6000))
+	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 30000000))
 }
 
 func notConfirmed(conn redis.Conn, notConfKeys [][]byte, packetStart int) ([][]byte, error) {
