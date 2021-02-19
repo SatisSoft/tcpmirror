@@ -97,13 +97,13 @@ OLDLOOP:
 	for {
 		if c.open {
 			<-ticker.C
-			c.logger.Debugf("start checking old data")
+			c.logger.Infof("start checking old data")
 			messages, err := db.OldPacketsEGTS(dbConn, c.id, util.PacketStart)
 			if err != nil {
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue
 			}
-			c.logger.Debugf("get %d old packets", len(messages))
+			c.logger.Infof("get %d old packets", len(messages))
 			var buf []byte
 			var i int
 			for _, msg := range messages {
