@@ -38,9 +38,16 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 
 // OldPacketsEGTS returns not confirmed packets for corresponding system
 func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int) ([][]byte, error) {
-	all, err := allNotConfirmedEGTS(conn)
-	if err != nil {
-		return nil, err
+	limit := 10000
+	nextNum := 0
+	all := [][]byte{}
+	for len(all) < limit {
+		res, err := allNotConfirmedEGTS(conn, nextNum, limit)
+		if err != nil {
+			return nil, err
+		}
+		nextNum = nextNum + len(res) + 1
+		all = append(all, res...)
 	}
 	notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
 	if err != nil {
@@ -97,10 +104,10 @@ func NewSessionIDEgts(pool *Pool, logger *logrus.Entry) (uint64, error) {
 	return id, err
 }
 
-func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
-	log.Println("allNotConfirmedEGTS")
+func allNotConfirmedEGTS(conn redis.Conn, offset int, limit int) ([][]byte, error) {
+	log.Println("allNotConfirmedEGTS offset", offset)
 	max := util.Milliseconds() - PeriodNotConfData
-	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 10000))
+	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", offset, limit))
 }
 
 func notConfirmed(conn redis.Conn, notConfKeys [][]byte, packetStart int) ([][]byte, error) {
