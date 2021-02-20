@@ -1,6 +1,7 @@
 package client
 
 import (
+	"log"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/db"
@@ -103,6 +104,10 @@ OLDLOOP:
 			if err != nil {
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue
+			}
+			log.Println("OldPacketsEGTS", len(messages))
+			if len(messages) > 0 {
+				log.Println("OldPacketsEGTS first pack", messages[0])
 			}
 			c.logger.Infof("get %d old packets", len(messages))
 			var buf []byte

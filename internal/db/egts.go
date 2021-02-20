@@ -39,7 +39,6 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 // OldPacketsEGTS returns not confirmed packets for corresponding system
 func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int) ([][]byte, error) {
 	all, err := allNotConfirmedEGTS(conn)
-	log.Println("OldPacketsEGTS", len(all))
 	if err != nil {
 		return nil, err
 	}
