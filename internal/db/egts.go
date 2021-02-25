@@ -48,7 +48,7 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int) ([][]byte, err
 	// }
 	// return notConfirmed(conn, notConfirmedKeys, packetStart)
 	notConfirmedKeysAll := [][]byte{}
-	limit := 100000
+	limit := 10000
 	offset := 0
 	for len(notConfirmedKeysAll) < limit {
 		all, err := allNotConfirmedEGTS(conn, offset, limit)

@@ -44,7 +44,7 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 	notConfirmedAll := [][]byte{}
-	limit := 100
+	limit := 10
 	offset := 0
 	var err error
 	for len(notConfirmedAll) < limit {
