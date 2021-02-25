@@ -37,7 +37,7 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 }
 
 // OldPacketsEGTS returns not confirmed packets for corresponding system
-func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int) ([][]byte, error) {
+func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int, offset int) ([][]byte, int, error) {
 	// all, err := allNotConfirmedEGTS(conn)
 	// if err != nil {
 	// 	return nil, err
@@ -49,17 +49,16 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int) ([][]byte, err
 	// return notConfirmed(conn, notConfirmedKeys, packetStart)
 	notConfirmedKeysAll := [][]byte{}
 	limit := 100
-	offset := 0
 	for len(notConfirmedKeysAll) < limit {
 		all, err := allNotConfirmedEGTS(conn, offset, limit)
 		log.Println("OldPacketsEGTS", len(all))
 		if err != nil {
-			return nil, err
+			return nil, offset, err
 		}
 		notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
 		log.Println("notConfirmedKeys", len(notConfirmedKeys))
 		if err != nil {
-			return nil, err
+			return nil, offset, err
 		}
 		notConfirmedKeysAll = append(notConfirmedKeysAll, notConfirmedKeys...)
 		log.Println("notConfirmedKeysAll", len(notConfirmedKeysAll))
@@ -68,8 +67,8 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int) ([][]byte, err
 			break
 		}
 	}
-
-	return notConfirmed(conn, notConfirmedKeysAll, packetStart)
+	res, err := notConfirmed(conn, notConfirmedKeysAll, packetStart)
+	return res, offset, err
 }
 
 // SetEgtsID writes Egts IDs to db

@@ -150,12 +150,15 @@ func (c *Egts) old4Egts() {
 	dbConn := db.Connect(c.DB)
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	defer ticker.Stop()
+	offset := 0
+	var messages [][]byte
+	var err error
 OLDLOOP:
 	for {
 		if c.open {
 			<-ticker.C
-			c.logger.Infof("start checking old data")
-			messages, err := db.OldPacketsEGTS(dbConn, c.id, util.PacketStartEgts)
+			c.logger.Infof("start checking old data offset", offset)
+			messages, offset, err = db.OldPacketsEGTS(dbConn, c.id, util.PacketStartEgts, offset)
 			if err != nil {
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue

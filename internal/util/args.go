@@ -111,7 +111,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	}
 	args.PeriodCheckOld = viper.GetInt(periodCheckOld)
 	if args.PeriodCheckOld == 0 {
-		args.PeriodCheckOld = 60
+		args.PeriodCheckOld = 1 //60
 	}
 	args.TimeoutClose = viper.GetInt(timeoutClose)
 	if args.TimeoutClose == 0 {
