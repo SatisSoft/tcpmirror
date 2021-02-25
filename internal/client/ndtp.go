@@ -14,7 +14,7 @@ import (
 )
 
 // NdtpChanSize defines size of Ndtp client input chanel buffer
-const NdtpChanSize = 200
+const NdtpChanSize = 10
 
 type ndtpSession struct {
 	nplID uint16
