@@ -1,6 +1,7 @@
 package db
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -44,6 +45,7 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte, offset int) ([][]byte, int, err
 		}
 
 		lenAll := len(all)
+		log.Println("all", lenAll)
 		if lenAll == 0 {
 			offset = 0
 			break
@@ -53,7 +55,7 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte, offset int) ([][]byte, int, err
 		} else {
 			offset = offset + lenAll + 1
 		}
-
+		log.Println("offset", offset)
 		notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
 		if err != nil {
 			return nil, offset, err
