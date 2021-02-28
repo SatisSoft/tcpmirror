@@ -48,16 +48,6 @@ func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) 
 	return c
 }
 
-// InputChannel implements method of Client interface
-func (c *Egts) InputChannel() chan []byte {
-	return c.Input
-}
-
-// OutputChannel implements method of Client interface
-func (c *Egts) OutputChannel() chan []byte {
-	return nil
-}
-
 func (c *Egts) start() {
 	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
@@ -68,17 +58,149 @@ func (c *Egts) start() {
 		c.conn = conn
 		c.open = true
 	}
-	switch c.ServerProtocol {
-	case "NDTP":
-		go c.old4Ndtp()
-		go c.replyHandler()
-		c.clientLoop4Ndtp()
-	case "EGTS":
-		go c.old4Egts()
-		go c.replyHandler()
-		c.clientLoop4Egts()
-	default:
-		logrus.Errorf("undefined server protocol: %s", c.ServerProtocol)
+	go c.old()
+	go c.replyHandler()
+	c.clientLoop()
+}
+
+// InputChannel implements method of Client interface
+func (c *Egts) InputChannel() chan []byte {
+	return c.Input
+}
+
+// OutputChannel implements method of Client interface
+func (c *Egts) OutputChannel() chan []byte {
+	return nil
+}
+
+func (c *Egts) clientLoop() {
+	dbConn := db.Connect(c.DB)
+	defer c.closeDBConn(dbConn)
+	err := c.getID(dbConn)
+	if err != nil {
+		c.logger.Errorf("can't getID: %v", err)
+	}
+	var buf []byte
+	count := 0
+	sendTicker := time.NewTicker(100 * time.Millisecond)
+	defer sendTicker.Stop()
+	for {
+		if c.open {
+			select {
+			case message := <-c.Input:
+				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
+				if db.CheckOldData(dbConn, message[:util.PacketStart], c.logger) {
+					continue
+				}
+				buf = c.processMessage(dbConn, message, buf)
+				count++
+				if count == 10 {
+					err := c.send(buf)
+					if err == nil {
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+					}
+					buf = []byte(nil)
+					count = 0
+				}
+			case <-sendTicker.C:
+				if (count > 0) && (count < 10) {
+					err := c.send(buf)
+					if err == nil {
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+					}
+					buf = []byte(nil)
+					count = 0
+				}
+			}
+		} else {
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+			buf = []byte(nil)
+			count = 0
+		}
+	}
+}
+
+func (c *Egts) processMessage(dbConn db.Conn, message []byte, buf []byte) []byte {
+	util.PrintPacket(c.logger, "serialized data: ", message)
+	data := util.Deserialize(message)
+	c.logger.Tracef("data: %+v", data)
+	messageID, recID, err := c.ids(dbConn)
+	if err != nil {
+		c.logger.Errorf("can't get ids: %s", err)
+		return buf
+	}
+	packet, err := util.Ndtp2Egts(data.Packet, data.TerminalID, messageID, recID)
+	util.PrintPacket(c.logger, "formed packet: ", packet)
+	if err != nil {
+		c.logger.Errorf("can't form packet: %s", err)
+		return buf
+	}
+	buf = append(buf, packet...)
+	err = db.WriteEgtsID(dbConn, c.id, recID, data.ID)
+	if err != nil {
+		c.logger.Errorf("error WriteEgtsID: %s", err)
+	}
+	return buf
+}
+
+func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
+	c.mu.Lock()
+	egtsMessageID := c.egtsMessageID
+	egtsRecID := c.egtsRecID
+	c.egtsMessageID++
+	c.egtsRecID++
+	err := db.SetEgtsID(conn, c.id, c.egtsRecID)
+	c.mu.Unlock()
+	return egtsMessageID, egtsRecID, err
+}
+
+func (c *Egts) old() {
+	c.logger.Infof("old")
+	dbConn := db.Connect(c.DB)
+	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
+	defer ticker.Stop()
+	offset := 0
+	messages := [][]byte{}
+OLDLOOP:
+	for {
+		if c.open {
+			c.logger.Infof("start checking old data")
+			var err error
+			messages, offset, err = db.OldPacketsEGTS(dbConn, c.id, offset)
+			if err != nil {
+				c.logger.Warningf("can't get old packets: %s", err)
+				continue
+			}
+			c.logger.Infof("get %d old packets", len(messages))
+			var buf []byte
+			var i int
+			for _, msg := range messages {
+				buf = c.processMessage(dbConn, msg, buf)
+				i++
+				if i > 9 {
+					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
+					if err = c.send(buf); err != nil {
+						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
+						continue OLDLOOP
+					}
+					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
+					i = 0
+					buf = []byte(nil)
+				}
+			}
+			if len(buf) > 0 {
+				c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
+				err := c.send(buf)
+				if err == nil {
+					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
+				}
+			}
+
+			<-ticker.C
+
+		} else {
+			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+		}
 	}
 }
 

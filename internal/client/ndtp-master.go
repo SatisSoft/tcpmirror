@@ -270,7 +270,7 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 func (c *NdtpMaster) old() {
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	c.logger.Traceln("start old ticker")
-	c.checkOld()
+	offset := c.checkOld(0)
 	defer ticker.Stop()
 	for {
 		if c.open {
@@ -278,7 +278,7 @@ func (c *NdtpMaster) old() {
 			case <-c.exitChan:
 				return
 			case <-ticker.C:
-				c.checkOld()
+				offset = c.checkOld(offset)
 			}
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
@@ -286,22 +286,17 @@ func (c *NdtpMaster) old() {
 	}
 }
 
-func (c *NdtpMaster) checkOld() {
+func (c *NdtpMaster) checkOld(offset int) int {
 	c.logger.Infoln("start checking old")
-	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
+	res, offset, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, offset, c.logger)
 	c.logger.Tracef("receive old: %v, %v ", err, res)
-
-	len := len(res)
-	if len > 0 {
-		c.logger.Infof("receive old: %v, %v ", err, len)
-	}
 
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
 	} else {
 		c.resend(res)
 	}
-	return
+	return offset
 }
 
 func (c *NdtpMaster) resend(messages [][]byte) {

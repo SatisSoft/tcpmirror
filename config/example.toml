@@ -29,7 +29,7 @@ period_notconf_data = 60000
 period_old_data = 55000
 
 #period check old data sec
-period_check_old = 60
+period_check_old = 1
 
 #timeout close sec
 timeout_close = 5

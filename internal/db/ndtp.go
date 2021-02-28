@@ -1,8 +1,6 @@
 package db
 
 import (
-	"encoding/binary"
-	"log"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -40,33 +38,30 @@ func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error
 }
 
 // OldPacketsNdtp returns not confirmed packets for corresponding system
-func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) ([][]byte, error) {
+func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, offset int, logger *logrus.Entry) ([][]byte, int, error) {
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 	notConfirmedAll := [][]byte{}
 	limit := 10
-	offset := 0
-	var err error
+
 	for len(notConfirmedAll) < limit {
 		all, err := allNotConfirmedNdtp(conn, terminalID, logger, offset, limit)
-		logger.Infof("allNotConfirmed: %v, %v", err, len(all))
-
 		if err != nil {
-			return nil, err
+			return nil, 0, err
 		}
-		if len(all) == 0 {
+		lenAll := len(all)
+		if lenAll == 0 {
+			offset = 0
 			break
 		}
-		offset = offset + len(all) + 1
+		offset = offset + lenAll + 1
 		notConfirmed, err := getNotConfirmed(conn, sysID, all, logger)
-		log.Println("notConfirmedKeys", len(notConfirmed))
 		if err != nil {
-			return nil, err
+			return nil, offset, err
 		}
 		notConfirmedAll = append(notConfirmedAll, notConfirmed...)
-		log.Println("notConfirmedAll", len(notConfirmedAll))
 	}
-	return notConfirmedAll, err
+	return notConfirmedAll, offset, nil
 }
 
 // ConfirmNdtp sets confirm bite for corresponding system to 1 and deletes confirmed packets
@@ -135,12 +130,6 @@ func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte, logger *
 	return err
 }
 
-// func allNotConfirmedNdtp(conn redis.Conn, terminalID int, logger *logrus.Entry) ([][]byte, error) {
-// 	max := util.Milliseconds() - PeriodNotConfData
-// 	logger.Tracef("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
-// 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", 0, 100))
-// }
-
 func allNotConfirmedNdtp(conn redis.Conn, terminalID int, logger *logrus.Entry, offset int, limit int) ([][]byte, error) {
 	max := util.Milliseconds() - PeriodNotConfData
 	logger.Tracef("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
@@ -162,14 +151,4 @@ func getNotConfirmed(conn redis.Conn, sysID byte, packets [][]byte, logger *logr
 	}
 	logger.Tracef("getNotConfirmed 2: sysID: %v, res: %v", sysID, res)
 	return res, nil
-}
-
-func findPacketNdtp(conn redis.Conn, key []byte, val []byte, packetStart int) ([][]byte, error) {
-	terminalID := util.TerminalID(key)
-	time := binary.LittleEndian.Uint64(val[systemBytes:])
-	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, time, time))
-	if err != nil {
-		return nil, err
-	}
-	return packets, nil
 }

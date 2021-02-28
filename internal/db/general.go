@@ -40,25 +40,6 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 	return
 }
 
-// Write2DB4Egts writes packet with metadata to DB
-func Write2DB4Egts(pool *Pool, sdata []byte, logger *logrus.Entry) (err error) {
-	logger.Tracef("Write2DB4Egts, sdata: %v", sdata)
-	time := util.Milliseconds()
-	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
-	logger.Tracef("writeZeroConfirmation time: %v; key: %v", time, sdata[:util.PacketStartEgts])
-	err = writeZeroConfirmation(c, uint64(time), sdata[:util.PacketStartEgts])
-	if err != nil {
-		return
-	}
-	err = write2Egts4Egts(c, time, sdata, logger)
-	if err != nil {
-		return
-	}
-	err = write2EGTS(c, time, sdata[:util.PacketStartEgts])
-	return
-}
-
 // NewSessionID returns new ID of sessions between tcpmirror and terminal
 func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error) {
 	c := pool.Get()
@@ -140,7 +121,7 @@ func isConfirmed(conn redis.Conn, id []byte, sysID byte) (isConf bool, err error
 	return
 }
 
-func findPacket(conn redis.Conn, key []byte, packetStart int) (pack []byte, err error) {
+func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
 	val, err := redis.Bytes(conn.Do("GET", key))
 	logrus.Tracef("findPack key = %v, val = %v, err = %v", key, val, err)
 	if err != nil {
@@ -150,11 +131,11 @@ func findPacket(conn redis.Conn, key []byte, packetStart int) (pack []byte, err 
 		err = fmt.Errorf("got short result: %v", val)
 		return
 	}
-	var packets [][]byte
-	if util.EgtsSource != "" {
-		packets, err = findPacketEgts(conn, val, packetStart)
-	} else {
-		packets, err = findPacketNdtp(conn, key, val, packetStart)
+	terminalID := util.TerminalID(key)
+	time := binary.LittleEndian.Uint64(val[systemBytes:])
+	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, time, time))
+	if err != nil {
+		return nil, err
 	}
 	if err != nil {
 		return nil, err
@@ -163,7 +144,7 @@ func findPacket(conn redis.Conn, key []byte, packetStart int) (pack []byte, err 
 	switch {
 	case numPackets > 1:
 		for _, p := range packets {
-			if bytes.Compare(p[:packetStart], key) == 0 {
+			if bytes.Compare(p[:util.PacketStart], key) == 0 {
 				return p, nil
 			}
 		}

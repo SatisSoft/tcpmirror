@@ -7,17 +7,16 @@ import (
 )
 
 // DeleteChanSize is a size of delete channel
-const DeleteChanSize = 60000000
+const DeleteChanSize = 6100000
 
 // DeleteManager describes goroutine which manages deleting records from DB
 type DeleteManager struct {
-	Chan        chan *ConfMsg
-	dbConn      Conn
-	toDelete    map[string]uint64
-	deleted     map[string]bool
-	logger      *logrus.Entry
-	all         uint64
-	packetStart int
+	Chan     chan *ConfMsg
+	dbConn   Conn
+	toDelete map[string]uint64
+	deleted  map[string]bool
+	logger   *logrus.Entry
+	all      uint64
 }
 
 // ConfMsg is type of messages from client to delete manager
@@ -36,7 +35,6 @@ func InitDeleteManager(db string, systemIds []byte, serverProtocol string) *Dele
 	Manager.all = calcAll(systemIds)
 	Manager.toDelete = make(map[string]uint64)
 	Manager.deleted = make(map[string]bool)
-	Manager.packetStart = getPacketStart(serverProtocol)
 	go Manager.receiveLoop()
 	return Manager
 }
@@ -47,15 +45,6 @@ func calcAll(systemIds []byte) uint64 {
 		all |= (1 << n)
 	}
 	return all
-}
-
-func getPacketStart(serverProtocol string) (packetStart int) {
-	if serverProtocol == "EGTS" {
-		packetStart = util.PacketStartEgts
-	} else {
-		packetStart = util.PacketStart
-	}
-	return
 }
 
 func (m *DeleteManager) receiveLoop() {
@@ -112,7 +101,7 @@ func (m *DeleteManager) handleNotExisted(msg string, message *ConfMsg) (err erro
 }
 
 func (m *DeleteManager) delete(msg string, message *ConfMsg) (err error) {
-	err = deletePacket(m.dbConn, message.key, m.packetStart)
+	err = deletePacket(m.dbConn, message.key)
 	if err != nil {
 		m.deleted[msg] = true
 		delete(m.toDelete, msg)
@@ -134,27 +123,26 @@ func (m *DeleteManager) countBits(key []byte) (int, error) {
 	return n, err
 }
 
-func deletePacket(conn redis.Conn, key []byte, packetStart int) error {
-	packet, err := findPacket(conn, key, packetStart)
+func deletePacket(conn redis.Conn, key []byte) error {
+	packet, err := findPacket(conn, key)
 	logrus.Tracef("deletePacket key = %v, packet = %v, err = %v", key, packet, err)
 	if err != nil {
 		return err
 	}
+
 	res, err := conn.Do("ZREM", util.EgtsName, key)
 	logrus.Tracef("del 1 res = %v, err = %v", res, err)
 	if err != nil {
 		return err
 	}
-	if util.EgtsSource != "" {
-		res, err = conn.Do("ZREM", util.EgtsSource, packet)
-	} else {
-		terminalID := util.TerminalID(key)
-		res, err = conn.Do("ZREM", terminalID, packet)
-	}
+
+	terminalID := util.TerminalID(key)
+	res, err = conn.Do("ZREM", terminalID, packet)
 	logrus.Tracef("del 2 res = %v, err = %v", res, err)
 	if err != nil {
 		return err
 	}
+
 	res, err = conn.Do("DEL", key)
 	logrus.Tracef("del 3 res = %v, err = %v", res, err)
 	if err != nil {

@@ -1,8 +1,6 @@
 package db
 
 import (
-	"encoding/binary"
-	"log"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -13,7 +11,6 @@ import (
 // WriteEgtsID maps EgtsID to NdtpID or received EgtsID to sent EgtsID
 func WriteEgtsID(conn redis.Conn, sysID byte, egtsID uint16, ID []byte) error {
 	key := util.EgtsName + ":" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(int(egtsID))
-	//log.Printf("WriteEgtsID key %v, ID %v\n", key, ID)
 	_, err := conn.Do("SET", key, ID, "ex", KeyEx)
 	return err
 }
@@ -37,37 +34,29 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 }
 
 // OldPacketsEGTS returns not confirmed packets for corresponding system
-func OldPacketsEGTS(conn redis.Conn, sysID byte, packetStart int, offset int) ([][]byte, int, error) {
-	// all, err := allNotConfirmedEGTS(conn)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// return notConfirmed(conn, notConfirmedKeys, packetStart)
+func OldPacketsEGTS(conn redis.Conn, sysID byte, offset int) ([][]byte, int, error) {
 	notConfirmedKeysAll := [][]byte{}
 	limit := 100
 	for len(notConfirmedKeysAll) < limit {
 		all, err := allNotConfirmedEGTS(conn, offset, limit)
-		log.Println("OldPacketsEGTS", len(all))
 		if err != nil {
-			return nil, offset, err
+			return nil, 0, err
 		}
+
+		lenAll := len(all)
+		if lenAll == 0 {
+			offset = 0
+			break
+		}
+		offset = offset + lenAll + 1
+
 		notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
-		log.Println("notConfirmedKeys", len(notConfirmedKeys))
 		if err != nil {
 			return nil, offset, err
 		}
 		notConfirmedKeysAll = append(notConfirmedKeysAll, notConfirmedKeys...)
-		log.Println("notConfirmedKeysAll", len(notConfirmedKeysAll))
-		offset = offset + len(all) + 1
-		if len(all) == 0 {
-			break
-		}
 	}
-	res, err := notConfirmed(conn, notConfirmedKeysAll, packetStart)
+	res, err := notConfirmed(conn, notConfirmedKeysAll)
 	return res, offset, err
 }
 
@@ -89,51 +78,15 @@ func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
 	return req, nil
 }
 
-// RemoveExpiredEgts removes expired packet from DB
-func RemoveExpiredEgts(pool *Pool, logger *logrus.Entry) (err error) {
-	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
-	max := util.Milliseconds() - util.Millisec3Days
-	_, err = c.Do("ZREMRANGEBYSCORE", util.EgtsSource, 0, max)
-	if err != nil {
-		return
-	}
-	_, err = c.Do("ZREMRANGEBYSCORE", util.EgtsName, 0, max)
-	return
-}
-
-// NewSessionIDEgts returns new ID of sessions between tcpmirror and data source
-func NewSessionIDEgts(pool *Pool, logger *logrus.Entry) (uint64, error) {
-	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
-	key := "session:" + util.Instance
-	id, err := redis.Uint64(c.Do("GET", key))
-	if err != nil {
-		if err == redis.ErrNil {
-			id = 0
-		} else {
-			return 0, err
-		}
-	}
-	_, err = c.Do("SET", key, id+1)
-	return id, err
-}
-
 func allNotConfirmedEGTS(conn redis.Conn, offset int, limit int) ([][]byte, error) {
-	log.Println("allNotConfirmedEGTS")
 	max := util.Milliseconds() - PeriodNotConfData
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", offset, limit))
 }
 
-// func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
-// 	max := util.Milliseconds() - PeriodNotConfData
-// 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 10000))
-// }
-
-func notConfirmed(conn redis.Conn, notConfKeys [][]byte, packetStart int) ([][]byte, error) {
+func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error) {
 	res := [][]byte{}
 	for _, key := range notConfKeys {
-		packet, err := findPacket(conn, key, packetStart)
+		packet, err := findPacket(conn, key)
 		if err != nil {
 			return nil, err
 		}
@@ -145,20 +98,4 @@ func notConfirmed(conn redis.Conn, notConfKeys [][]byte, packetStart int) ([][]b
 func write2EGTS(c redis.Conn, time int64, key []byte) error {
 	_, err := c.Do("ZADD", util.EgtsName, time, key)
 	return err
-}
-
-func write2Egts4Egts(c redis.Conn, time int64, sdata []byte, logger *logrus.Entry) error {
-	logger.Tracef("write2Egts4Egts, time: %v; sdata: %v", time, sdata)
-	res, err := c.Do("ZADD", util.EgtsSource, time, sdata)
-	logger.Tracef("write2Egts4Egts time: %v; sdata: %v; res: %v; err: %v", time, sdata, res, err)
-	return err
-}
-
-func findPacketEgts(conn redis.Conn, val []byte, packetStart int) ([][]byte, error) {
-	time := binary.LittleEndian.Uint64(val[systemBytes:])
-	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsSource, time, time))
-	if err != nil {
-		return nil, err
-	}
-	return packets, nil
 }

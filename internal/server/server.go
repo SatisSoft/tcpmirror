@@ -126,8 +126,6 @@ func startServer(args *util.Args, options *util.Options, egtsClients []client.Cl
 	switch args.Protocol {
 	case "NDTP":
 		startNdtpServer(listen, options, channels, args.Systems, confChan)
-	case "EGTS":
-		startEgtsServer(listen, options, channels, args.Systems, confChan)
 	default:
 		logrus.Errorf("undefined server protocol: %s", args.Protocol)
 	}
