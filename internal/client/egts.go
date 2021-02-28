@@ -164,7 +164,7 @@ func (c *Egts) old() {
 OLDLOOP:
 	for {
 		if c.open {
-			c.logger.Infof("start checking old data")
+			c.logger.Traceln("start checking old data")
 			var err error
 			messages, offset, err = db.OldPacketsEGTS(dbConn, c.id, offset)
 			if err != nil {
