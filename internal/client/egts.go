@@ -157,8 +157,6 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 func (c *Egts) old() {
 	c.logger.Infof("old")
 	dbConn := db.Connect(c.DB)
-	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
-	defer ticker.Stop()
 	offset := 0
 	messages := [][]byte{}
 OLDLOOP:
@@ -195,9 +193,11 @@ OLDLOOP:
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
 				}
 			}
-
-			<-ticker.C
-
+			if offset == 0 {
+				time.Sleep(time.Duration(PeriodCheckOld) * time.Second)
+			} else {
+				time.Sleep(1 * time.Second)
+			}
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}
