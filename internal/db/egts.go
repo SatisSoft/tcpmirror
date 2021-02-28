@@ -50,17 +50,17 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte, offset int) ([][]byte, int, err
 			offset = 0
 			break
 		}
+		notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
+		if err != nil {
+			return nil, 0, err
+		}
+		notConfirmedKeysAll = append(notConfirmedKeysAll, notConfirmedKeys...)
 		if lenAll < limit {
 			offset = 0
+			break
 		} else {
 			offset = offset + lenAll + 1
 		}
-		log.Println("offset", offset)
-		notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
-		if err != nil {
-			return nil, offset, err
-		}
-		notConfirmedKeysAll = append(notConfirmedKeysAll, notConfirmedKeys...)
 	}
 	res, err := notConfirmed(conn, notConfirmedKeysAll)
 	return res, offset, err

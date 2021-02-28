@@ -54,16 +54,17 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, offset int, logger *
 			offset = 0
 			break
 		}
+		notConfirmed, err := getNotConfirmed(conn, sysID, all, logger)
+		if err != nil {
+			return nil, 0, err
+		}
+		notConfirmedAll = append(notConfirmedAll, notConfirmed...)
 		if lenAll < limit {
 			offset = 0
+			break
 		} else {
 			offset = offset + lenAll + 1
 		}
-		notConfirmed, err := getNotConfirmed(conn, sysID, all, logger)
-		if err != nil {
-			return nil, offset, err
-		}
-		notConfirmedAll = append(notConfirmedAll, notConfirmed...)
 	}
 	return notConfirmedAll, offset, nil
 }
