@@ -288,7 +288,7 @@ func (c *NdtpMaster) old() {
 
 func (c *NdtpMaster) checkOld() {
 	c.logger.Traceln("start checking old")
-	res, err = db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
+	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Infof("receive old: %v, %v ", err, len(res))
 
 	if err != nil {
