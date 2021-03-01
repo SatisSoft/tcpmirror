@@ -38,7 +38,7 @@ func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error
 }
 
 // OldPacketsNdtp returns not confirmed packets for corresponding system
-func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, offset int, logger *logrus.Entry) ([][]byte, error) {
+func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) ([][]byte, error) {
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 
