@@ -157,14 +157,11 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 func (c *Egts) old() {
 	c.logger.Infof("old")
 	dbConn := db.Connect(c.DB)
-	offset := 0
-	messages := [][]byte{}
 OLDLOOP:
 	for {
 		if c.open {
 			c.logger.Traceln("start checking old data")
-			var err error
-			messages, offset, err = db.OldPacketsEGTS(dbConn, c.id, offset)
+			messages, err := db.OldPacketsEGTS(dbConn, c.id)
 			if err != nil {
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue
@@ -184,6 +181,7 @@ OLDLOOP:
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
 					i = 0
 					buf = []byte(nil)
+					time.Sleep(1 * time.Second)
 				}
 			}
 			if len(buf) > 0 {
@@ -193,11 +191,7 @@ OLDLOOP:
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
 				}
 			}
-			if offset == 0 {
-				time.Sleep(time.Duration(PeriodCheckOld) * time.Second)
-			} else {
-				time.Sleep(1 * time.Second)
-			}
+			time.Sleep(time.Duration(PeriodCheckOld) * time.Second)
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}

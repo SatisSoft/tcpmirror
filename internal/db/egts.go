@@ -1,7 +1,6 @@
 package db
 
 import (
-	"log"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -35,35 +34,18 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 }
 
 // OldPacketsEGTS returns not confirmed packets for corresponding system
-func OldPacketsEGTS(conn redis.Conn, sysID byte, offset int) ([][]byte, int, error) {
-	notConfirmedKeysAll := [][]byte{}
-	limit := 100
-	for len(notConfirmedKeysAll) < limit {
-		all, err := allNotConfirmedEGTS(conn, offset, limit)
-		if err != nil {
-			return nil, 0, err
-		}
-
-		lenAll := len(all)
-		log.Println("all", lenAll)
-		if lenAll == 0 {
-			offset = 0
-			break
-		}
-		notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
-		if err != nil {
-			return nil, 0, err
-		}
-		notConfirmedKeysAll = append(notConfirmedKeysAll, notConfirmedKeys...)
-		if lenAll < limit {
-			offset = 0
-			break
-		} else {
-			offset = offset + lenAll + 1
-		}
+func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
+	all, err := allNotConfirmedEGTS(conn)
+	if err != nil {
+		return nil, err
 	}
-	res, err := notConfirmed(conn, notConfirmedKeysAll)
-	return res, offset, err
+	notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
+	if err != nil {
+		return nil, err
+	}
+
+	res, err := notConfirmed(conn, notConfirmedKeys)
+	return res, err
 }
 
 // SetEgtsID writes Egts IDs to db
@@ -84,9 +66,9 @@ func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
 	return req, nil
 }
 
-func allNotConfirmedEGTS(conn redis.Conn, offset int, limit int) ([][]byte, error) {
+func allNotConfirmedEGTS(conn redis.Conn) ([][]byte, error) {
 	max := util.Milliseconds() - PeriodNotConfData
-	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", offset, limit))
+	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, 60*100))
 }
 
 func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error) {
