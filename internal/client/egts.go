@@ -161,13 +161,13 @@ func (c *Egts) old() {
 OLDLOOP:
 	for {
 		if c.open {
-			c.logger.Traceln("start checking old data")
+			c.logger.Traceln("start checking old data", offset)
 			messages, offset, err := db.OldPacketsEGTS(dbConn, c.id, offset)
 			if err != nil {
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue
 			}
-			c.logger.Infof("get %d old packets", len(messages))
+			c.logger.Infof("get %d old packets, %v", len(messages), offset)
 			var buf []byte
 			var i int
 			for _, msg := range messages {
