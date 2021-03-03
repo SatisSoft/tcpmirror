@@ -37,8 +37,9 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 func OldPacketsEGTS(conn redis.Conn, sysID byte, offset int) ([][]byte, int, error) {
 	allNotConfirmed := [][]byte{}
 	limit := 100 * 60 //100p/sec
+	lenNotConf := 0
 
-	for limit > 0 {
+	for limit > 0 && lenNotConf < limit {
 		all, err := allNotConfirmedEGTS(conn, offset, limit)
 		if err != nil {
 			return nil, offset, err
@@ -54,10 +55,11 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte, offset int) ([][]byte, int, err
 		}
 
 		lenAll := len(all)
-		lenNotConf := len(notConfirmed)
+		lenNotConf0 := len(notConfirmed)
 
 		if lenNotConf != 0 {
 			allNotConfirmed = append(allNotConfirmed, notConfirmed...)
+			lenNotConf = lenNotConf + lenNotConf0
 		}
 
 		if lenAll < limit {

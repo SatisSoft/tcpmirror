@@ -44,8 +44,9 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, offset int, logger *
 
 	limit := 10 * 60 //10p/sec
 	allNotConfirmed := [][]byte{}
+	lenNotConf := 0
 
-	for limit > 0 {
+	for limit > 0 && lenNotConf < limit {
 		all, err := allNotConfirmedNdtp(conn, terminalID, offset, limit, logger)
 		if err != nil {
 			return nil, offset, err
@@ -57,10 +58,11 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, offset int, logger *
 		}
 
 		lenAll := len(all)
-		lenNotConf := len(notConfirmed)
+		lenNotConf0 := len(notConfirmed)
 
 		if lenNotConf != 0 {
 			allNotConfirmed = append(allNotConfirmed, notConfirmed...)
+			lenNotConf = lenNotConf + lenNotConf0
 		}
 
 		if lenAll < limit {
