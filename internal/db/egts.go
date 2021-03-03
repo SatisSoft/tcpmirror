@@ -36,11 +36,11 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 // OldPacketsEGTS returns not confirmed packets for corresponding system
 func OldPacketsEGTS(conn redis.Conn, sysID byte, offset int) ([][]byte, int, error) {
 	allNotConfirmed := [][]byte{}
-	limit := 100 * 60 //100p/sec
+	limit := 100000
 	lenNotConf := 0
 
 	for limit > 0 && lenNotConf < limit {
-		all, err := allNotConfirmedEGTS(conn, offset, limit)
+		all, err := allNotConfirmedEGTS(conn, limit)
 		if err != nil {
 			return nil, offset, err
 		}
@@ -95,9 +95,9 @@ func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
 	return req, nil
 }
 
-func allNotConfirmedEGTS(conn redis.Conn, offset int, limit int) ([][]byte, error) {
+func allNotConfirmedEGTS(conn redis.Conn, limit int) ([][]byte, error) {
 	max := util.Milliseconds() - PeriodNotConfData
-	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", offset, limit))
+	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", 0, limit))
 }
 
 func notConfirmed(conn redis.Conn, notConfKeys [][]byte) ([][]byte, error) {
