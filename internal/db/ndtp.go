@@ -38,20 +38,44 @@ func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error
 }
 
 // OldPacketsNdtp returns not confirmed packets for corresponding system
-func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) ([][]byte, error) {
+func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, offset int, logger *logrus.Entry) ([][]byte, int, error) {
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 
-	all, err := allNotConfirmedNdtp(conn, terminalID, logger)
-	if err != nil {
-		return nil, err
+	limit := 10 * 60 //10p/sec
+	allNotConfirmed := [][]byte{}
+
+	for limit > 0 {
+		all, err := allNotConfirmedNdtp(conn, terminalID, offset, limit, logger)
+		if err != nil {
+			return nil, offset, err
+		}
+
+		notConfirmed, err := getNotConfirmed(conn, sysID, all, logger)
+		if err != nil {
+			return nil, offset, err
+		}
+
+		lenAll := len(all)
+		lenNotConf := len(notConfirmed)
+
+		if lenNotConf != 0 {
+			allNotConfirmed = append(allNotConfirmed, notConfirmed...)
+		}
+
+		if lenAll < limit {
+			offset = 0
+			break
+		} else {
+			offset = offset + lenAll + 1
+		}
+
+		if lenNotConf < limit {
+			limit = limit - lenNotConf
+		}
 	}
 
-	notConfirmed, err := getNotConfirmed(conn, sysID, all, logger)
-	if err != nil {
-		return nil, err
-	}
-	return notConfirmed, nil
+	return allNotConfirmed, offset, nil
 }
 
 // ConfirmNdtp sets confirm bite for corresponding system to 1 and deletes confirmed packets
@@ -120,10 +144,10 @@ func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte, logger *
 	return err
 }
 
-func allNotConfirmedNdtp(conn redis.Conn, terminalID int, logger *logrus.Entry) ([][]byte, error) {
+func allNotConfirmedNdtp(conn redis.Conn, terminalID int, offset int, limit int, logger *logrus.Entry) ([][]byte, error) {
 	max := util.Milliseconds() - PeriodNotConfData
 	logger.Tracef("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
-	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", 0, 10*60))
+	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", offset, limit))
 }
 
 func getNotConfirmed(conn redis.Conn, sysID byte, packets [][]byte, logger *logrus.Entry) ([][]byte, error) {
