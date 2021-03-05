@@ -56,6 +56,7 @@ func (c *NdtpMaster) start() {
 		c.logger.Errorf("can't setNph: %v", err)
 	}
 	c.logger.Traceln("start")
+	time.Sleep(100 * time.Millisecond)
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
 		c.logger.Errorf("error while connecting to NDTP master server %d: %s", c.id, err)
@@ -70,6 +71,7 @@ func (c *NdtpMaster) start() {
 	if c.serverClosed() {
 		return
 	}
+
 	go c.old()
 	go c.replyHandler()
 	c.clientLoop()
@@ -119,6 +121,10 @@ func (c *NdtpMaster) clientLoop() {
 		if c.open {
 			select {
 			case <-c.exitChan:
+				c.logger.Println("close because server is closed")
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				}
 				return
 			case message := <-c.Input:
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
@@ -292,20 +298,14 @@ func (c *NdtpMaster) old() {
 func (c *NdtpMaster) checkOld() {
 	offset := 0
 	for {
-		c.logger.Traceln("start checking old, offset", offset)
-		res, offset, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, offset, c.logger)
+		c.logger.Traceln("start checking old, offset")
+		res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 		c.logger.Infof("receive old: %v, %v, %v ", err, len(res), offset)
 
 		if err != nil {
 			c.logger.Warningf("can't get old NDTP packets: %s", err)
 		} else {
 			c.resend(res)
-		}
-
-		if offset != 0 {
-			time.Sleep(1 * time.Second)
-		} else {
-			break
 		}
 	}
 

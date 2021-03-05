@@ -38,23 +38,24 @@ func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error
 }
 
 // OldPacketsNdtp returns not confirmed packets for corresponding system
-func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, offset int, logger *logrus.Entry) ([][]byte, int, error) {
+func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) ([][]byte, error) {
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 
-	limit := 10 * 60 //10p/sec
+	limit := 1000
 	allNotConfirmed := [][]byte{}
 	lenNotConf := 0
+	offset := 0
 
 	for limit > 0 && lenNotConf < limit {
 		all, err := allNotConfirmedNdtp(conn, terminalID, offset, limit, logger)
 		if err != nil {
-			return nil, offset, err
+			return nil, err
 		}
 
 		notConfirmed, err := getNotConfirmed(conn, sysID, all, logger)
 		if err != nil {
-			return nil, offset, err
+			return nil, err
 		}
 
 		lenAll := len(all)
@@ -66,7 +67,6 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, offset int, logger *
 		}
 
 		if lenAll < limit {
-			offset = 0
 			break
 		} else {
 			offset = offset + lenAll + 1
@@ -77,7 +77,7 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, offset int, logger *
 		}
 	}
 
-	return allNotConfirmed, offset, nil
+	return allNotConfirmed, nil
 }
 
 // ConfirmNdtp sets confirm bite for corresponding system to 1 and deletes confirmed packets
