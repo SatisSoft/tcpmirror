@@ -56,6 +56,7 @@ func (c *NdtpMaster) start() {
 		c.logger.Errorf("can't setNph: %v", err)
 	}
 	c.logger.Traceln("start")
+	time.Sleep(100 * time.Millisecond)
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
 		c.logger.Errorf("error while connecting to NDTP master server %d: %s", c.id, err)
@@ -119,6 +120,10 @@ func (c *NdtpMaster) clientLoop() {
 		if c.open {
 			select {
 			case <-c.exitChan:
+				c.logger.Println("close because server is closed")
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				}
 				return
 			case message := <-c.Input:
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
