@@ -42,12 +42,13 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	conn := pool.Get()
 	defer util.CloseAndLog(conn, logger)
 
+	maxToSend := 1000
 	limit := 1000
 	allNotConfirmed := [][]byte{}
 	lenNotConf := 0
 	offset := 0
 
-	for limit > 0 && lenNotConf < limit {
+	for limit > 0 && lenNotConf < maxToSend {
 		all, err := allNotConfirmedNdtp(conn, terminalID, offset, limit, logger)
 		if err != nil {
 			return nil, err
@@ -61,18 +62,15 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 		lenAll := len(all)
 		lenNotConf0 := len(notConfirmed)
 
-		if lenNotConf != 0 {
+		if lenNotConf0 != 0 {
 			allNotConfirmed = append(allNotConfirmed, notConfirmed...)
 			lenNotConf = lenNotConf + lenNotConf0
 		}
 
-		if lenAll < limit {
+		if lenAll < limit || lenNotConf >= limit {
 			break
 		} else {
 			offset = offset + lenAll + 1
-		}
-
-		if lenNotConf < limit {
 			limit = limit - lenNotConf
 		}
 	}

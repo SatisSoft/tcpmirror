@@ -296,17 +296,14 @@ func (c *NdtpMaster) old() {
 }
 
 func (c *NdtpMaster) checkOld() {
-	offset := 0
-	for {
-		c.logger.Traceln("start checking old, offset")
-		res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
-		c.logger.Infof("receive old: %v, %v, %v ", err, len(res), offset)
+	c.logger.Traceln("start checking old")
+	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
+	c.logger.Infof("receive old: %v, %v", err, len(res))
 
-		if err != nil {
-			c.logger.Warningf("can't get old NDTP packets: %s", err)
-		} else {
-			c.resend(res)
-		}
+	if err != nil {
+		c.logger.Warningf("can't get old NDTP packets: %s", err)
+	} else {
+		c.resend(res)
 	}
 
 	return

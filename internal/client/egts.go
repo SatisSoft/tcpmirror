@@ -166,7 +166,7 @@ OLDLOOP:
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue
 			}
-			c.logger.Infof("get %d old packets, %v", len(messages))
+			c.logger.Infof("get %d old packets", len(messages))
 			var buf []byte
 			var i int
 			for _, msg := range messages {
