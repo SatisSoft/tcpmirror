@@ -1,6 +1,7 @@
 package db
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -62,12 +63,17 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 		lenAll := len(all)
 		lenNotConf0 := len(notConfirmed)
 
+		log.Println("lenAll", lenAll)
+		log.Println("lenNotConf0", lenNotConf0)
+
 		if lenNotConf0 != 0 {
 			allNotConfirmed = append(allNotConfirmed, notConfirmed...)
 			lenNotConf = lenNotConf + lenNotConf0
 		}
 
-		if lenAll < limit || lenNotConf >= limit {
+		log.Println("lenNotConf", lenNotConf)
+
+		if lenAll < limit || lenNotConf >= maxToSend {
 			break
 		} else {
 			offset = offset + lenAll + 1
