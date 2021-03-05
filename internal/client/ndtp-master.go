@@ -56,7 +56,6 @@ func (c *NdtpMaster) start() {
 		c.logger.Errorf("can't setNph: %v", err)
 	}
 	c.logger.Traceln("start")
-	time.Sleep(100 * time.Millisecond)
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
 		c.logger.Errorf("error while connecting to NDTP master server %d: %s", c.id, err)
@@ -92,6 +91,7 @@ func (c *NdtpMaster) SetID(terminalID int) {
 }
 
 func (c *NdtpMaster) authorization() error {
+	time.Sleep(100 * time.Millisecond)
 	c.logger.Traceln("start authorization")
 	err := c.sendFirstMessage()
 	if err != nil {
