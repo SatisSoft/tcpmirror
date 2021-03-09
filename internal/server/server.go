@@ -2,6 +2,7 @@ package server
 
 import (
 	"errors"
+	"math/rand"
 	"os"
 	"time"
 
@@ -20,6 +21,7 @@ const (
 
 // Start server
 func Start() {
+	rand.Seed(time.Now().UnixNano())
 	args, err := util.ParseArgs()
 	if err != nil {
 		logrus.Error("can't parse arguments:", err)
@@ -43,7 +45,7 @@ func Start() {
 
 func initDeleteManager(options *util.Options, args *util.Args) *db.DeleteManager {
 	systemIds := getSystemIds(args.Systems)
-	return db.InitDeleteManager(options.DB, systemIds, options.ServerProtocol)
+	return db.InitDeleteManager(systemIds, options)
 }
 
 func initialize(args *util.Args) (options *util.Options, err error) {
