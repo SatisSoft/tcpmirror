@@ -279,7 +279,7 @@ func (c *NdtpMaster) old() {
 	n := rand.Intn(60)
 	time.Sleep(time.Duration(n) * time.Second)
 
-	c.logger.Traceln("start old ticker", n)
+	c.logger.Infoln("start old ticker", n)
 	c.checkOld()
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	//defer ticker.Stop()
