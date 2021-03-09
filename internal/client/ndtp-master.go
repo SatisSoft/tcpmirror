@@ -341,7 +341,7 @@ func (c *NdtpMaster) resend(messages [][]byte) {
 		i++
 		if i > 9 {
 			i = 0
-			time.Sleep(1 * time.Second)
+			time.Sleep(20 * time.Second)
 		}
 	}
 }
