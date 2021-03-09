@@ -45,7 +45,7 @@ func Start() {
 
 func initDeleteManager(options *util.Options, args *util.Args) *db.DeleteManager {
 	systemIds := getSystemIds(args.Systems)
-	return db.InitDeleteManager(systemIds, options)
+	return db.InitDeleteManager(options.DB, systemIds, options.ServerProtocol)
 }
 
 func initialize(args *util.Args) (options *util.Options, err error) {
