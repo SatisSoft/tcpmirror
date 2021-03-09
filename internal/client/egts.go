@@ -170,11 +170,10 @@ OLDLOOP:
 			c.logger.Infof("get %d old packets", len(messages))
 			var buf []byte
 			var i int
-			var j int
 			for _, msg := range messages {
 				buf = c.processMessage(dbConn, msg, buf)
 				i++
-				if i > 99 {
+				if i > 499 {
 					c.logger.Infof("send old EGTS packets to EGTS server: %v packets", i)
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
 					if err = c.send(buf); err != nil {
@@ -184,10 +183,6 @@ OLDLOOP:
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
 					i = 0
 					buf = []byte(nil)
-
-				}
-				if j > 999 {
-					j = 0
 					time.Sleep(1 * time.Second)
 				}
 			}

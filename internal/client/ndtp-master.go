@@ -276,9 +276,10 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 
 func (c *NdtpMaster) old() {
 	rand.Seed(time.Now().UnixNano())
-	time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+	n := rand.Intn(60)
+	time.Sleep(time.Duration(n) * time.Second)
 
-	c.logger.Traceln("start old ticker")
+	c.logger.Traceln("start old ticker", n)
 	c.checkOld()
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	//defer ticker.Stop()
