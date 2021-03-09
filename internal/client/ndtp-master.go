@@ -302,7 +302,7 @@ func (c *NdtpMaster) old() {
 func (c *NdtpMaster) checkOld() {
 	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
-	c.logger.Infof("receive old: %v, %v", err, len(res))
+	c.logger.Debugf("receive old: %v, %v", err, len(res))
 
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
