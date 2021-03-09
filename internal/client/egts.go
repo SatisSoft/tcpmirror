@@ -157,6 +157,7 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 func (c *Egts) old() {
 	c.logger.Infof("old")
 	dbConn := db.Connect(c.DB)
+	time.Sleep(time.Duration(PeriodCheckOld) * time.Second)
 OLDLOOP:
 	for {
 		if c.open {
@@ -169,6 +170,7 @@ OLDLOOP:
 			c.logger.Infof("get %d old packets", len(messages))
 			var buf []byte
 			var i int
+			var j int
 			for _, msg := range messages {
 				buf = c.processMessage(dbConn, msg, buf)
 				i++
@@ -182,6 +184,10 @@ OLDLOOP:
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
 					i = 0
 					buf = []byte(nil)
+
+				}
+				if j > 999 {
+					j = 0
 					time.Sleep(1 * time.Second)
 				}
 			}

@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"math/rand"
 	"net"
 	"time"
 
@@ -274,6 +275,9 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 }
 
 func (c *NdtpMaster) old() {
+	rand.Seed(time.Now().UnixNano())
+	time.Sleep(time.Duration(rand.Intn(60)) * time.Second)
+
 	c.logger.Traceln("start old ticker")
 	c.checkOld()
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
