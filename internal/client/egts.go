@@ -173,7 +173,7 @@ OLDLOOP:
 			for _, msg := range messages {
 				buf = c.processMessage(dbConn, msg, buf)
 				i++
-				if i > 4999 {
+				if i > 9999 {
 					c.logger.Infof("send old EGTS packets to EGTS server: %v packets", i)
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
 					if err = c.send(buf); err != nil {
