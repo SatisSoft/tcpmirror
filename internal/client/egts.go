@@ -194,7 +194,7 @@ OLDLOOP:
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
 				}
 			}
-			time.Sleep(time.Duration(PeriodCheckOld) * time.Second)
+			time.Sleep(time.Duration(10) * time.Second)
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}
