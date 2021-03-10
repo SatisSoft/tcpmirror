@@ -74,7 +74,7 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
 			break
 		} else {
 			offset = offset + lenAll + 1
-			if maxToSend-lenNotConf <= limit {
+			if maxToSend-lenNotConf < limit {
 				limit = limit - lenNotConf
 			}
 		}
