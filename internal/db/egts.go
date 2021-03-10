@@ -38,7 +38,7 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
 	allNotConfirmed := [][]byte{}
 	maxToSend := 300000
-	limit := 300000
+	limit := 100000
 	lenNotConf := 0
 	offset := 0
 
