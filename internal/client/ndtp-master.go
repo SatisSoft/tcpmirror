@@ -312,7 +312,7 @@ func (c *NdtpMaster) checkOld() {
 }
 
 func (c *NdtpMaster) resend(messages [][]byte) {
-	var i int
+	//var i int
 	messages = reverseSlice(messages)
 	for _, mes := range messages {
 		data := util.Deserialize(mes)
@@ -336,12 +336,13 @@ func (c *NdtpMaster) resend(messages [][]byte) {
 			c.connStatus()
 			return
 		}
-		i++
-		if i > 9 {
-			i = 0
-			time.Sleep(1 * time.Second)
-			//time.Sleep(20 * time.Second)
-		}
+		time.Sleep(1 * time.Second)
+		// i++
+		// if i > 9 {
+		// 	i = 0
+		// 	time.Sleep(1 * time.Second)
+		// 	//time.Sleep(20 * time.Second)
+		// }
 	}
 }
 
