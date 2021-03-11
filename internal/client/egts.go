@@ -174,7 +174,7 @@ OLDLOOP:
 			for _, msg := range messages {
 				buf = c.processMessage(dbConn, msg, buf)
 				i++
-				if i > 9999 {
+				if i > 999 {
 					c.logger.Infof("send old EGTS packets to EGTS server: %v packets", i)
 					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
 					if err = c.send(buf); err != nil {
@@ -184,7 +184,7 @@ OLDLOOP:
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
 					i = 0
 					buf = []byte(nil)
-					time.Sleep(1 * time.Second)
+					time.Sleep(100 * time.Millisecond)
 				}
 			}
 			if len(buf) > 0 {
