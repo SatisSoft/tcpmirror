@@ -32,7 +32,7 @@ func CloseAndLog(c io.Closer, logger *logrus.Entry, tStart int64, str string) {
 	tEnd := time.Now().UnixNano()
 	t := tEnd - tStart
 	if t >= 500000000 {
-		logger.Infof("close conn duration %v", t)
+		logger.Infof("close conn duration %v %v", t, str)
 	}
 
 }
