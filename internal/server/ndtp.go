@@ -8,8 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/gomodule/redigo/redis"
-
 	"github.com/ashirko/tcpmirror/internal/client"
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/monitoring"
@@ -37,10 +35,10 @@ type ndtpServer struct {
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
 	pool := db.NewPool(options.DB)
-	f := func(pool *redis.Pool) {
+	f := func(pool *db.Pool) {
 		for {
 			st := pool.Stats()
-			log.Println("redis pool", st.ActiveCount, st.IdleCount, st.WaitCount, st.WaitDuration)
+			log.Println("redis pool", st.ActiveCount, st.IdleCount)
 			time.Sleep(30 * time.Second)
 		}
 	}
