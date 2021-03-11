@@ -28,7 +28,7 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 	timeM := util.Milliseconds()
 	c := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t)
+	defer util.CloseAndLog(c, logger, t, "Write2DB")
 	logger.Tracef("writeZeroConfirmation time: %v; key: %v", timeM, sdata[:util.PacketStart])
 	err = writeZeroConfirmation(c, uint64(timeM), sdata[:util.PacketStart])
 	if err != nil {
@@ -46,7 +46,7 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error) {
 	c := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t)
+	defer util.CloseAndLog(c, logger, t, "NewSessionID")
 	key := "session:" + strconv.Itoa(terminalID)
 	id, err := redis.Int(c.Do("GET", key))
 	if err != nil {
@@ -64,7 +64,7 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 func IsOldData(pool *Pool, meta []byte, logger *logrus.Entry) bool {
 	c := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t)
+	defer util.CloseAndLog(c, logger, t, "IsOldData")
 	return CheckOldData(c, meta, logger)
 }
 

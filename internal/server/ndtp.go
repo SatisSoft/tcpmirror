@@ -44,14 +44,14 @@ func startNdtpServer(listen string, options *util.Options, channels []chan []byt
 	}
 	go f(pool)
 	t1 := time.Now().UnixNano()
-	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}), t1)
+	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}), t1, "startNdtpServer")
 	l, err := net.Listen("tcp", listen)
 	if err != nil {
 		logrus.Fatalf("error while listening: %s", err)
 		return
 	}
 	t2 := time.Now().UnixNano()
-	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}), t2)
+	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}), t2, "startNdtpServer")
 	logrus.Printf("Start NDTP server")
 	for {
 		c, err := l.Accept()

@@ -27,7 +27,7 @@ func mockTerminal(t *testing.T, addr string, num int) {
 		t.Error(err)
 	}
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "test")
 	err = sendAndReceive(t, conn, packetAuth, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -51,7 +51,7 @@ func mockTerminalWithControl(t *testing.T, addr string, num int) {
 		t.Error(err)
 	}
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "test")
 	err = sendAndReceive(t, conn, packetAuth, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -102,7 +102,7 @@ func mockTerminalSecond(t *testing.T, addr string, num int) {
 		t.Error(err)
 	}
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "test")
 	err = sendAndReceive(t, conn, packetAuthSecond, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -127,7 +127,7 @@ func mockTerminalGuaranteedDeliveryMaster(t *testing.T, addr string, num int, sl
 		t.Error(err)
 	}
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "test")
 	err = sendAndReceive(t, conn, packetAuthSecond, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -157,7 +157,7 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 		t.Error(err)
 	}
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "test")
 	err = sendAndReceive(t, conn, packetAuth, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -198,7 +198,7 @@ func mockTerminalAllOff(t *testing.T, addr string, num int) {
 		t.Error(err)
 	}
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "test")
 	err = sendAndReceive(t, conn, packetAuth, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -223,7 +223,7 @@ func mockTerminals100(t *testing.T, addr string, num int, terminalID int) {
 		t.Error(err)
 	}
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "test")
 	changes := map[string]int{ndtp.PeerAddress: terminalID}
 	newPacketAuth := ndtp.Change(packetAuth, changes)
 	err = sendAndReceive(t, conn, newPacketAuth, logger)

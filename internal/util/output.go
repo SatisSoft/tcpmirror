@@ -4,6 +4,7 @@ import (
 	"io"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/egorban/navprot/pkg/egts"
 	"github.com/egorban/navprot/pkg/ndtp"
@@ -23,14 +24,17 @@ func PrintPacket(logger *logrus.Entry, s string, slice []byte) {
 }
 
 // CloseAndLog closes entity and log message if error occurs
-func CloseAndLog(c io.Closer, logger *logrus.Entry, tStart int64) {
+func CloseAndLog(c io.Closer, logger *logrus.Entry, tStart int64, str string) {
 	err := c.Close()
 	if err != nil {
 		logger.Errorf("can't close %s:", err)
 	}
-	// tEnd := time.Now().UnixNano()
-	// t := tEnd - tStart
-	// logger.Infof("close conn duration %v", t)
+	tEnd := time.Now().UnixNano()
+	t := tEnd - tStart
+	if t >= 500000000 {
+		logger.Infof("close conn duration %v", t)
+	}
+
 }
 
 // PrintPacketForDebugging prints packet for debugging purpose

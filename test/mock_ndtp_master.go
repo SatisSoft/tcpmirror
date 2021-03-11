@@ -18,14 +18,14 @@ func mockNdtpMaster(t *testing.T, addr string) {
 		t.Error(err)
 	}
 	t1 := time.Now().UnixNano()
-	defer util.CloseAndLog(l, logger, t1)
+	defer util.CloseAndLog(l, logger, t1, "test")
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			logger.Errorf("error while accepting: %s", err)
 		}
 		t2 := time.Now().UnixNano()
-		defer util.CloseAndLog(conn, logger, t2)
+		defer util.CloseAndLog(conn, logger, t2, "test")
 		logrus.Printf("accepted connection (%s <-> %s)", conn.RemoteAddr(), conn.LocalAddr())
 		go startMockNdtpMaster(t, conn, logger)
 	}
@@ -39,14 +39,14 @@ func mockNdtpMasterWithControl(t *testing.T, addr string) {
 		t.Error(err)
 	}
 	t1 := time.Now().UnixNano()
-	defer util.CloseAndLog(l, logger, t1)
+	defer util.CloseAndLog(l, logger, t1, "test")
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			logger.Errorf("error while accepting: %s", err)
 		}
 		t2 := time.Now().UnixNano()
-		defer util.CloseAndLog(conn, logger, t2)
+		defer util.CloseAndLog(conn, logger, t2, "test")
 		logrus.Printf("accepted connection (%s <-> %s)", conn.RemoteAddr(), conn.LocalAddr())
 		go startWithControl(t, conn, logger)
 	}

@@ -13,7 +13,7 @@ import (
 func WriteNDTPid(pool *Pool, sysID byte, terminalID int, nphID uint32, packID []byte, logger *logrus.Entry) error {
 	c := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t)
+	defer util.CloseAndLog(c, logger, t, "WriteNDTPid")
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
 	logger.Tracef("writeNdtpID key: %v", key)
 	_, err := c.Do("SET", key, packID, "ex", KeyEx)
@@ -24,7 +24,7 @@ func WriteNDTPid(pool *Pool, sysID byte, terminalID int, nphID uint32, packID []
 func WriteConnDB(pool *Pool, terminalID int, logger *logrus.Entry, message []byte) error {
 	c := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t)
+	defer util.CloseAndLog(c, logger, t, "WriteConnDB")
 	key := "conn:" + strconv.Itoa(terminalID)
 	_, err := c.Do("SET", key, message)
 	return err
@@ -34,7 +34,7 @@ func WriteConnDB(pool *Pool, terminalID int, logger *logrus.Entry, message []byt
 func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error) {
 	c := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t)
+	defer util.CloseAndLog(c, logger, t, "ReadConnDB")
 	key := "conn:" + strconv.Itoa(terminalID)
 	res, err := redis.Bytes(c.Do("GET", key))
 	logger.Tracef("ReadConnDB err: %v; key: %v; res: %v", err, key, res)
@@ -45,7 +45,7 @@ func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error
 func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) ([][]byte, error) {
 	conn := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "OldPacketsNdtp")
 
 	maxToSend := 60
 	limit := 60
@@ -93,7 +93,7 @@ func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *l
 	confChan chan *ConfMsg) error {
 	conn := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "ConfirmNdtp")
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
 	res, err := redis.Bytes(conn.Do("GET", key))
 	//logger.Printf("key: %v; res: %v; err: %v", key, res, err)
@@ -116,7 +116,7 @@ func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *l
 func SetNph(pool *Pool, sysID byte, terminalID int, nphID uint32, logger *logrus.Entry) error {
 	conn := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "SetNph")
 	key := "max:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID)
 	res, err := conn.Do("SET", key, nphID)
 	logger.Tracef("SetNph key: %v, r: %v, nphID: %v; err: %v", key, res, nphID, err)
@@ -127,7 +127,7 @@ func SetNph(pool *Pool, sysID byte, terminalID int, nphID uint32, logger *logrus
 func GetNph(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) (uint32, error) {
 	conn := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t)
+	defer util.CloseAndLog(conn, logger, t, "GetNph")
 	key := "max:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID)
 	nphID, err := redis.Int(conn.Do("GET", key))
 	logger.Tracef("GetNph key: %v, nphID: %d, err: %v", key, nphID, err)
@@ -141,7 +141,7 @@ func GetNph(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) (uint3
 func RemoveExpired(pool *Pool, terminalID int, logger *logrus.Entry) (err error) {
 	c := pool.Get()
 	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t)
+	defer util.CloseAndLog(c, logger, t, "RemoveExpired")
 	max := util.Milliseconds() - util.Millisec3Days
 	_, err = c.Do("ZREMRANGEBYSCORE", terminalID, 0, max)
 	if err != nil {
