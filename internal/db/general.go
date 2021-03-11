@@ -5,6 +5,7 @@ import (
 	"encoding/binary"
 	"fmt"
 	"strconv"
+	"time"
 
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
@@ -24,26 +25,28 @@ var (
 // Write2DB writes packet with metadata to DB
 func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (err error) {
 	logger.Tracef("Write2DB terminalID: %d, sdata: %v", terminalID, sdata)
-	time := util.Milliseconds()
+	timeM := util.Milliseconds()
 	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
-	logger.Tracef("writeZeroConfirmation time: %v; key: %v", time, sdata[:util.PacketStart])
-	err = writeZeroConfirmation(c, uint64(time), sdata[:util.PacketStart])
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(c, logger, t)
+	logger.Tracef("writeZeroConfirmation time: %v; key: %v", timeM, sdata[:util.PacketStart])
+	err = writeZeroConfirmation(c, uint64(timeM), sdata[:util.PacketStart])
 	if err != nil {
 		return
 	}
-	err = write2Ndtp(c, terminalID, time, sdata, logger)
+	err = write2Ndtp(c, terminalID, timeM, sdata, logger)
 	if err != nil {
 		return
 	}
-	err = write2EGTS(c, time, sdata[:util.PacketStart])
+	err = write2EGTS(c, timeM, sdata[:util.PacketStart])
 	return
 }
 
 // NewSessionID returns new ID of sessions between tcpmirror and terminal
 func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error) {
 	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(c, logger, t)
 	key := "session:" + strconv.Itoa(terminalID)
 	id, err := redis.Int(c.Do("GET", key))
 	if err != nil {
@@ -60,7 +63,8 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 // IsOldData checks if message is old and should not be sending again
 func IsOldData(pool *Pool, meta []byte, logger *logrus.Entry) bool {
 	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(c, logger, t)
 	return CheckOldData(c, meta, logger)
 }
 

@@ -2,6 +2,7 @@ package db
 
 import (
 	"strconv"
+	"time"
 
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
@@ -11,7 +12,8 @@ import (
 // WriteNDTPid maps ClientNdtpID to ServerNdtpID
 func WriteNDTPid(pool *Pool, sysID byte, terminalID int, nphID uint32, packID []byte, logger *logrus.Entry) error {
 	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(c, logger, t)
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
 	logger.Tracef("writeNdtpID key: %v", key)
 	_, err := c.Do("SET", key, packID, "ex", KeyEx)
@@ -21,7 +23,8 @@ func WriteNDTPid(pool *Pool, sysID byte, terminalID int, nphID uint32, packID []
 // WriteConnDB writes authentication packet to DB
 func WriteConnDB(pool *Pool, terminalID int, logger *logrus.Entry, message []byte) error {
 	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(c, logger, t)
 	key := "conn:" + strconv.Itoa(terminalID)
 	_, err := c.Do("SET", key, message)
 	return err
@@ -30,7 +33,8 @@ func WriteConnDB(pool *Pool, terminalID int, logger *logrus.Entry, message []byt
 // ReadConnDB reads authentication packet from DB
 func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error) {
 	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(c, logger, t)
 	key := "conn:" + strconv.Itoa(terminalID)
 	res, err := redis.Bytes(c.Do("GET", key))
 	logger.Tracef("ReadConnDB err: %v; key: %v; res: %v", err, key, res)
@@ -40,7 +44,8 @@ func ReadConnDB(pool *Pool, terminalID int, logger *logrus.Entry) ([]byte, error
 // OldPacketsNdtp returns not confirmed packets for corresponding system
 func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) ([][]byte, error) {
 	conn := pool.Get()
-	defer util.CloseAndLog(conn, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(conn, logger, t)
 
 	maxToSend := 100 //30
 	limit := 100     //30
@@ -87,7 +92,8 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *logrus.Entry,
 	confChan chan *ConfMsg) error {
 	conn := pool.Get()
-	defer util.CloseAndLog(conn, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(conn, logger, t)
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
 	res, err := redis.Bytes(conn.Do("GET", key))
 	//logger.Printf("key: %v; res: %v; err: %v", key, res, err)
@@ -109,7 +115,8 @@ func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *l
 // SetNph writes Nph ID to db
 func SetNph(pool *Pool, sysID byte, terminalID int, nphID uint32, logger *logrus.Entry) error {
 	conn := pool.Get()
-	defer util.CloseAndLog(conn, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(conn, logger, t)
 	key := "max:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID)
 	res, err := conn.Do("SET", key, nphID)
 	logger.Tracef("SetNph key: %v, r: %v, nphID: %v; err: %v", key, res, nphID, err)
@@ -119,7 +126,8 @@ func SetNph(pool *Pool, sysID byte, terminalID int, nphID uint32, logger *logrus
 // GetNph gets Nph ID from db
 func GetNph(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) (uint32, error) {
 	conn := pool.Get()
-	defer util.CloseAndLog(conn, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(conn, logger, t)
 	key := "max:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID)
 	nphID, err := redis.Int(conn.Do("GET", key))
 	logger.Tracef("GetNph key: %v, nphID: %d, err: %v", key, nphID, err)
@@ -132,7 +140,8 @@ func GetNph(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry) (uint3
 // RemoveExpired removes expired packet from DB
 func RemoveExpired(pool *Pool, terminalID int, logger *logrus.Entry) (err error) {
 	c := pool.Get()
-	defer util.CloseAndLog(c, logger)
+	t := time.Now().UnixNano()
+	defer util.CloseAndLog(c, logger, t)
 	max := util.Milliseconds() - util.Millisec3Days
 	_, err = c.Do("ZREMRANGEBYSCORE", terminalID, 0, max)
 	if err != nil {

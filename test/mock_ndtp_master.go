@@ -2,10 +2,12 @@ package test
 
 import (
 	"bytes"
-	"github.com/ashirko/tcpmirror/internal/util"
-	"github.com/sirupsen/logrus"
 	"net"
 	"testing"
+	"time"
+
+	"github.com/ashirko/tcpmirror/internal/util"
+	"github.com/sirupsen/logrus"
 )
 
 func mockNdtpMaster(t *testing.T, addr string) {
@@ -15,13 +17,15 @@ func mockNdtpMaster(t *testing.T, addr string) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer util.CloseAndLog(l, logger)
+	t1 := time.Now().UnixNano()
+	defer util.CloseAndLog(l, logger, t1)
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			logger.Errorf("error while accepting: %s", err)
 		}
-		defer util.CloseAndLog(conn, logger)
+		t2 := time.Now().UnixNano()
+		defer util.CloseAndLog(conn, logger, t2)
 		logrus.Printf("accepted connection (%s <-> %s)", conn.RemoteAddr(), conn.LocalAddr())
 		go startMockNdtpMaster(t, conn, logger)
 	}
@@ -34,13 +38,15 @@ func mockNdtpMasterWithControl(t *testing.T, addr string) {
 	if err != nil {
 		t.Error(err)
 	}
-	defer util.CloseAndLog(l, logger)
+	t1 := time.Now().UnixNano()
+	defer util.CloseAndLog(l, logger, t1)
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			logger.Errorf("error while accepting: %s", err)
 		}
-		defer util.CloseAndLog(conn, logger)
+		t2 := time.Now().UnixNano()
+		defer util.CloseAndLog(conn, logger, t2)
 		logrus.Printf("accepted connection (%s <-> %s)", conn.RemoteAddr(), conn.LocalAddr())
 		go startWithControl(t, conn, logger)
 	}
