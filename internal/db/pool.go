@@ -23,9 +23,9 @@ func (pool Pool) Close() error {
 
 func newPool(addr string) *Pool {
 	r := &redis.Pool{
-		MaxIdle:     4200,
-		MaxActive:   4500,
-		IdleTimeout: 240 * time.Second,
+		MaxIdle:     4000,
+		MaxActive:   4070,
+		IdleTimeout: 60 * time.Second,
 		Dial:        func() (redis.Conn, error) { return redis.Dial("tcp", addr) },
 		Wait:        true,
 	}
