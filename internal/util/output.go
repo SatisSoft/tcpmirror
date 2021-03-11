@@ -4,7 +4,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/egorban/navprot/pkg/egts"
 	"github.com/egorban/navprot/pkg/ndtp"
