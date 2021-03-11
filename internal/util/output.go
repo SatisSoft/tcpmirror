@@ -29,9 +29,9 @@ func CloseAndLog(c io.Closer, logger *logrus.Entry, tStart int64) {
 	if err != nil {
 		logger.Errorf("can't close %s:", err)
 	}
-	tEnd := time.Now().UnixNano()
-	t := tEnd - tStart
-	logger.Infof("close conn duration %v", t)
+	// tEnd := time.Now().UnixNano()
+	// t := tEnd - tStart
+	// logger.Infof("close conn duration %v", t)
 }
 
 // PrintPacketForDebugging prints packet for debugging purpose

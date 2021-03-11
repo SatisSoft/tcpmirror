@@ -3,9 +3,12 @@ package server
 import (
 	"errors"
 	"fmt"
+	"log"
 	"net"
 	"strings"
 	"time"
+
+	"github.com/gomodule/redigo/redis"
 
 	"github.com/ashirko/tcpmirror/internal/client"
 	"github.com/ashirko/tcpmirror/internal/db"
@@ -34,6 +37,14 @@ type ndtpServer struct {
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
 	pool := db.NewPool(options.DB)
+	f := func(pool *redis.Pool) {
+		for {
+			st := pool.Stats()
+			log.Println("redis pool", st.ActiveCount, st.IdleCount, st.WaitCount, st.WaitDuration)
+			time.Sleep(30 * time.Second)
+		}
+	}
+	go f(pool)
 	t1 := time.Now().UnixNano()
 	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}), t1)
 	l, err := net.Listen("tcp", listen)
