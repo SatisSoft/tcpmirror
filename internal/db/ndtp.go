@@ -3,6 +3,7 @@ package db
 import (
 	"strconv"
 	"time"
+	"log"
 
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
@@ -54,11 +55,12 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	offset := 0
 
 	for limit > 0 && lenNotConf < maxToSend {
+		log.Println("allNotConfirmedNdtp",terminalID)
 		all, err := allNotConfirmedNdtp(conn, terminalID, offset, limit, logger)
 		if err != nil {
 			return nil, err
 		}
-
+		log.Println("getNotConfirmed",terminalID)
 		notConfirmed, err := getNotConfirmed(conn, sysID, all, logger)
 		if err != nil {
 			return nil, err
@@ -68,7 +70,7 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 		lenNotConf0 := len(notConfirmed)
 
 		//log.Println("lenAll", lenAll)
-		//log.Println("lenNotConf0", lenNotConf0)
+		log.Println("lenNotConf0", lenNotConf0, terminalID)
 
 		if lenNotConf0 != 0 {
 			allNotConfirmed = append(allNotConfirmed, notConfirmed...)
@@ -81,7 +83,9 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 			break
 		} else {
 			offset = offset + lenAll + 1
-			limit = limit - lenNotConf
+			if maxToSend-lenNotConf < limit {
+				limit = limit - lenNotConf
+			}
 		}
 	}
 
