@@ -96,6 +96,7 @@ func (c *Ndtp) SetID(terminalID int) {
 }
 
 func (c *Ndtp) authorization() error {
+	time.Sleep(100 * time.Millisecond)
 	c.logger.Traceln("start authorization")
 	err := c.sendFirstMessage()
 	if err != nil {
@@ -124,6 +125,10 @@ func (c *Ndtp) clientLoop() {
 		if c.open {
 			select {
 			case <-c.exitChan:
+				c.logger.Println("close because server is closed")
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				}
 				return
 			case message := <-c.Input:
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
@@ -254,8 +259,10 @@ func (c *Ndtp) handleResult(packetData *ndtp.Packet) (err error) {
 }
 
 func (c *Ndtp) old() {
-	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
+	n := rand.Intn(60)
+	time.Sleep(time.Duration(n) * time.Second)
 	c.checkOld()
+	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
 	//defer ticker.Stop()
 	for {
 		if c.open {
@@ -312,6 +319,7 @@ func (c *Ndtp) resend(messages [][]byte) {
 			c.connStatus()
 			return
 		}
+		time.Sleep(1 * time.Second)
 	}
 }
 
