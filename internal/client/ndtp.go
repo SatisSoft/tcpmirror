@@ -5,7 +5,7 @@ import (
 	"net"
 	"sync"
 	"time"
-	"rand"
+	"math/rand"
 
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/monitoring"
