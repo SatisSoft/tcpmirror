@@ -122,9 +122,11 @@ func (c *NdtpMaster) clientLoop() {
 		if c.open {
 			select {
 			case <-c.exitChan:
-				c.logger.Println("close because server is closed")
+				c.logger.Println("close because server is closed 1")
 				if err := c.conn.Close(); err != nil {
 					c.logger.Debugf("can't close servConn: %s", err)
+				}else {
+					c.logger.Printf("close servConn 1")
 				}
 				return
 			case message := <-c.Input:
@@ -284,6 +286,12 @@ func (c *NdtpMaster) old() {
 		if c.open {
 			select {
 			case <-c.exitChan:
+				c.logger.Println("close because server is closed 2")
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				}else {
+					c.logger.Printf("close servConn 2")
+				}
 				ticker.Stop()
 				return
 			case <-ticker.C:
@@ -386,6 +394,8 @@ func (c *NdtpMaster) connStatus() {
 	c.reconnecting = true
 	if err := c.conn.Close(); err != nil {
 		c.logger.Debugf("can't close servConn: %s", err)
+	} else {
+		c.logger.Printf("close servConn 3")
 	}
 	c.open = false
 	c.auth = false
@@ -397,7 +407,7 @@ func (c *NdtpMaster) reconnect() {
 	for {
 		for i := 0; i < 3; i++ {
 			if c.serverClosed() {
-				c.logger.Println("close because server is closed")
+				c.logger.Println("close because server is closed 3")
 				return
 			}
 			conn, err := net.Dial("tcp", c.address)
@@ -414,6 +424,12 @@ func (c *NdtpMaster) reconnect() {
 					return
 				}
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
+
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				} else {
+					c.logger.Printf("close servConn 4")
+				}
 			}
 		}
 		time.Sleep(1 * time.Minute)
@@ -423,6 +439,12 @@ func (c *NdtpMaster) reconnect() {
 func (c *NdtpMaster) serverClosed() bool {
 	select {
 	case <-c.exitChan:
+		c.logger.Println("close because server is closed 4")
+		if err := c.conn.Close(); err != nil {
+			c.logger.Debugf("can't close servConn: %s", err)
+		}else {
+			c.logger.Printf("close servConn 5")
+		}
 		return true
 	default:
 		return false
