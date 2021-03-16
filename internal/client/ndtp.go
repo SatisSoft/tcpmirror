@@ -124,6 +124,12 @@ func (c *Ndtp) clientLoop() {
 		if c.open {
 			select {
 			case <-c.exitChan:
+				c.logger.Println("close because server is closed 1")
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				}else {
+					c.logger.Printf("close servConn 1")
+				}
 				return
 			case message := <-c.Input:
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
@@ -261,6 +267,12 @@ func (c *Ndtp) old() {
 		if c.open {
 			select {
 			case <-c.exitChan:
+				c.logger.Println("close because server is closed 2")
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				}else {
+					c.logger.Printf("close servConn 2")
+				}
 				return
 			case <-ticker.C:
 				offset = c.checkOld(offset)
@@ -389,6 +401,11 @@ func (c *Ndtp) reconnect() {
 					return
 				}
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				} else {
+					c.logger.Printf("close servConn 4")
+				}
 			}
 		}
 		time.Sleep(1 * time.Minute)
@@ -398,6 +415,12 @@ func (c *Ndtp) reconnect() {
 func (c *Ndtp) serverClosed() bool {
 	select {
 	case <-c.exitChan:
+		c.logger.Println("close because server is closed 4")
+		if err := c.conn.Close(); err != nil {
+			c.logger.Debugf("can't close servConn: %s", err)
+		}else {
+			c.logger.Printf("close servConn 5")
+		}
 		return true
 	default:
 		return false
