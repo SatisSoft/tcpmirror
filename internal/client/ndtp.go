@@ -129,6 +129,8 @@ func (c *Ndtp) clientLoop() {
 				c.logger.Println("close because server is closed")
 				if err := c.conn.Close(); err != nil {
 					c.logger.Debugf("can't close servConn: %s", err)
+				}else {
+					c.logger.Printf("close servConn 1")
 				}
 				return
 			case message := <-c.Input:
@@ -269,6 +271,12 @@ func (c *Ndtp) old() {
 		if c.open {
 			select {
 			case <-c.exitChan:
+				c.logger.Println("close because server is closed 2")
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				}else {
+					c.logger.Printf("close servConn 2")
+				}
 				ticker.Stop()
 				return
 			case <-ticker.C:
@@ -402,6 +410,11 @@ func (c *Ndtp) reconnect() {
 					return
 				}
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				} else {
+					c.logger.Printf("close servConn 4")
+				}
 			}
 		}
 		time.Sleep(1 * time.Minute)
@@ -411,6 +424,12 @@ func (c *Ndtp) reconnect() {
 func (c *Ndtp) serverClosed() bool {
 	select {
 	case <-c.exitChan:
+		c.logger.Println("close because server is closed 2")
+				if err := c.conn.Close(); err != nil {
+					c.logger.Debugf("can't close servConn: %s", err)
+				}else {
+					c.logger.Printf("close servConn 2")
+				}
 		return true
 	default:
 		return false
