@@ -15,8 +15,8 @@ func mockNdtpServer(t *testing.T, addr string) {
 	if err != nil {
 		t.Error(err)
 	}
-	t := time.Now().UnixNano()
-	defer util.CloseAndLog(l, logger, t, "test")
+	time1 := time.Now().UnixNano()
+	defer util.CloseAndLog(l, logger, time1, "test")
 	for {
 		conn, err := l.Accept()
 		if err != nil {

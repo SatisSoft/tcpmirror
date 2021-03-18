@@ -225,7 +225,7 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	time.Sleep(8 * time.Second)
 	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", 0, 30)
 	go mockNdtpMaster(t, "localhost:7051")
-	time.Sleep(11 * time.Second)
+	time.Sleep(19 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Error(err)

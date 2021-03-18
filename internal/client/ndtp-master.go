@@ -2,7 +2,6 @@ package client
 
 import (
 	"errors"
-	"math/rand"
 	"net"
 	"time"
 
@@ -28,6 +27,7 @@ type NdtpMaster struct {
 	*ndtpSession
 	*connection
 	confChan chan *db.ConfMsg
+	OldInput chan []byte
 }
 
 // NewNdtpMaster creates new NdtpMaster client
@@ -47,6 +47,7 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 	c.exitChan = exitChan
 	c.pool = pool
 	c.confChan = confChan
+	c.OldInput = make(chan []byte, NdtpMasterChanSize)
 	return c
 }
 
@@ -118,20 +119,19 @@ func (c *NdtpMaster) authorization() error {
 }
 
 func (c *NdtpMaster) clientLoop() {
+	ticker := time.NewTicker(time.Duration(30) * time.Second)
 	for {
 		if c.open {
 			select {
 			case <-c.exitChan:
-				c.logger.Println("close because server is closed 1")
-				if err := c.conn.Close(); err != nil {
-					c.logger.Debugf("can't close servConn: %s", err)
-				}else {
-					c.logger.Printf("close servConn 1")
-				}
+				c.closeConn()
 				return
 			case message := <-c.Input:
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessage(message)
+			case <-ticker.C:
+				ticker.Stop()
+				c.sendOldPackets()
 			}
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
@@ -166,16 +166,19 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 		}
 		changes := map[string]int{ndtp.NphReqID: int(nphID)}
 		newPacket := ndtp.Change(packet, changes)
+		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
 		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, message[:util.PacketStart], c.logger)
 		if err != nil {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
 		}
+		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
 		err = c.send2Server(newPacket)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
 			c.connStatus()
 		}
+		c.sendOldPackets()
 	} else {
 		c.logger.Tracef("send control packet to server: %v", packet)
 		err := c.send2Server(packet)
@@ -183,6 +186,34 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
 			c.connStatus()
 		}
+	}
+}
+
+func (c *NdtpMaster) sendOldPackets() {
+	num := 0
+	for len(c.OldInput) > 0 && num < 10 {
+		oldPacket := <-c.OldInput
+		data := util.Deserialize(oldPacket)
+		packet := data.Packet
+		nphID, err := c.getNphID()
+		if err != nil {
+			c.logger.Errorf("can't get NPH ID: %v", err)
+		}
+		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
+		newPacket := ndtp.Change(packet, changes)
+		util.PrintPacket(c.logger, "old packet after changing: ", newPacket)
+		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, oldPacket[:util.PacketStart], c.logger)
+		if err != nil {
+			c.logger.Errorf("can't write NDTP id: %s", err)
+			return
+		}
+		util.PrintPacket(c.logger, "send old packet to server: ", newPacket)
+		err = c.send2Server(newPacket)
+		if err != nil {
+			c.logger.Warningf("can't send old to NDTP server: %s", err)
+			c.connStatus()
+		}
+		num++
 	}
 }
 
@@ -276,22 +307,43 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 	return
 }
 
+// func (c *NdtpMaster) old() {
+// 	n := rand.Intn(60)
+// 	time.Sleep(time.Duration(n) * time.Second)
+// 	c.checkOld()
+// 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
+// 	//defer ticker.Stop()
+// 	for {
+// 		if c.open {
+// 			select {
+// 			case <-c.exitChan:
+// 				c.logger.Println("close because server is closed 2")
+// 				if err := c.conn.Close(); err != nil {
+// 					c.logger.Debugf("can't close servConn: %s", err)
+// 				} else {
+// 					c.logger.Printf("close servConn 2")
+// 				}
+// 				ticker.Stop()
+// 				return
+// 			case <-ticker.C:
+// 				ticker.Stop()
+// 				c.checkOld()
+// 				ticker = time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
+// 			}
+// 		} else {
+// 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+// 		}
+// 	}
+// }
+
 func (c *NdtpMaster) old() {
-	n := rand.Intn(60)
-	time.Sleep(time.Duration(n) * time.Second)
 	c.checkOld()
 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
-	//defer ticker.Stop()
 	for {
 		if c.open {
 			select {
 			case <-c.exitChan:
-				c.logger.Println("close because server is closed 2")
-				if err := c.conn.Close(); err != nil {
-					c.logger.Debugf("can't close servConn: %s", err)
-				}else {
-					c.logger.Printf("close servConn 2")
-				}
+				c.closeConn()
 				ticker.Stop()
 				return
 			case <-ticker.C:
@@ -305,7 +357,24 @@ func (c *NdtpMaster) old() {
 	}
 }
 
+// func (c *NdtpMaster) checkOld() {
+// 	c.logger.Traceln("start checking old")
+// 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
+// 	c.logger.Debugf("receive old: %v, %v", err, len(res))
+
+// 	if err != nil {
+// 		c.logger.Warningf("can't get old NDTP packets: %s", err)
+// 	} else {
+// 		c.resend(res)
+// 	}
+
+// 	return
+// }
+
 func (c *NdtpMaster) checkOld() {
+	if len(c.OldInput) > 0 {
+		return
+	}
 	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Debugf("receive old: %v, %v", err, len(res))
@@ -313,46 +382,48 @@ func (c *NdtpMaster) checkOld() {
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
 	} else {
-		c.resend(res)
-	}
-
-	return
-}
-
-func (c *NdtpMaster) resend(messages [][]byte) {
-	//var i int
-	messages = reverseSlice(messages)
-	for _, mes := range messages {
-		data := util.Deserialize(mes)
-		packet := data.Packet
-		nphID, err := c.getNphID()
-		if err != nil {
-			c.logger.Errorf("can't get NPH ID: %v", err)
+		res = reverseSlice(res)
+		for _, mes := range res {
+			c.OldInput <- mes
 		}
-		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
-		newPacket := ndtp.Change(packet, changes)
-		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
-		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
-		if err != nil {
-			c.logger.Errorf("can't write NDTP id: %s", err)
-			return
-		}
-		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
-		err = c.send2Server(newPacket)
-		if err != nil {
-			c.logger.Warningf("can't send to NDTP server: %s", err)
-			c.connStatus()
-			return
-		}
-		time.Sleep(1 * time.Second)
-		// i++
-		// if i > 9 {
-		// 	i = 0
-		// 	time.Sleep(1 * time.Second)
-		// 	//time.Sleep(20 * time.Second)
-		// }
+		return
 	}
 }
+
+// func (c *NdtpMaster) resend(messages [][]byte) {
+// 	//var i int
+// 	//messages = reverseSlice(messages)
+// 	for _, mes := range messages {
+// 		data := util.Deserialize(mes)
+// 		packet := data.Packet
+// 		nphID, err := c.getNphID()
+// 		if err != nil {
+// 			c.logger.Errorf("can't get NPH ID: %v", err)
+// 		}
+// 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
+// 		newPacket := ndtp.Change(packet, changes)
+// 		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
+// 		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
+// 		if err != nil {
+// 			c.logger.Errorf("can't write NDTP id: %s", err)
+// 			return
+// 		}
+// 		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
+// 		err = c.send2Server(newPacket)
+// 		if err != nil {
+// 			c.logger.Warningf("can't send to NDTP server: %s", err)
+// 			c.connStatus()
+// 			return
+// 		}
+// 		time.Sleep(1 * time.Second)
+// 		// i++
+// 		// if i > 9 {
+// 		// 	i = 0
+// 		// 	time.Sleep(1 * time.Second)
+// 		// 	//time.Sleep(20 * time.Second)
+// 		// }
+// 	}
+// }
 
 func (c *NdtpMaster) send2Server(packet []byte) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
@@ -407,7 +478,6 @@ func (c *NdtpMaster) reconnect() {
 	for {
 		for i := 0; i < 3; i++ {
 			if c.serverClosed() {
-				c.logger.Println("close because server is closed 3")
 				return
 			}
 			conn, err := net.Dial("tcp", c.address)
@@ -439,12 +509,7 @@ func (c *NdtpMaster) reconnect() {
 func (c *NdtpMaster) serverClosed() bool {
 	select {
 	case <-c.exitChan:
-		c.logger.Println("close because server is closed 4")
-		if err := c.conn.Close(); err != nil {
-			c.logger.Debugf("can't close servConn: %s", err)
-		}else {
-			c.logger.Printf("close servConn 5")
-		}
+		c.closeConn()
 		return true
 	default:
 		return false
@@ -471,4 +536,15 @@ func (c *NdtpMaster) setNph() error {
 func (c *NdtpMaster) chanReconStatus() {
 	time.Sleep(1 * time.Minute)
 	c.reconnecting = false
+}
+
+func (c *NdtpMaster) closeConn() {
+	if c.conn != nil {
+		c.logger.Println("close because server is closed")
+		if err := c.conn.Close(); err != nil {
+			c.logger.Debugf("can't close servConn: %s", err)
+		} else {
+			c.logger.Printf("close servConn")
+		}
+	}
 }
