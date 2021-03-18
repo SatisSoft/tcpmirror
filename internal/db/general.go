@@ -81,7 +81,7 @@ func CheckOldData(conn redis.Conn, meta []byte, logger *logrus.Entry) bool {
 		return true
 	}
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
-	min := uint64(util.Milliseconds() - PeriodOldData)
+	min := uint64(util.Milliseconds() - 1000) //PeriodOldData)
 	logger.Tracef("isOldData key: %v; time: %d; now: %d", meta, time, min)
 	if time < min {
 		logger.Tracef("isOldData detected old time: %d, val: %v", time, val)
