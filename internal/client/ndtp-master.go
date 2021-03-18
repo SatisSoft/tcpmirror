@@ -409,7 +409,6 @@ func (c *NdtpMaster) checkOld() {
 		for _, mes := range res {
 			c.OldInput <- mes
 		}
-		return
 	}
 
 	c.muCheckingOld.Lock()
