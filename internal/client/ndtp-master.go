@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
@@ -383,6 +384,9 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 // }
 
 func (c *NdtpMaster) checkOld() {
+	n := rand.Intn(60)
+	time.Sleep(time.Duration(n) * time.Second)
+
 	c.logger.Infoln("checking old 1")
 
 	c.muCheckingOld.Lock()
@@ -398,9 +402,8 @@ func (c *NdtpMaster) checkOld() {
 
 	for len(c.OldInput) > 0 {
 		c.logger.Infoln("checking old 2")
-		time.Sleep(120 * time.Second)
+		time.Sleep(60 * time.Second)
 	}
-
 	c.logger.Infoln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Infof("receive old: %v, %v", err, len(res))
