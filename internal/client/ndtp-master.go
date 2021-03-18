@@ -73,7 +73,7 @@ func (c *NdtpMaster) start() {
 		return
 	}
 
-	go c.old()
+	go c.checkOld() //c.old()
 	go c.replyHandler()
 	c.clientLoop()
 }
@@ -218,6 +218,9 @@ func (c *NdtpMaster) sendOldPackets() {
 			c.connStatus()
 		}
 		num++
+	}
+	if len(c.OldInput) == 0 {
+		go c.checkOld()
 	}
 }
 
