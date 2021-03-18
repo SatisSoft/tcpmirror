@@ -196,7 +196,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 }
 
 func (c *NdtpMaster) sendOldPackets() {
-	c.logger.Debugf("sendOldPackets %v", len(c.OldInput))
+	c.logger.Debugf("sendOldPackets %v", len(c.OldInput), c.isCheckingOld)
 	num := 0
 	for len(c.OldInput) > 0 && num < 10 {
 		oldPacket := <-c.OldInput
@@ -415,7 +415,6 @@ func (c *NdtpMaster) checkOld() {
 	c.muCheckingOld.Lock()
 	c.isCheckingOld = false
 	c.muCheckingOld.Unlock()
-
 }
 
 // func (c *NdtpMaster) resend(messages [][]byte) {
