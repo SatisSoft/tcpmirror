@@ -412,7 +412,7 @@ func (c *NdtpMaster) checkOld() {
 		}
 	}
 	time.Sleep(60 * time.Second)
-	c.logger.Traceln("checking old 5")
+	c.logger.Infoln("checking old 5")
 	c.muCheckingOld.Lock()
 	c.isCheckingOld = false
 	c.muCheckingOld.Unlock()
