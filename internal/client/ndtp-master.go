@@ -379,9 +379,10 @@ func (c *NdtpMaster) old() {
 // }
 
 func (c *NdtpMaster) checkOld() {
-	if len(c.OldInput) > 0 {
-		return
-	}
+	// if len(c.OldInput) > 0 {
+	// 	return
+	// }
+	time.Sleep(60 * time.Second)
 	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Debugf("receive old: %v, %v", err, len(res))
