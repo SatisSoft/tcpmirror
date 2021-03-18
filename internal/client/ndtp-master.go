@@ -3,6 +3,7 @@ package client
 import (
 	"errors"
 	"net"
+	"sync"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/db"
@@ -29,6 +30,7 @@ type NdtpMaster struct {
 	confChan      chan *db.ConfMsg
 	OldInput      chan []byte
 	isCheckingOld bool
+	muCheckingOld sync.Mutex
 }
 
 // NewNdtpMaster creates new NdtpMaster client
@@ -220,9 +222,7 @@ func (c *NdtpMaster) sendOldPackets() {
 		}
 		num++
 	}
-	if len(c.OldInput) == 0 && !c.isCheckingOld {
-		go c.checkOld()
-	}
+	go c.checkOld()
 }
 
 func (c *NdtpMaster) replyHandler() {
@@ -344,26 +344,26 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 // 	}
 // }
 
-func (c *NdtpMaster) old() {
-	c.checkOld()
-	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
-	for {
-		if c.open {
-			select {
-			case <-c.exitChan:
-				c.closeConn()
-				ticker.Stop()
-				return
-			case <-ticker.C:
-				ticker.Stop()
-				c.checkOld()
-				ticker = time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
-			}
-		} else {
-			time.Sleep(time.Duration(TimeoutClose) * time.Second)
-		}
-	}
-}
+// func (c *NdtpMaster) old() {
+// 	c.checkOld()
+// 	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
+// 	for {
+// 		if c.open {
+// 			select {
+// 			case <-c.exitChan:
+// 				c.closeConn()
+// 				ticker.Stop()
+// 				return
+// 			case <-ticker.C:
+// 				ticker.Stop()
+// 				c.checkOld()
+// 				ticker = time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
+// 			}
+// 		} else {
+// 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+// 		}
+// 	}
+// }
 
 // func (c *NdtpMaster) checkOld() {
 // 	c.logger.Traceln("start checking old")
@@ -380,10 +380,23 @@ func (c *NdtpMaster) old() {
 // }
 
 func (c *NdtpMaster) checkOld() {
-	// if len(c.OldInput) > 0 {
-	// 	return
-	// }
-	c.isCheckingOld = true
+	c.logger.Traceln("checking old 1")
+	if len(c.OldInput) > 0 {
+		c.logger.Traceln("checking old 2")
+		return
+	}
+
+	c.muCheckingOld.Lock()
+	if c.isCheckingOld {
+		c.logger.Traceln("checking old 3")
+		c.muCheckingOld.Unlock()
+		return
+	} else {
+		c.logger.Traceln("checking old 4")
+		c.isCheckingOld = true
+		c.muCheckingOld.Unlock()
+	}
+	c.logger.Traceln("checking old 5")
 	time.Sleep(60 * time.Second)
 	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
@@ -398,7 +411,11 @@ func (c *NdtpMaster) checkOld() {
 		}
 		return
 	}
+
+	c.muCheckingOld.Lock()
 	c.isCheckingOld = false
+	c.muCheckingOld.Unlock()
+
 }
 
 // func (c *NdtpMaster) resend(messages [][]byte) {
