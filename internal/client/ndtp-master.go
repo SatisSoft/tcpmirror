@@ -396,8 +396,6 @@ func (c *NdtpMaster) checkOld() {
 		c.isCheckingOld = true
 		c.muCheckingOld.Unlock()
 	}
-	c.logger.Traceln("checking old 5")
-	time.Sleep(60 * time.Second)
 	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Debugf("receive old: %v, %v", err, len(res))
@@ -410,7 +408,8 @@ func (c *NdtpMaster) checkOld() {
 			c.OldInput <- mes
 		}
 	}
-
+	time.Sleep(60 * time.Second)
+	c.logger.Traceln("checking old 5")
 	c.muCheckingOld.Lock()
 	c.isCheckingOld = false
 	c.muCheckingOld.Unlock()
