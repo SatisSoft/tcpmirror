@@ -26,8 +26,9 @@ type NdtpMaster struct {
 	*info
 	*ndtpSession
 	*connection
-	confChan chan *db.ConfMsg
-	OldInput chan []byte
+	confChan      chan *db.ConfMsg
+	OldInput      chan []byte
+	isCheckingOld bool
 }
 
 // NewNdtpMaster creates new NdtpMaster client
@@ -219,7 +220,7 @@ func (c *NdtpMaster) sendOldPackets() {
 		}
 		num++
 	}
-	if len(c.OldInput) == 0 {
+	if len(c.OldInput) == 0 && !c.isCheckingOld {
 		go c.checkOld()
 	}
 }
@@ -382,6 +383,7 @@ func (c *NdtpMaster) checkOld() {
 	// if len(c.OldInput) > 0 {
 	// 	return
 	// }
+	c.isCheckingOld = true
 	time.Sleep(60 * time.Second)
 	c.logger.Traceln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
@@ -396,6 +398,7 @@ func (c *NdtpMaster) checkOld() {
 		}
 		return
 	}
+	c.isCheckingOld = false
 }
 
 // func (c *NdtpMaster) resend(messages [][]byte) {
