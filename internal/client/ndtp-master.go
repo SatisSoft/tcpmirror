@@ -383,22 +383,23 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 // }
 
 func (c *NdtpMaster) checkOld() {
-	c.logger.Traceln("checking old 1")
-	if len(c.OldInput) > 0 {
-		c.logger.Traceln("checking old 2")
+	c.logger.Infoln("checking old 1")
+	for len(c.OldInput) > 0 {
+		c.logger.Infoln("checking old 2")
+		time.Sleep(60 * time.Second)
 		return
 	}
 
-	c.muCheckingOld.Lock()
-	if c.isCheckingOld {
-		c.logger.Traceln("checking old 3")
-		c.muCheckingOld.Unlock()
-		return
-	} else {
-		c.logger.Traceln("checking old 4")
-		c.isCheckingOld = true
-		c.muCheckingOld.Unlock()
-	}
+	// c.muCheckingOld.Lock()
+	// if c.isCheckingOld {
+	// 	c.logger.Traceln("checking old 3")
+	// 	c.muCheckingOld.Unlock()
+	// 	return
+	// } else {
+	// 	c.logger.Traceln("checking old 4")
+	// 	c.isCheckingOld = true
+	// 	c.muCheckingOld.Unlock()
+	// }
 	c.logger.Infoln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
 	c.logger.Infof("receive old: %v, %v", err, len(res))
@@ -413,9 +414,9 @@ func (c *NdtpMaster) checkOld() {
 	}
 	time.Sleep(60 * time.Second)
 	c.logger.Infoln("checking old 5")
-	c.muCheckingOld.Lock()
-	c.isCheckingOld = false
-	c.muCheckingOld.Unlock()
+	// c.muCheckingOld.Lock()
+	// c.isCheckingOld = false
+	// c.muCheckingOld.Unlock()
 }
 
 // func (c *NdtpMaster) resend(messages [][]byte) {
