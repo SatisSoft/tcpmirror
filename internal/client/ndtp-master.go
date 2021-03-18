@@ -256,6 +256,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 		return nil
 	}
 	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
+	c.logger.Infoln("received packet from server")
 	util.PrintPacket(c.logger, "received packet from server ", b[:n])
 	buf = append(buf, b[:n]...)
 	buf, err = c.processPacket(buf)

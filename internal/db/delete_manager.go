@@ -1,6 +1,8 @@
 package db
 
 import (
+	"log"
+
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
@@ -51,6 +53,7 @@ func (m *DeleteManager) receiveLoop() {
 	for {
 		select {
 		case message := <-m.Chan:
+
 			err := m.handleMessage(message)
 			if err != nil {
 				m.logger.Errorf("can't delete message: %s", err)
@@ -137,6 +140,7 @@ func deletePacket(conn redis.Conn, key []byte) error {
 	}
 
 	terminalID := util.TerminalID(key)
+	log.Println("del terminal", terminalID)
 	res, err = conn.Do("ZREM", terminalID, packet)
 	logrus.Tracef("del 2 res = %v, err = %v", res, err)
 	if err != nil {
