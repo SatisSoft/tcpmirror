@@ -178,6 +178,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
 		}
+		c.logger.Infoln("send packet to server")
 		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
 		err = c.send2Server(newPacket)
 		if err != nil {
@@ -196,7 +197,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 }
 
 func (c *NdtpMaster) sendOldPackets() {
-	c.logger.Debugf("sendOldPackets %v, %v", len(c.OldInput), c.isCheckingOld)
+	c.logger.Infof("sendOldPackets %v, %v", len(c.OldInput), c.isCheckingOld)
 	num := 0
 	for len(c.OldInput) > 0 && num < 10 {
 		oldPacket := <-c.OldInput
@@ -214,6 +215,7 @@ func (c *NdtpMaster) sendOldPackets() {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
 		}
+		c.logger.Infoln("send old packet to server")
 		util.PrintPacket(c.logger, "send old packet to server: ", newPacket)
 		err = c.send2Server(newPacket)
 		if err != nil {
@@ -396,9 +398,9 @@ func (c *NdtpMaster) checkOld() {
 		c.isCheckingOld = true
 		c.muCheckingOld.Unlock()
 	}
-	c.logger.Traceln("start checking old")
+	c.logger.Infoln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
-	c.logger.Debugf("receive old: %v, %v", err, len(res))
+	c.logger.Infof("receive old: %v, %v", err, len(res))
 
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
