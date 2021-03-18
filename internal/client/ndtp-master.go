@@ -127,11 +127,14 @@ func (c *NdtpMaster) clientLoop() {
 				c.closeConn()
 				return
 			case message := <-c.Input:
+				ticker.Stop()
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessage(message)
+				ticker = time.NewTicker(time.Duration(30) * time.Second)
 			case <-ticker.C:
 				ticker.Stop()
 				c.sendOldPackets()
+				ticker = time.NewTicker(time.Duration(30) * time.Second)
 			}
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
@@ -190,6 +193,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 }
 
 func (c *NdtpMaster) sendOldPackets() {
+	c.logger.Debugf("sendOldPackets %v", len(c.OldInput))
 	num := 0
 	for len(c.OldInput) > 0 && num < 10 {
 		oldPacket := <-c.OldInput
