@@ -49,8 +49,8 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	t := time.Now().UnixNano()
 	defer util.CloseAndLog(conn, logger, t, "OldPacketsNdtp")
 
-	maxToSend := 600
-	limit := 600
+	maxToSend := 50
+	limit := 50
 	allNotConfirmed := [][]byte{}
 	lenNotConf := 0
 	offset := 0
