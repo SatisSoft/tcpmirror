@@ -49,6 +49,7 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 	c.pool = pool
 	c.confChan = confChan
 	c.OldInput = make(chan []byte, NdtpMasterChanSize)
+	c.finishOld = make(chan bool)
 	return c
 }
 
