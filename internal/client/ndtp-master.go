@@ -402,7 +402,7 @@ func (c *NdtpMaster) checkOld() {
 
 	for len(c.OldInput) > 0 {
 		c.logger.Infoln("checking old 2")
-		time.Sleep(60 * time.Second)
+		time.Sleep(5 * 60 * time.Second)
 	}
 	c.logger.Infoln("start checking old")
 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
