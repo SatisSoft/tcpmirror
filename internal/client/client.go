@@ -23,6 +23,7 @@ var (
 	TimeoutClose       int
 	TimeoutErrorReply  int
 	TimeoutReconnect   int
+	PeriodSendOldNdtp  int
 )
 
 // Client describes general client

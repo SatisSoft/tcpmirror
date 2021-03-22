@@ -13,7 +13,9 @@ import (
 )
 
 // NdtpMasterChanSize defines size of NdtpMaster client input chanel buffer
-const NdtpMasterChanSize = 200
+const NdtpMasterInputChanSize = 10
+const NdtpMasterOutputChanSize = 200
+const NdtpMasterOldChanSize = 10000
 
 // NdtpMaster describes  Ndtp master client
 type NdtpMaster struct {
@@ -43,12 +45,12 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 	c.address = sys.Address
 	c.logger = logrus.WithFields(logrus.Fields{"type": "ndtp_master_client", "vis": sys.ID})
 	c.Options = options
-	c.Input = make(chan []byte, NdtpMasterChanSize)
-	c.Output = make(chan []byte, NdtpMasterChanSize)
+	c.Input = make(chan []byte, NdtpMasterInputChanSize)
+	c.Output = make(chan []byte, NdtpMasterOutputChanSize)
 	c.exitChan = exitChan
 	c.pool = pool
 	c.confChan = confChan
-	c.OldInput = make(chan []byte, NdtpMasterChanSize)
+	c.OldInput = make(chan []byte, NdtpMasterOldChanSize)
 	c.finishOld = make(chan bool, 1)
 	return c
 }
@@ -121,7 +123,7 @@ func (c *NdtpMaster) authorization() error {
 }
 
 func (c *NdtpMaster) clientLoop() {
-	ticker := time.NewTicker(time.Duration(30) * time.Second)
+	ticker := time.NewTicker(time.Duration(PeriodSendOldNdtp) * time.Second)
 	for {
 		if c.open {
 			select {
@@ -132,11 +134,11 @@ func (c *NdtpMaster) clientLoop() {
 				ticker.Stop()
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessage(message)
-				ticker = time.NewTicker(time.Duration(30) * time.Second)
+				ticker = time.NewTicker(time.Duration(PeriodSendOldNdtp) * time.Second)
 			case <-ticker.C:
 				ticker.Stop()
 				c.sendOldPackets()
-				ticker = time.NewTicker(time.Duration(30) * time.Second)
+				ticker = time.NewTicker(time.Duration(PeriodSendOldNdtp) * time.Second)
 			}
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)

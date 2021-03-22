@@ -34,6 +34,7 @@ const (
 	limitOldNdtp          = "limit_old_ndtp"
 	redisMaxIdle          = "redis_max_idle"
 	redisMaxActive        = "redis_max_active"
+	periodSendOldNdtp     = "period_send_old_ndtp"
 )
 
 // System contains information about system which consumes data
@@ -70,6 +71,7 @@ type Args struct {
 	LimitOldNdtp          int
 	RedisMaxIdle          int
 	RedisMaxActive        int
+	PeriodSendOldNdtp     int
 }
 
 // Options contains information about DB options and monitoring options
@@ -172,6 +174,10 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.RedisMaxActive = viper.GetInt(redisMaxActive)
 	if args.RedisMaxActive == 0 {
 		args.RedisMaxActive = 400
+	}
+	args.PeriodSendOldNdtp = viper.GetInt(periodSendOldNdtp)
+	if args.PeriodSendOldNdtp == 0 {
+		args.PeriodSendOldNdtp = 30
 	}
 
 	Instance = strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
