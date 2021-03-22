@@ -2,7 +2,6 @@ package client
 
 import (
 	"fmt"
-	"log"
 	"net"
 	"sync"
 	"time"
@@ -196,7 +195,7 @@ OLDLOOP:
 					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
 				}
 			}
-			log.Println("finish send old EGTS")
+			c.logger.Infoln("finish send old EGTS")
 			time.Sleep(time.Duration(PeriodCheckOldEgts) * time.Second)
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)

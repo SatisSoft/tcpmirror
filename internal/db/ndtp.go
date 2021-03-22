@@ -56,12 +56,10 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	offset := 0
 
 	for limit > 0 && lenNotConf < maxToSend {
-		//	log.Println("allNotConfirmedNdtp",terminalID)
 		all, err := allNotConfirmedNdtp(conn, terminalID, offset, limit, logger)
 		if err != nil {
 			return nil, err
 		}
-		//	log.Println("getNotConfirmed",terminalID)
 		notConfirmed, err := getNotConfirmed(conn, sysID, all, logger)
 		if err != nil {
 			return nil, err
@@ -70,15 +68,10 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 		lenAll := len(all)
 		lenNotConf0 := len(notConfirmed)
 
-		//log.Println("lenAll", lenAll)
-		//log.Println("lenNotConf0", lenNotConf0, terminalID)
-
 		if lenNotConf0 != 0 {
 			allNotConfirmed = append(allNotConfirmed, notConfirmed...)
 			lenNotConf = lenNotConf + lenNotConf0
 		}
-
-		//log.Println("lenNotConf", lenNotConf)
 
 		if lenAll < limit || lenNotConf >= maxToSend {
 			break

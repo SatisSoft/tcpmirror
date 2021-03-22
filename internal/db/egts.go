@@ -1,7 +1,6 @@
 package db
 
 import (
-	"log"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -37,23 +36,20 @@ func ConfirmEgts(conn redis.Conn, egtsID uint16, sysID byte, logger *logrus.Entr
 // OldPacketsEGTS returns not confirmed packets for corresponding system
 func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
 	allNotConfirmed := [][]byte{}
-	maxToSend := MaxToSendOldEgts //600000
-	limit := LimitOldEgts         //600000
+	maxToSend := MaxToSendOldEgts
+	limit := LimitOldEgts
 	lenNotConf := 0
 	offset := 0
 
 	for limit > 0 && lenNotConf < maxToSend {
-		log.Println("allNotConfirmedEGTS")
 		all, err := allNotConfirmedEGTS(conn, limit, offset)
 		if err != nil {
 			return nil, err
 		}
-		log.Println("sysNotConfirmed")
 		notConfirmedKeys, err := sysNotConfirmed(conn, all, sysID)
 		if err != nil {
 			return nil, err
 		}
-		log.Println("notConfirmed")
 		notConfirmed, err := notConfirmed(conn, notConfirmedKeys)
 		if err != nil {
 			return nil, err
@@ -62,15 +58,10 @@ func OldPacketsEGTS(conn redis.Conn, sysID byte) ([][]byte, error) {
 		lenAll := len(all)
 		lenNotConf0 := len(notConfirmed)
 
-		log.Println("lenAll", lenAll)
-		log.Println("lenNotConf0", lenNotConf0)
-
 		if lenNotConf0 != 0 {
 			allNotConfirmed = append(allNotConfirmed, notConfirmed...)
 			lenNotConf = lenNotConf + lenNotConf0
 		}
-
-		log.Println("lenNotConf", lenNotConf)
 
 		if lenAll < limit || lenNotConf >= maxToSend {
 			break
