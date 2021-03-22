@@ -95,6 +95,8 @@ func initDBParams(args *util.Args) {
 	db.LimitOldEgts = args.LimitOldEgts
 	db.MaxToSendOldNdtp = args.MaxToSendOldNdtp
 	db.LimitOldNdtp = args.LimitOldNdtp
+	db.RedisMaxIdle = args.RedisMaxIdle
+	db.RedisMaxActive = args.RedisMaxActive
 }
 
 func initClientParams(args *util.Args) {

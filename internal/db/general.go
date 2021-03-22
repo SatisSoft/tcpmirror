@@ -25,6 +25,8 @@ var (
 	LimitOldEgts          int
 	MaxToSendOldNdtp      int
 	LimitOldNdtp          int
+	RedisMaxActive        int
+	RedisMaxIdle          int
 )
 
 // Write2DB writes packet with metadata to DB
