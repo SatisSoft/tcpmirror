@@ -211,7 +211,7 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	numOfTerminals := 1
 	notConfirmed := 1
 	numOfEgtsServers := 1
-	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", numOfPackets, 1)
+	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", numOfPackets, 1, 0)
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -223,9 +223,9 @@ func Test_serverStartOneGuaranteedDelivery(t *testing.T) {
 	logrus.Println("start 1 test")
 	checkKeyNum(t, res, expected)
 	time.Sleep(8 * time.Second)
-	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", 0, 30)
+	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7050", 2, 30, 5)
 	go mockNdtpMaster(t, "localhost:7051")
-	time.Sleep(19 * time.Second)
+	time.Sleep(10 * time.Second)
 	res, err = getAllKeys(conn)
 	if err != nil {
 		t.Error(err)
@@ -251,7 +251,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	numOfTerminals := 1
 	notConfirmed := 1
 	numOfEgtsServers := 1
-	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7060", numOfPackets, 1)
+	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7060", numOfPackets, 1, 0)
 	go server.Start()
 	time.Sleep(2 * time.Second)
 	res, err := getAllKeys(conn)
@@ -264,7 +264,7 @@ func Test_serverStartTwoGuaranteedDelivery(t *testing.T) {
 	checkKeyNum(t, res, expected)
 	time.Sleep(8 * time.Second)
 	logrus.Println("START NDTP SERVERS")
-	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7060", numOfPackets, 30)
+	go mockTerminalGuaranteedDeliveryMaster(t, "localhost:7060", numOfPackets, 30, 0)
 	go mockNdtpMaster(t, "localhost:7061")
 	go mockNdtpServer(t, "localhost:7062")
 	time.Sleep(11 * time.Second)

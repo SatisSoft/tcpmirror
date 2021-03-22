@@ -49,8 +49,8 @@ func OldPacketsNdtp(pool *Pool, sysID byte, terminalID int, logger *logrus.Entry
 	t := time.Now().UnixNano()
 	defer util.CloseAndLog(conn, logger, t, "OldPacketsNdtp")
 
-	maxToSend := 600
-	limit := 600
+	maxToSend := MaxToSendOldNdtp //600
+	limit := LimitOldNdtp         //600
 	allNotConfirmed := [][]byte{}
 	lenNotConf := 0
 	offset := 0
@@ -164,7 +164,7 @@ func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte, logger *
 }
 
 func allNotConfirmedNdtp(conn redis.Conn, terminalID int, offset int, limit int, logger *logrus.Entry) ([][]byte, error) {
-	max := util.Milliseconds() - PeriodNotConfData
+	max := util.Milliseconds() - PeriodNotConfDataNdtp
 	logger.Tracef("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", offset, limit))
 }

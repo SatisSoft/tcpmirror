@@ -2,10 +2,10 @@ package client
 
 import (
 	"errors"
+	"math/rand"
 	"net"
 	"sync"
 	"time"
-	"math/rand"
 
 	"github.com/ashirko/tcpmirror/internal/db"
 	"github.com/ashirko/tcpmirror/internal/monitoring"
@@ -129,7 +129,7 @@ func (c *Ndtp) clientLoop() {
 				c.logger.Println("close because server is closed")
 				if err := c.conn.Close(); err != nil {
 					c.logger.Debugf("can't close servConn: %s", err)
-				}else {
+				} else {
 					c.logger.Printf("close servConn 1")
 				}
 				return
@@ -265,7 +265,7 @@ func (c *Ndtp) old() {
 	n := rand.Intn(60)
 	time.Sleep(time.Duration(n) * time.Second)
 	c.checkOld()
-	ticker := time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
+	ticker := time.NewTicker(time.Duration(PeriodCheckOldNdtp) * time.Second)
 	//defer ticker.Stop()
 	for {
 		if c.open {
@@ -274,7 +274,7 @@ func (c *Ndtp) old() {
 				c.logger.Println("close because server is closed 2")
 				if err := c.conn.Close(); err != nil {
 					c.logger.Debugf("can't close servConn: %s", err)
-				}else {
+				} else {
 					c.logger.Printf("close servConn 2")
 				}
 				ticker.Stop()
@@ -282,7 +282,7 @@ func (c *Ndtp) old() {
 			case <-ticker.C:
 				ticker.Stop()
 				c.checkOld()
-				ticker = time.NewTicker(time.Duration(PeriodCheckOld) * time.Second)
+				ticker = time.NewTicker(time.Duration(PeriodCheckOldNdtp) * time.Second)
 			}
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
@@ -425,11 +425,11 @@ func (c *Ndtp) serverClosed() bool {
 	select {
 	case <-c.exitChan:
 		c.logger.Println("close because server is closed 2")
-				if err := c.conn.Close(); err != nil {
-					c.logger.Debugf("can't close servConn: %s", err)
-				}else {
-					c.logger.Printf("close servConn 2")
-				}
+		if err := c.conn.Close(); err != nil {
+			c.logger.Debugf("can't close servConn: %s", err)
+		} else {
+			c.logger.Printf("close servConn 2")
+		}
 		return true
 	default:
 		return false

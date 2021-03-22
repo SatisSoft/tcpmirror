@@ -119,7 +119,7 @@ func mockTerminalSecond(t *testing.T, addr string, num int) {
 	time.Sleep(1 * time.Second)
 }
 
-func mockTerminalGuaranteedDeliveryMaster(t *testing.T, addr string, num int, sleep int) {
+func mockTerminalGuaranteedDeliveryMaster(t *testing.T, addr string, num int, sleep int, sleep2 int) {
 	logger := logrus.WithFields(logrus.Fields{"test": "mock_terminal"})
 	time.Sleep(100 * time.Millisecond)
 	conn, err := net.Dial("tcp", addr)
@@ -139,6 +139,7 @@ func mockTerminalGuaranteedDeliveryMaster(t *testing.T, addr string, num int, sl
 			logger.Errorf("got error: %v", err)
 			t.Error(err)
 		}
+		time.Sleep(time.Duration(sleep2) * time.Second)
 	}
 	time.Sleep(time.Duration(sleep) * time.Second)
 }

@@ -225,7 +225,7 @@ func (c *NdtpMaster) sendOldPackets() {
 	}
 
 	if len(c.OldInput) == 0 && num > 0 {
-		c.logger.Infof("finishOld")
+		c.logger.Infof("finishOld1")
 		c.finishOld <- true
 	}
 }
@@ -330,7 +330,8 @@ func (c *NdtpMaster) old() {
 				c.closeConn()
 				return
 			case <-c.finishOld:
-				time.Sleep(time.Duration(PeriodCheckOld) * time.Second)
+				c.logger.Infof("get finishOld")
+				time.Sleep(time.Duration(PeriodCheckOldNdtp) * time.Second)
 				c.checkOld()
 			}
 		} else {
@@ -353,7 +354,7 @@ func (c *NdtpMaster) checkOld() {
 				c.OldInput <- mes
 			}
 		} else {
-			c.logger.Infof("finishOld")
+			c.logger.Infof("finishOld2")
 			c.finishOld <- true
 		}
 	}

@@ -158,7 +158,7 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 func (c *Egts) old() {
 	c.logger.Infof("old")
 	dbConn := db.Connect(c.DB)
-	time.Sleep(time.Duration(PeriodCheckOld) * time.Second)
+	time.Sleep(time.Duration(PeriodCheckOldEgts) * time.Second)
 OLDLOOP:
 	for {
 		if c.open {
@@ -197,7 +197,7 @@ OLDLOOP:
 				}
 			}
 			log.Println("finish send old EGTS")
-			time.Sleep(time.Duration(PeriodCheckOld) * time.Second)
+			time.Sleep(time.Duration(PeriodCheckOldEgts) * time.Second)
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
 		}

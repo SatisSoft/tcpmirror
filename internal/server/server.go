@@ -88,15 +88,21 @@ func initParams(args *util.Args) {
 func initDBParams(args *util.Args) {
 	db.SysNumber = len(args.Systems)
 	db.KeyEx = args.KeyEx
-	db.PeriodNotConfData = args.PeriodNotConfData
+	db.PeriodNotConfDataEgts = args.PeriodNotConfDataEgts
+	db.PeriodNotConfDataNdtp = args.PeriodNotConfDataNdtp
 	db.PeriodOldData = args.PeriodOldData
+	db.MaxToSendOldEgts = args.MaxToSendOldEgts
+	db.LimitOldEgts = args.LimitOldEgts
+	db.MaxToSendOldNdtp = args.MaxToSendOldNdtp
+	db.LimitOldNdtp = args.LimitOldNdtp
 }
 
 func initClientParams(args *util.Args) {
 	client.TimeoutClose = args.TimeoutClose
 	client.TimeoutErrorReply = args.TimeoutErrorReply
 	client.TimeoutReconnect = args.TimeoutReconnect
-	client.PeriodCheckOld = args.PeriodCheckOld
+	client.PeriodCheckOldEgts = args.PeriodCheckOldEgts
+	client.PeriodCheckOldNdtp = args.PeriodCheckOldNdtp
 }
 
 func getSystemIds(systems []util.System) []byte {

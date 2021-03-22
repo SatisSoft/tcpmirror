@@ -12,20 +12,26 @@ import (
 )
 
 const (
-	db                = "db_address"
-	listen            = "listen_address"
-	mon               = "mon_address"
-	consumers         = "consumers_list"
-	protocol          = "listen_protocol"
-	logLevel          = "log_level"
-	keyEx             = "key_ex"
-	periodNotConfData = "period_notconf_data"
-	periodOldData     = "period_old_data"
-	periodCheckOld    = "period_check_old"
-	timeoutClose      = "timeout_close"
-	timeoutErrorReply = "timeout_error_reply"
-	timeoutReconnect  = "timeout_reconnect"
-	testMode          = "test_mode"
+	db                    = "db_address"
+	listen                = "listen_address"
+	mon                   = "mon_address"
+	consumers             = "consumers_list"
+	protocol              = "listen_protocol"
+	logLevel              = "log_level"
+	keyEx                 = "key_ex"
+	periodNotConfDataEgts = "period_notconf_data_egts"
+	periodNotConfDataNdtp = "period_notconf_data_ndtp"
+	periodOldData         = "period_old_data"
+	periodCheckOldEgts    = "period_check_old_egts"
+	periodCheckOldNdtp    = "period_check_old_ndtp"
+	timeoutClose          = "timeout_close"
+	timeoutErrorReply     = "timeout_error_reply"
+	timeoutReconnect      = "timeout_reconnect"
+	testMode              = "test_mode"
+	MaxToSendOldEgts      = "max_to_send_old_egts"
+	LimitOldEgts          = "limit_old_egts"
+	MaxToSendOldNdtp      = "max_to_send_old_ndtp"
+	LimitOldNdtp          = "limit_old_ndtp"
 )
 
 // System contains information about system which consumes data
@@ -40,20 +46,26 @@ type System struct {
 // Args contains parsed params from configuration file
 type Args struct {
 	// Listen address
-	Listen            string
-	Protocol          string
-	Systems           []System
-	Monitoring        string
-	DB                string
-	LogLevel          logrus.Level
-	KeyEx             int
-	PeriodNotConfData int64
-	PeriodOldData     int64
-	PeriodCheckOld    int
-	TimeoutClose      int
-	TimeoutErrorReply int
-	TimeoutReconnect  int
-	TestMode          bool
+	Listen                string
+	Protocol              string
+	Systems               []System
+	Monitoring            string
+	DB                    string
+	LogLevel              logrus.Level
+	KeyEx                 int
+	PeriodNotConfDataEgts int64
+	PeriodNotConfDataNdtp int64
+	PeriodOldData         int64
+	PeriodCheckOldEgts    int
+	PeriodCheckOldNdtp    int
+	TimeoutClose          int
+	TimeoutErrorReply     int
+	TimeoutReconnect      int
+	TestMode              bool
+	MaxToSendOldEgts      int
+	LimitOldEgts          int
+	MaxToSendOldNdtp      int
+	LimitOldNdtp          int
 }
 
 // Options contains information about DB options and monitoring options
@@ -100,17 +112,25 @@ func parseConfig(conf string) (args *Args, err error) {
 	if args.KeyEx == 0 {
 		args.KeyEx = 20
 	}
-	args.PeriodNotConfData = viper.GetInt64(periodNotConfData)
-	if args.PeriodNotConfData == 0 {
-		args.PeriodNotConfData = 60000
+	args.PeriodNotConfDataEgts = viper.GetInt64(periodNotConfDataEgts)
+	if args.PeriodNotConfDataEgts == 0 {
+		args.PeriodNotConfDataEgts = 60000
+	}
+	args.PeriodNotConfDataNdtp = viper.GetInt64(periodNotConfDataNdtp)
+	if args.PeriodNotConfDataNdtp == 0 {
+		args.PeriodNotConfDataNdtp = 60000
 	}
 	args.PeriodOldData = viper.GetInt64(periodOldData)
 	if args.PeriodOldData == 0 {
-		args.PeriodOldData = 55000
+		args.PeriodOldData = 1000 //55000
 	}
-	args.PeriodCheckOld = viper.GetInt(periodCheckOld)
-	if args.PeriodCheckOld == 0 {
-		args.PeriodCheckOld = 60
+	args.PeriodCheckOldEgts = viper.GetInt(periodCheckOldEgts)
+	if args.PeriodCheckOldEgts == 0 {
+		args.PeriodCheckOldEgts = 60
+	}
+	args.PeriodCheckOldNdtp = viper.GetInt(periodCheckOldNdtp)
+	if args.PeriodCheckOldNdtp == 0 {
+		args.PeriodCheckOldNdtp = 60
 	}
 	args.TimeoutClose = viper.GetInt(timeoutClose)
 	if args.TimeoutClose == 0 {
@@ -125,6 +145,23 @@ func parseConfig(conf string) (args *Args, err error) {
 		args.TimeoutReconnect = 10
 	}
 	args.TestMode = viper.GetBool(testMode)
+	args.MaxToSendOldEgts = viper.GetInt64(maxToSendOldEgts)
+	if args.MaxToSendOldEgts == 0 {
+		args.MaxToSendOldEgts = 600000
+	}
+	args.LimitOldEgts = viper.GetInt64(limitOldEgts)
+	if args.LimitOldEgts == 0 {
+		args.LimitOldEgts = 600000
+	}
+	args.MaxToSendOldNdtp = viper.GetInt64(maxToSendOldNdtp)
+	if args.MaxToSendOldNdtp == 0 {
+		args.MaxToSendOldNdtp = 600
+	}
+	args.LimitOldNdtp = viper.GetInt64(limitOldNdtp)
+	if args.LimitOldNdtp == 0 {
+		args.LimitOldNdtp = 600
+	}
+
 	Instance = strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
 	EgtsName = egtsKey + ":" + Instance
 	return

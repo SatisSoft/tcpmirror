@@ -16,10 +16,15 @@ const systemBytes = 4
 
 var (
 	// SysNumber is a number of clients
-	SysNumber         int
-	KeyEx             int
-	PeriodNotConfData int64
-	PeriodOldData     int64
+	SysNumber             int
+	KeyEx                 int
+	PeriodNotConfDataEgts int64
+	PeriodNotConfDataNdtp int64
+	PeriodOldData         int64
+	MaxToSendOldEgts      int
+	LimitOldEgts          int
+	MaxToSendOldNdtp      int
+	LimitOldNdtp          int
 )
 
 // Write2DB writes packet with metadata to DB
@@ -81,7 +86,7 @@ func CheckOldData(conn redis.Conn, meta []byte, logger *logrus.Entry) bool {
 		return true
 	}
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
-	min := uint64(util.Milliseconds() - 1000) //PeriodOldData)
+	min := uint64(util.Milliseconds() - PeriodOldData)
 	logger.Tracef("isOldData key: %v; time: %d; now: %d", meta, time, min)
 	if time < min {
 		logger.Tracef("isOldData detected old time: %d, val: %v", time, val)
