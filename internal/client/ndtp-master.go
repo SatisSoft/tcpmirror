@@ -356,7 +356,6 @@ func (c *NdtpMaster) checkOld() {
 		} else {
 			c.logger.Infof("finishOld2")
 			c.finishOld <- true
-			c.logger.Infof("finishOld2")
 		}
 	}
 }
