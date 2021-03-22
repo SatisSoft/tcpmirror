@@ -105,6 +105,7 @@ func initClientParams(args *util.Args) {
 	client.TimeoutReconnect = args.TimeoutReconnect
 	client.PeriodCheckOldEgts = args.PeriodCheckOldEgts
 	client.PeriodCheckOldNdtp = args.PeriodCheckOldNdtp
+	client.PeriodSendOldNdtp = args.PeriodSendOldNdtp
 }
 
 func getSystemIds(systems []util.System) []byte {
