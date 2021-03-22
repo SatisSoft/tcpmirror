@@ -28,10 +28,10 @@ const (
 	timeoutErrorReply     = "timeout_error_reply"
 	timeoutReconnect      = "timeout_reconnect"
 	testMode              = "test_mode"
-	MaxToSendOldEgts      = "max_to_send_old_egts"
-	LimitOldEgts          = "limit_old_egts"
-	MaxToSendOldNdtp      = "max_to_send_old_ndtp"
-	LimitOldNdtp          = "limit_old_ndtp"
+	maxToSendOldEgts      = "max_to_send_old_egts"
+	limitOldEgts          = "limit_old_egts"
+	maxToSendOldNdtp      = "max_to_send_old_ndtp"
+	limitOldNdtp          = "limit_old_ndtp"
 )
 
 // System contains information about system which consumes data
@@ -145,19 +145,19 @@ func parseConfig(conf string) (args *Args, err error) {
 		args.TimeoutReconnect = 10
 	}
 	args.TestMode = viper.GetBool(testMode)
-	args.MaxToSendOldEgts = viper.GetInt64(maxToSendOldEgts)
+	args.MaxToSendOldEgts = viper.GetInt(maxToSendOldEgts)
 	if args.MaxToSendOldEgts == 0 {
 		args.MaxToSendOldEgts = 600000
 	}
-	args.LimitOldEgts = viper.GetInt64(limitOldEgts)
+	args.LimitOldEgts = viper.GetInt(limitOldEgts)
 	if args.LimitOldEgts == 0 {
 		args.LimitOldEgts = 600000
 	}
-	args.MaxToSendOldNdtp = viper.GetInt64(maxToSendOldNdtp)
+	args.MaxToSendOldNdtp = viper.GetInt(maxToSendOldNdtp)
 	if args.MaxToSendOldNdtp == 0 {
 		args.MaxToSendOldNdtp = 600
 	}
-	args.LimitOldNdtp = viper.GetInt64(limitOldNdtp)
+	args.LimitOldNdtp = viper.GetInt(limitOldNdtp)
 	if args.LimitOldNdtp == 0 {
 		args.LimitOldNdtp = 600
 	}
