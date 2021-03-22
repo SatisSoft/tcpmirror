@@ -179,7 +179,7 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
 		}
-		c.logger.Infoln("send packet to server")
+		c.logger.Infoln("send packet to server 1")
 		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
 		err = c.send2Server(newPacket)
 		if err != nil {

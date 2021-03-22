@@ -1,8 +1,6 @@
 package db
 
 import (
-	"log"
-
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
@@ -140,9 +138,8 @@ func deletePacket(conn redis.Conn, key []byte) error {
 	}
 
 	terminalID := util.TerminalID(key)
-	log.Println("del terminal", terminalID)
 	res, err = conn.Do("ZREM", terminalID, packet)
-	logrus.Tracef("del 2 res = %v, err = %v", res, err)
+	logrus.Tracef("del 2 res = %v, err = %v, terminal = %v", res, err, terminalID)
 	if err != nil {
 		return err
 	}
