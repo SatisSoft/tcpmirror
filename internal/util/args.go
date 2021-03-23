@@ -165,7 +165,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	}
 	args.BatchOldEgts = viper.GetInt(batchOldEgts)
 	if args.BatchOldEgts == 0 {
-		args.BatchOldEgts = 350
+		args.BatchOldEgts = 300
 	}
 	args.PeriodSendBatchOldEgtsMs = viper.GetInt(periodSendBatchOldEgtsMs)
 	if args.PeriodSendBatchOldEgtsMs == 0 {
