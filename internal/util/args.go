@@ -169,11 +169,11 @@ func parseConfig(conf string) (args *Args, err error) {
 	}
 	args.RedisMaxIdle = viper.GetInt(redisMaxIdle)
 	if args.RedisMaxIdle == 0 {
-		args.RedisMaxIdle = 400
+		args.RedisMaxIdle = 220
 	}
 	args.RedisMaxActive = viper.GetInt(redisMaxActive)
 	if args.RedisMaxActive == 0 {
-		args.RedisMaxActive = 400
+		args.RedisMaxActive = 220
 	}
 	args.PeriodSendOldNdtp = viper.GetInt(periodSendOldNdtp)
 	if args.PeriodSendOldNdtp == 0 {
