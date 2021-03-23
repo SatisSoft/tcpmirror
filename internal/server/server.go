@@ -103,6 +103,7 @@ func initClientParams(args *util.Args) {
 	client.PeriodCheckOldEgtsMs = args.PeriodCheckOldEgtsMs
 	client.BatchOldEgts = args.BatchOldEgts
 	client.PeriodSendBatchOldEgtsMs = args.PeriodSendBatchOldEgtsMs
+	client.PeriodSendOldEgtsMs = args.PeriodSendOldEgtsMs
 	client.WaitConfEgtsMs = args.WaitConfEgtsMs
 
 	client.PeriodCheckOldNdtpMs = args.PeriodCheckOldNdtpMs

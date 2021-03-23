@@ -25,6 +25,7 @@ var (
 	PeriodCheckOldEgtsMs     int
 	BatchOldEgts             int
 	PeriodSendBatchOldEgtsMs int
+	PeriodSendOldEgtsMs      int
 	WaitConfEgtsMs           int
 
 	PeriodCheckOldNdtpMs    int

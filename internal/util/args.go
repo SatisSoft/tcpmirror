@@ -32,6 +32,7 @@ const (
 	periodCheckOldEgtsMs     = "period_check_old_egts_ms"
 	batchOldEgts             = "batch_old_egts"
 	periodSendBatchOldEgtsMs = "period_send_batch_old_egts_ms"
+	periodSendOldEgtsMs      = "period_send_old_egts_ms"
 	waitConfEgtsMs           = "wait_conf_egts_ms"
 
 	periodNotConfDataNdtpMs = "period_notconf_data_ndtp_ms"
@@ -72,6 +73,7 @@ type Args struct {
 	PeriodCheckOldEgtsMs     int
 	BatchOldEgts             int
 	PeriodSendBatchOldEgtsMs int
+	PeriodSendOldEgtsMs      int
 	WaitConfEgtsMs           int
 
 	PeriodNotConfDataNdtpMs int64
@@ -169,9 +171,13 @@ func parseConfig(conf string) (args *Args, err error) {
 	if args.PeriodSendBatchOldEgtsMs == 0 {
 		args.PeriodSendBatchOldEgtsMs = 100
 	}
+	args.PeriodSendOldEgtsMs = viper.GetInt(periodSendOldEgtsMs)
+	if args.PeriodSendOldEgtsMs == 0 {
+		args.PeriodSendOldEgtsMs = 30000
+	}
 	args.WaitConfEgtsMs = viper.GetInt(waitConfEgtsMs)
 	if args.WaitConfEgtsMs == 0 {
-		args.WaitConfEgtsMs = 60000
+		args.WaitConfEgtsMs = 30000
 	}
 
 	// ndtp args

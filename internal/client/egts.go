@@ -155,7 +155,7 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 }
 
 func (c *Egts) old() {
-	maxToSend := (60000 / PeriodSendBatchOldEgtsMs) * BatchOldEgts
+	maxToSend := (PeriodSendOldEgtsMs / PeriodSendBatchOldEgtsMs) * BatchOldEgts
 	var limit int
 	if maxToSend < 10000 {
 		limit = maxToSend
