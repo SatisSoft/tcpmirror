@@ -71,8 +71,8 @@ type Args struct {
 	PeriodNotConfDataEgtsMs  int64
 	PeriodCheckOldEgtsMs     int
 	BatchOldEgts             int
-	WaitConfEgtsMs           int
 	PeriodSendBatchOldEgtsMs int
+	WaitConfEgtsMs           int
 
 	PeriodNotConfDataNdtpMs int64
 	PeriodCheckOldNdtpMs    int
