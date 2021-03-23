@@ -49,11 +49,14 @@ period_check_old_egts_ms = 30000
 # batch size to send old data egts
 batch_old_egts = 350
 
+# period to send old data before wait confirmations
+period_send_old_egts_ms = 30000
+
 # period to send one batch
 period_send_batch_old_egts_ms = 100
 
 # time to wait confirmations egts
-wait_conf_egts_ms = 60000
+wait_conf_egts_ms = 30000
 
 # time for determining notconf data ndtp ms
 period_notconf_data_ndtp_ms = 60000
