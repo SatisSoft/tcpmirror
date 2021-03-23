@@ -157,7 +157,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	// egts args
 	args.PeriodNotConfDataEgtsMs = viper.GetInt64(periodNotConfDataEgtsMs)
 	if args.PeriodNotConfDataEgtsMs == 0 {
-		args.PeriodNotConfDataEgtsMs = 2000
+		args.PeriodNotConfDataEgtsMs = 60000
 	}
 	args.PeriodCheckOldEgtsMs = viper.GetInt(periodCheckOldEgtsMs)
 	if args.PeriodCheckOldEgtsMs == 0 {
@@ -183,7 +183,7 @@ func parseConfig(conf string) (args *Args, err error) {
 	// ndtp args
 	args.PeriodNotConfDataNdtpMs = viper.GetInt64(periodNotConfDataNdtpMs)
 	if args.PeriodNotConfDataNdtpMs == 0 {
-		args.PeriodNotConfDataNdtpMs = 2000
+		args.PeriodNotConfDataNdtpMs = 60000
 	}
 	args.PeriodCheckOldNdtpMs = viper.GetInt(periodCheckOldNdtpMs)
 	if args.PeriodCheckOldNdtpMs == 0 {
