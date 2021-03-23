@@ -10,7 +10,7 @@ import (
 )
 
 const (
-	defaultBufferSize = 65536 //1024
+	defaultBufferSize = 65536
 	writeTimeout      = 10 * time.Second
 	readTimeout       = 180 * time.Second
 	recsAtPacketEgts  = 3
@@ -18,12 +18,18 @@ const (
 )
 
 var (
-	PeriodCheckOldEgts int
-	PeriodCheckOldNdtp int
-	TimeoutClose       int
-	TimeoutErrorReply  int
-	TimeoutReconnect   int
-	PeriodSendOldNdtp  int
+	TimeoutCloseSec      int
+	TimeoutErrorReplySec int
+	TimeoutReconnectSec  int
+
+	PeriodCheckOldEgtsMs     int
+	BatchOldEgts             int
+	PeriodSendBatchOldEgtsMs int
+	WaitConfEgtsMs           int
+
+	PeriodCheckOldNdtpMs    int
+	PeriodSendOnlyOldNdtpMs int
+	WaitConfNdtpMs          int
 )
 
 // Client describes general client

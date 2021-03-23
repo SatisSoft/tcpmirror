@@ -16,17 +16,14 @@ const systemBytes = 4
 
 var (
 	// SysNumber is a number of clients
-	SysNumber             int
-	KeyEx                 int
-	PeriodNotConfDataEgts int64
-	PeriodNotConfDataNdtp int64
-	PeriodOldData         int64
-	MaxToSendOldEgts      int
-	LimitOldEgts          int
-	MaxToSendOldNdtp      int
-	LimitOldNdtp          int
-	RedisMaxActive        int
-	RedisMaxIdle          int
+	SysNumber       int
+	KeyEx           int
+	RedisMaxActive  int
+	RedisMaxIdle    int
+	PeriodOldDataMs int64
+
+	PeriodNotConfDataEgtsMs int64
+	PeriodNotConfDataNdtpMs int64
 )
 
 // Write2DB writes packet with metadata to DB
@@ -34,8 +31,7 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 	logger.Tracef("Write2DB terminalID: %d, sdata: %v", terminalID, sdata)
 	timeM := util.Milliseconds()
 	c := pool.Get()
-	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t, "Write2DB")
+	defer util.CloseAndLog(c, logger, time.Now().UnixNano(), "Write2DB")
 	logger.Tracef("writeZeroConfirmation time: %v; key: %v", timeM, sdata[:util.PacketStart])
 	err = writeZeroConfirmation(c, uint64(timeM), sdata[:util.PacketStart])
 	if err != nil {
@@ -52,8 +48,7 @@ func Write2DB(pool *Pool, terminalID int, sdata []byte, logger *logrus.Entry) (e
 // NewSessionID returns new ID of sessions between tcpmirror and terminal
 func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error) {
 	c := pool.Get()
-	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t, "NewSessionID")
+	defer util.CloseAndLog(c, logger, time.Now().UnixNano(), "NewSessionID")
 	key := "session:" + strconv.Itoa(terminalID)
 	id, err := redis.Int(c.Do("GET", key))
 	if err != nil {
@@ -70,8 +65,7 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 // IsOldData checks if message is old and should not be sending again
 func IsOldData(pool *Pool, meta []byte, logger *logrus.Entry) bool {
 	c := pool.Get()
-	t := time.Now().UnixNano()
-	defer util.CloseAndLog(c, logger, t, "IsOldData")
+	defer util.CloseAndLog(c, logger, time.Now().UnixNano(), "IsOldData")
 	return CheckOldData(c, meta, logger)
 }
 
@@ -88,7 +82,7 @@ func CheckOldData(conn redis.Conn, meta []byte, logger *logrus.Entry) bool {
 		return true
 	}
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
-	min := uint64(util.Milliseconds() - PeriodOldData)
+	min := uint64(util.Milliseconds() - PeriodOldDataMs)
 	logger.Tracef("isOldData key: %v; time: %d; now: %d", meta, time, min)
 	if time < min {
 		logger.Tracef("isOldData detected old time: %d, val: %v", time, val)

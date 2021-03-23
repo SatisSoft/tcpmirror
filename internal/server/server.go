@@ -88,24 +88,26 @@ func initParams(args *util.Args) {
 func initDBParams(args *util.Args) {
 	db.SysNumber = len(args.Systems)
 	db.KeyEx = args.KeyEx
-	db.PeriodNotConfDataEgts = args.PeriodNotConfDataEgts
-	db.PeriodNotConfDataNdtp = args.PeriodNotConfDataNdtp
-	db.PeriodOldData = args.PeriodOldData
-	db.MaxToSendOldEgts = args.MaxToSendOldEgts
-	db.LimitOldEgts = args.LimitOldEgts
-	db.MaxToSendOldNdtp = args.MaxToSendOldNdtp
-	db.LimitOldNdtp = args.LimitOldNdtp
 	db.RedisMaxIdle = args.RedisMaxIdle
 	db.RedisMaxActive = args.RedisMaxActive
+	db.PeriodOldDataMs = args.PeriodOldDataMs
+	db.PeriodNotConfDataEgtsMs = args.PeriodNotConfDataEgtsMs
+	db.PeriodNotConfDataNdtpMs = args.PeriodNotConfDataNdtpMs
 }
 
 func initClientParams(args *util.Args) {
-	client.TimeoutClose = args.TimeoutClose
-	client.TimeoutErrorReply = args.TimeoutErrorReply
-	client.TimeoutReconnect = args.TimeoutReconnect
-	client.PeriodCheckOldEgts = args.PeriodCheckOldEgts
-	client.PeriodCheckOldNdtp = args.PeriodCheckOldNdtp
-	client.PeriodSendOldNdtp = args.PeriodSendOldNdtp
+	client.TimeoutCloseSec = args.TimeoutCloseSec
+	client.TimeoutErrorReplySec = args.TimeoutErrorReplySec
+	client.TimeoutReconnectSec = args.TimeoutReconnectSec
+
+	client.PeriodCheckOldEgtsMs = args.PeriodCheckOldEgtsMs
+	client.BatchOldEgts = args.BatchOldEgts
+	client.PeriodSendBatchOldEgtsMs = args.PeriodSendBatchOldEgtsMs
+	client.WaitConfEgtsMs = args.WaitConfEgtsMs
+
+	client.PeriodCheckOldNdtpMs = args.PeriodCheckOldNdtpMs
+	client.PeriodSendOnlyOldNdtpMs = args.PeriodSendOnlyOldNdtpMs
+	client.WaitConfNdtpMs = args.WaitConfNdtpMs
 }
 
 func getSystemIds(systems []util.System) []byte {

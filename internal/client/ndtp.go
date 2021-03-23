@@ -35,7 +35,7 @@ type Ndtp struct {
 	*connection
 	confChan  chan *db.ConfMsg
 	OldInput  chan []byte
-	finishOld chan bool
+	finishOld chan int
 }
 
 // NewNdtp creates new Ndtp client
@@ -55,7 +55,7 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 	c.pool = pool
 	c.confChan = confChan
 	c.OldInput = make(chan []byte, NdtpOldChanSize)
-	c.finishOld = make(chan bool, 1)
+	c.finishOld = make(chan int, 1)
 	return c
 }
 
@@ -126,7 +126,7 @@ func (c *Ndtp) authorization() error {
 }
 
 func (c *Ndtp) clientLoop() {
-	ticker := time.NewTicker(time.Duration(PeriodSendOldNdtp) * time.Second)
+	ticker := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 	for {
 		if c.open {
 			select {
@@ -137,14 +137,14 @@ func (c *Ndtp) clientLoop() {
 				ticker.Stop()
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessage(message)
-				ticker = time.NewTicker(time.Duration(PeriodSendOldNdtp) * time.Second)
+				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 			case <-ticker.C:
 				ticker.Stop()
 				c.sendOldPackets()
-				ticker = time.NewTicker(time.Duration(PeriodSendOldNdtp) * time.Second)
+				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 			}
 		} else {
-			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 		}
 	}
 }
@@ -214,8 +214,8 @@ func (c *Ndtp) sendOldPackets() {
 	}
 
 	if len(c.OldInput) == 0 && num > 0 {
-		c.logger.Infof("finishOld1")
-		c.finishOld <- true
+		c.logger.Infof("finish send old")
+		c.finishOld <- WaitConfNdtpMs
 	}
 }
 
@@ -311,33 +311,35 @@ func (c *Ndtp) old() {
 			case <-c.exitChan:
 				c.closeConn()
 				return
-			case <-c.finishOld:
-				c.logger.Infof("get finishOld")
-				time.Sleep(time.Duration(PeriodCheckOldNdtp) * time.Second)
+			case sleepTimeMs := <-c.finishOld:
+				time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
 				c.checkOld()
 			}
 		} else {
-			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 		}
 	}
 }
 
 func (c *Ndtp) checkOld() {
-	c.logger.Infoln("start checking old")
-	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
-	c.logger.Infof("receive old: %v, %v", err, len(res))
-
+	limit := 1200
+	maxToSend := 1200
+	c.logger.Infof("start checking old: maxToSend = %v; limit = %v", maxToSend, limit)
+	messages, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, limit, maxToSend, c.logger)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
+		c.finishOld <- PeriodCheckOldNdtpMs
 	} else {
-		if len(res) > 0 {
-			res = reverseSlice(res)
-			for _, mes := range res {
+		lenMessages := len(messages)
+		c.logger.Infof("receive old: %v, %v", err, lenMessages)
+		if lenMessages > 0 {
+			messages = reverseSlice(messages)
+			for _, mes := range messages {
 				c.OldInput <- mes
 			}
 		} else {
-			c.logger.Infof("finishOld2")
-			c.finishOld <- true
+			c.logger.Infof("finish check old")
+			c.finishOld <- PeriodCheckOldNdtpMs
 		}
 	}
 }

@@ -1,71 +1,72 @@
 # listen address
 listen_address = "localhost:8888"
 
+# listen protocol
+listen_protocol = "NDTP"
+
 # DB server address
 db_address = "localhost:8889"
 
 # monitoring server address
 mon_address = "localhost:9000"
 
-#listen protocol
-listen_protocol = "NDTP"
-
-#log level
+# log level
 log_level = "trace"
-
-# list of data consumers
-consumers_list = ["vis1", "vis2", "vis3"]
 
 # test mode provides more detailed logs but reduces system performance
 test_mode = false
 
-#key expire sec
+# list of data consumers
+consumers_list = ["vis1", "vis2", "vis3"]
+
+# key expire sec
 key_ex = 20
 
-#period check not confirmed egts ms
-period_notconf_data_egts = 60000
+# timeout close sec
+timeout_close_sec = 5
 
-#period check not confirmed ndtp ms
-period_notconf_data_ndtp = 60000
+# timeout error reply sec
+timeout_error_reply_sec = 5
 
-#period old data ms
-period_old_data = 1000
-
-#period check old data egts sec
-period_check_old_egts = 60
-
-#period check old data ndtp sec
-period_check_old_egts = 60
-
-#timeout close sec
-timeout_close = 5
-
-#timeout error reply sec
-timeout_error_reply = 5
-
-#timeout reconnect sec
-timeout_reconnect = 10
-
-# old packets number to send before waiting confirmations (for egts system)
-max_to_send_old_egts = 600000
-
-# unloading limit old packages from the database (for egts system)
-limit_old_egts = 600000
-
-# old packets number to send before waiting confirmations (for ndtp system)
-max_to_send_old_ndtp = 600
-
-# unloading limit old packages from the database (for ndtp system)
-limit_old_ndtp = 600
+# timeout reconnect sec
+timeout_reconnect_sec = 10
 
 # redis pool max idle connections
 redis_max_idle = 220
 
-#redis pool max active connections
+# redis pool max active connections
 redis_max_active = 220
 
-# period send old packets without realtime data
-period_send_old_ndtp = 30
+# after this time data becomes old ms
+period_old_data_ms = 1000
+
+# time for determining notconf data egts ms
+period_notconf_data_egts_ms = 2000
+
+# period for check old data egts ms
+period_check_old_egts_ms = 30000
+
+# batch size to send old data egts
+batch_old_egts = 350
+
+# period to send one batch
+period_send_batch_old_egts_ms = 100
+
+# time to wait confirmations egts
+wait_conf_egts_ms = 60000
+
+# time for determining notconf data ndtp ms
+period_notconf_data_ndtp_ms = 2000
+
+# period for check old data ndtp ms
+period_check_old_ndtp_ms = 30000
+
+# period for send old data without realtime ndtp ms
+period_send_only_old_ndtp_ms = 30000
+
+#  time to wait confirmations ndtp
+wait_conf_ndtp_ms = 60000
+
 
 [vis1]
 # consumer's unique id

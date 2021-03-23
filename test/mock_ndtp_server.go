@@ -15,15 +15,13 @@ func mockNdtpServer(t *testing.T, addr string) {
 	if err != nil {
 		t.Error(err)
 	}
-	time1 := time.Now().UnixNano()
-	defer util.CloseAndLog(l, logger, time1, "test")
+	defer util.CloseAndLog(l, logger, time.Now().UnixNano(), "test")
 	for {
 		conn, err := l.Accept()
 		if err != nil {
 			logger.Errorf("error while accepting: %s", err)
 		}
-		t2 := time.Now().UnixNano()
-		defer util.CloseAndLog(conn, logger, t2, "test")
+		defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "test")
 		logrus.Printf("accepted connection (%s <-> %s)", conn.RemoteAddr(), conn.LocalAddr())
 		go startMockNdtpClient(t, conn, logger)
 	}
@@ -35,14 +33,12 @@ func mockNdtpServerGuaranteedDelivery(t *testing.T, addr string, num int) {
 	if err != nil {
 		t.Error(err)
 	}
-	t1 := time.Now().UnixNano()
-	defer util.CloseAndLog(l, logger, t1, "test")
+	defer util.CloseAndLog(l, logger, time.Now().UnixNano(), "test")
 	conn, err := l.Accept()
 	if err != nil {
 		logger.Errorf("error while accepting: %s", err)
 	}
-	t2 := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, t2, "test")
+	defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "test")
 	logrus.Printf("accepted connection (%s <-> %s)", conn.RemoteAddr(), conn.LocalAddr())
 	startMockNdtpClientGuaranteedDelivery(t, conn, logger, num)
 

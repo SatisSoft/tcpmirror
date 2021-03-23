@@ -113,7 +113,7 @@ func (c *Egts) clientLoop() {
 				}
 			}
 		} else {
-			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 			buf = []byte(nil)
 			count = 0
 		}
@@ -155,50 +155,60 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 }
 
 func (c *Egts) old() {
-	c.logger.Infof("old")
+	maxToSend := PeriodSendBatchOldEgtsMs * BatchOldEgts
+	var limit int
+	if maxToSend < 10000 {
+		limit = maxToSend
+	} else {
+		limit = 10000
+	}
 	dbConn := db.Connect(c.DB)
-	time.Sleep(time.Duration(PeriodCheckOldEgts) * time.Second)
+	time.Sleep(time.Duration(PeriodCheckOldEgtsMs) * time.Millisecond)
 OLDLOOP:
 	for {
 		if c.open {
-			c.logger.Traceln("start checking old data")
-			messages, err := db.OldPacketsEGTS(dbConn, c.id)
+			c.logger.Infof("start checking old data: maxToSend = %v; limit = %v", maxToSend, limit)
+			messages, err := db.OldPacketsEGTS(dbConn, c.id, limit, maxToSend)
 			if err != nil {
 				c.logger.Warningf("can't get old packets: %s", err)
 				continue
 			}
-			//lenOldMsg := len(messages)
-			c.logger.Infof("get %d old packets", len(messages))
-			var buf []byte
-			var i int
-			for _, msg := range messages {
-				buf = c.processMessage(dbConn, msg, buf)
-				i++
-				if i > 999 {
-					c.logger.Infof("send old EGTS packets to EGTS server: %v packets", i)
-					c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
-					if err = c.send(buf); err != nil {
-						c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
-						continue OLDLOOP
+			lenMessages := len(messages)
+			c.logger.Infof("get %d old packets", lenMessages)
+			if lenMessages > 0 {
+				var buf []byte
+				var i int
+				for _, msg := range messages {
+					buf = c.processMessage(dbConn, msg, buf)
+					i++
+					if i > BatchOldEgts-1 {
+						c.logger.Infof("send old EGTS packets to EGTS server: %v packets", i)
+						c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
+						if err = c.send(buf); err != nil {
+							c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
+							continue OLDLOOP
+						}
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
+						i = 0
+						buf = []byte(nil)
+						time.Sleep(time.Duration(PeriodSendBatchOldEgtsMs) * time.Millisecond)
 					}
-					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
-					i = 0
-					buf = []byte(nil)
-					time.Sleep(100 * time.Millisecond)
 				}
-			}
-			if len(buf) > 0 {
-				c.logger.Infof("send old EGTS packets to EGTS server: %v packets", i)
-				c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
-				err := c.send(buf)
-				if err == nil {
-					monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
+				if len(buf) > 0 {
+					c.logger.Infof("send old EGTS packets to EGTS server: %v packets", i)
+					c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
+					err := c.send(buf)
+					if err == nil {
+						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
+					}
 				}
+				c.logger.Infoln("finish send old EGTS")
+				time.Sleep(time.Duration(WaitConfEgtsMs) * time.Millisecond)
+			} else {
+				time.Sleep(time.Duration(PeriodCheckOldEgtsMs) * time.Millisecond)
 			}
-			c.logger.Infoln("finish send old EGTS")
-			time.Sleep(time.Duration(PeriodCheckOldEgts) * time.Second)
 		} else {
-			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 		}
 	}
 }
@@ -229,7 +239,7 @@ func (c *Egts) replyHandler() {
 		} else {
 			buf = []byte(nil)
 			c.logger.Warningf("EGTS server closed")
-			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 		}
 	}
 }
@@ -243,7 +253,7 @@ func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
 	if err != nil {
 		c.logger.Warningf("can't get reply from c server %s", err)
 		c.conStatus()
-		time.Sleep(time.Duration(TimeoutErrorReply) * time.Second)
+		time.Sleep(time.Duration(TimeoutErrorReplySec) * time.Second)
 		return []byte(nil)
 	}
 	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
@@ -340,7 +350,7 @@ func (c *Egts) reconnect() {
 			}
 			c.logger.Warningf("error while reconnecting to EGTS server: %s", err)
 		}
-		time.Sleep(time.Duration(TimeoutReconnect) * time.Second)
+		time.Sleep(time.Duration(TimeoutReconnectSec) * time.Second)
 	}
 }
 

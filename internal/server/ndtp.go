@@ -34,15 +34,13 @@ type ndtpServer struct {
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
 	pool := db.NewPool(options.DB)
-	t1 := time.Now().UnixNano()
-	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}), t1, "startNdtpServer")
+	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}), time.Now().UnixNano(), "startNdtpServer")
 	l, err := net.Listen("tcp", listen)
 	if err != nil {
 		logrus.Fatalf("error while listening: %s", err)
 		return
 	}
-	t2 := time.Now().UnixNano()
-	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}), t2, "startNdtpServer")
+	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}), time.Now().UnixNano(), "startNdtpServer")
 	logrus.Printf("Start NDTP server")
 	for {
 		c, err := l.Accept()

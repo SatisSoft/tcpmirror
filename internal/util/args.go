@@ -12,29 +12,32 @@ import (
 )
 
 const (
-	db                    = "db_address"
-	listen                = "listen_address"
-	mon                   = "mon_address"
-	consumers             = "consumers_list"
-	protocol              = "listen_protocol"
-	logLevel              = "log_level"
-	keyEx                 = "key_ex"
-	periodNotConfDataEgts = "period_notconf_data_egts"
-	periodNotConfDataNdtp = "period_notconf_data_ndtp"
-	periodOldData         = "period_old_data"
-	periodCheckOldEgts    = "period_check_old_egts"
-	periodCheckOldNdtp    = "period_check_old_ndtp"
-	timeoutClose          = "timeout_close"
-	timeoutErrorReply     = "timeout_error_reply"
-	timeoutReconnect      = "timeout_reconnect"
-	testMode              = "test_mode"
-	maxToSendOldEgts      = "max_to_send_old_egts"
-	limitOldEgts          = "limit_old_egts"
-	maxToSendOldNdtp      = "max_to_send_old_ndtp"
-	limitOldNdtp          = "limit_old_ndtp"
-	redisMaxIdle          = "redis_max_idle"
-	redisMaxActive        = "redis_max_active"
-	periodSendOldNdtp     = "period_send_old_ndtp"
+	listen    = "listen_address"
+	protocol  = "listen_protocol"
+	db        = "db_address"
+	mon       = "mon_address"
+	logLevel  = "log_level"
+	testMode  = "test_mode"
+	consumers = "consumers_list"
+
+	keyEx                = "key_ex"
+	timeoutCloseSec      = "timeout_close_sec"
+	timeoutErrorReplySec = "timeout_error_reply_sec"
+	timeoutReconnectSec  = "timeout_reconnect_sec"
+	redisMaxIdle         = "redis_max_idle"
+	redisMaxActive       = "redis_max_active"
+	periodOldDataMs      = "period_old_data_ms"
+
+	periodNotConfDataEgtsMs  = "period_notconf_data_egts_ms"
+	periodCheckOldEgtsMs     = "period_check_old_egts_ms"
+	batchOldEgts             = "batch_old_egts"
+	periodSendBatchOldEgtsMs = "period_send_batch_old_egts_ms"
+	waitConfEgtsMs           = "wait_conf_egts_ms"
+
+	periodNotConfDataNdtpMs = "period_notconf_data_ndtp_ms"
+	periodCheckOldNdtpMs    = "period_check_old_ndtp_ms"
+	periodSendOnlyOldNdtpMs = "period_send_only_old_ndtp_ms"
+	waitConfNdtpMs          = "wait_conf_ndtp_ms"
 )
 
 // System contains information about system which consumes data
@@ -49,29 +52,32 @@ type System struct {
 // Args contains parsed params from configuration file
 type Args struct {
 	// Listen address
-	Listen                string
-	Protocol              string
-	Systems               []System
-	Monitoring            string
-	DB                    string
-	LogLevel              logrus.Level
-	KeyEx                 int
-	PeriodNotConfDataEgts int64
-	PeriodNotConfDataNdtp int64
-	PeriodOldData         int64
-	PeriodCheckOldEgts    int
-	PeriodCheckOldNdtp    int
-	TimeoutClose          int
-	TimeoutErrorReply     int
-	TimeoutReconnect      int
-	TestMode              bool
-	MaxToSendOldEgts      int
-	LimitOldEgts          int
-	MaxToSendOldNdtp      int
-	LimitOldNdtp          int
-	RedisMaxIdle          int
-	RedisMaxActive        int
-	PeriodSendOldNdtp     int
+	Listen     string
+	Protocol   string
+	DB         string
+	Monitoring string
+	LogLevel   logrus.Level
+	TestMode   bool
+	Systems    []System
+
+	KeyEx                int
+	TimeoutCloseSec      int
+	TimeoutErrorReplySec int
+	TimeoutReconnectSec  int
+	RedisMaxIdle         int
+	RedisMaxActive       int
+	PeriodOldDataMs      int64
+
+	PeriodNotConfDataEgtsMs  int64
+	PeriodCheckOldEgtsMs     int
+	BatchOldEgts             int
+	WaitConfEgtsMs           int
+	PeriodSendBatchOldEgtsMs int
+
+	PeriodNotConfDataNdtpMs int64
+	PeriodCheckOldNdtpMs    int
+	PeriodSendOnlyOldNdtpMs int
+	WaitConfNdtpMs          int
 }
 
 // Options contains information about DB options and monitoring options
@@ -108,64 +114,30 @@ func parseConfig(conf string) (args *Args, err error) {
 	if err = viper.ReadInConfig(); err != nil {
 		return
 	}
-	args.DB = viper.GetString(db)
 	args.Listen = viper.GetString(listen)
 	args.Protocol = viper.GetString(protocol)
+	args.DB = viper.GetString(db)
 	args.Monitoring = viper.GetString(mon)
-	args.Systems = parseSystems(viper.GetStringSlice(consumers))
 	args.LogLevel, err = logrus.ParseLevel(viper.GetString(logLevel))
+	args.TestMode = viper.GetBool(testMode)
+	args.Systems = parseSystems(viper.GetStringSlice(consumers))
+
+	// general args
 	args.KeyEx = viper.GetInt(keyEx)
 	if args.KeyEx == 0 {
 		args.KeyEx = 20
 	}
-	args.PeriodNotConfDataEgts = viper.GetInt64(periodNotConfDataEgts)
-	if args.PeriodNotConfDataEgts == 0 {
-		args.PeriodNotConfDataEgts = 60000
+	args.TimeoutCloseSec = viper.GetInt(timeoutCloseSec)
+	if args.TimeoutCloseSec == 0 {
+		args.TimeoutCloseSec = 5
 	}
-	args.PeriodNotConfDataNdtp = viper.GetInt64(periodNotConfDataNdtp)
-	if args.PeriodNotConfDataNdtp == 0 {
-		args.PeriodNotConfDataNdtp = 60000
+	args.TimeoutErrorReplySec = viper.GetInt(timeoutErrorReplySec)
+	if args.TimeoutErrorReplySec == 0 {
+		args.TimeoutErrorReplySec = 5
 	}
-	args.PeriodOldData = viper.GetInt64(periodOldData)
-	if args.PeriodOldData == 0 {
-		args.PeriodOldData = 1000 //55000
-	}
-	args.PeriodCheckOldEgts = viper.GetInt(periodCheckOldEgts)
-	if args.PeriodCheckOldEgts == 0 {
-		args.PeriodCheckOldEgts = 60
-	}
-	args.PeriodCheckOldNdtp = viper.GetInt(periodCheckOldNdtp)
-	if args.PeriodCheckOldNdtp == 0 {
-		args.PeriodCheckOldNdtp = 60
-	}
-	args.TimeoutClose = viper.GetInt(timeoutClose)
-	if args.TimeoutClose == 0 {
-		args.TimeoutClose = 5
-	}
-	args.TimeoutErrorReply = viper.GetInt(timeoutErrorReply)
-	if args.TimeoutErrorReply == 0 {
-		args.TimeoutErrorReply = 5
-	}
-	args.TimeoutReconnect = viper.GetInt(timeoutReconnect)
-	if args.TimeoutReconnect == 0 {
-		args.TimeoutReconnect = 10
-	}
-	args.TestMode = viper.GetBool(testMode)
-	args.MaxToSendOldEgts = viper.GetInt(maxToSendOldEgts)
-	if args.MaxToSendOldEgts == 0 {
-		args.MaxToSendOldEgts = 600000
-	}
-	args.LimitOldEgts = viper.GetInt(limitOldEgts)
-	if args.LimitOldEgts == 0 {
-		args.LimitOldEgts = 600000
-	}
-	args.MaxToSendOldNdtp = viper.GetInt(maxToSendOldNdtp)
-	if args.MaxToSendOldNdtp == 0 {
-		args.MaxToSendOldNdtp = 600
-	}
-	args.LimitOldNdtp = viper.GetInt(limitOldNdtp)
-	if args.LimitOldNdtp == 0 {
-		args.LimitOldNdtp = 600
+	args.TimeoutReconnectSec = viper.GetInt(timeoutReconnectSec)
+	if args.TimeoutReconnectSec == 0 {
+		args.TimeoutReconnectSec = 10
 	}
 	args.RedisMaxIdle = viper.GetInt(redisMaxIdle)
 	if args.RedisMaxIdle == 0 {
@@ -175,9 +147,49 @@ func parseConfig(conf string) (args *Args, err error) {
 	if args.RedisMaxActive == 0 {
 		args.RedisMaxActive = 220
 	}
-	args.PeriodSendOldNdtp = viper.GetInt(periodSendOldNdtp)
-	if args.PeriodSendOldNdtp == 0 {
-		args.PeriodSendOldNdtp = 30
+	args.PeriodOldDataMs = viper.GetInt64(periodOldDataMs)
+	if args.PeriodOldDataMs == 0 {
+		args.PeriodOldDataMs = 1000 //55000
+	}
+
+	// egts args
+	args.PeriodNotConfDataEgtsMs = viper.GetInt64(periodNotConfDataEgtsMs)
+	if args.PeriodNotConfDataEgtsMs == 0 {
+		args.PeriodNotConfDataEgtsMs = 2000
+	}
+	args.PeriodCheckOldEgtsMs = viper.GetInt(periodCheckOldEgtsMs)
+	if args.PeriodCheckOldEgtsMs == 0 {
+		args.PeriodCheckOldEgtsMs = 30000
+	}
+	args.BatchOldEgts = viper.GetInt(batchOldEgts)
+	if args.BatchOldEgts == 0 {
+		args.BatchOldEgts = 350
+	}
+	args.PeriodSendBatchOldEgtsMs = viper.GetInt(periodSendBatchOldEgtsMs)
+	if args.PeriodSendBatchOldEgtsMs == 0 {
+		args.PeriodSendBatchOldEgtsMs = 100
+	}
+	args.WaitConfEgtsMs = viper.GetInt(waitConfEgtsMs)
+	if args.WaitConfEgtsMs == 0 {
+		args.WaitConfEgtsMs = 60000
+	}
+
+	// ndtp args
+	args.PeriodNotConfDataNdtpMs = viper.GetInt64(periodNotConfDataNdtpMs)
+	if args.PeriodNotConfDataNdtpMs == 0 {
+		args.PeriodNotConfDataNdtpMs = 2000
+	}
+	args.PeriodCheckOldNdtpMs = viper.GetInt(periodCheckOldNdtpMs)
+	if args.PeriodCheckOldNdtpMs == 0 {
+		args.PeriodCheckOldNdtpMs = 30000
+	}
+	args.PeriodSendOnlyOldNdtpMs = viper.GetInt(periodSendOnlyOldNdtpMs)
+	if args.PeriodSendOnlyOldNdtpMs == 0 {
+		args.PeriodSendOnlyOldNdtpMs = 30000
+	}
+	args.WaitConfNdtpMs = viper.GetInt(waitConfNdtpMs)
+	if args.WaitConfNdtpMs == 0 {
+		args.WaitConfNdtpMs = 60000
 	}
 
 	Instance = strings.TrimSuffix(filepath.Base(conf), filepath.Ext(conf))
