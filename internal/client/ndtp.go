@@ -329,6 +329,8 @@ func (c *Ndtp) checkOld() {
 
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
+		c.logger.Infof("finishOld3")
+		c.finishOld <- true
 	} else {
 		if len(res) > 0 {
 			res = reverseSlice(res)
