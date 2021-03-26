@@ -343,10 +343,14 @@ func (c *NdtpMaster) old() {
 }
 
 func (c *NdtpMaster) checkOld() {
-	limit := 1200
-	maxToSend := 1200
-	c.logger.Infof("start checking old: maxToSend = %v; limit = %v", maxToSend, limit)
-	messages, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, limit, maxToSend, c.logger)
+	var limit int
+	if MaxOldToSendNdtp < 1000 {
+		limit = MaxOldToSendNdtp
+	} else {
+		limit = 1000
+	}
+	c.logger.Infof("start checking old: maxToSend = %v; limit = %v", MaxOldToSendNdtp, limit)
+	messages, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, limit, MaxOldToSendNdtp, c.logger)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
 		c.finishOld <- PeriodCheckOldNdtpMs

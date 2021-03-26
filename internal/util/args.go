@@ -35,6 +35,7 @@ const (
 	periodSendOldEgtsMs      = "period_send_old_egts_ms"
 	waitConfEgtsMs           = "wait_conf_egts_ms"
 
+	maxOldToSendNdtp        = "max_old_to_send_ndtp"
 	periodNotConfDataNdtpMs = "period_notconf_data_ndtp_ms"
 	periodCheckOldNdtpMs    = "period_check_old_ndtp_ms"
 	periodSendOnlyOldNdtpMs = "period_send_only_old_ndtp_ms"
@@ -76,6 +77,7 @@ type Args struct {
 	PeriodSendOldEgtsMs      int
 	WaitConfEgtsMs           int
 
+	MaxOldToSendNdtp        int
 	PeriodNotConfDataNdtpMs int64
 	PeriodCheckOldNdtpMs    int
 	PeriodSendOnlyOldNdtpMs int
@@ -181,6 +183,10 @@ func parseConfig(conf string) (args *Args, err error) {
 	}
 
 	// ndtp args
+	args.MaxOldToSendNdtp = viper.GetInt(maxOldToSendNdtp)
+	if args.MaxOldToSendNdtp == 0 {
+		args.MaxOldToSendNdtp = 1000
+	}
 	args.PeriodNotConfDataNdtpMs = viper.GetInt64(periodNotConfDataNdtpMs)
 	if args.PeriodNotConfDataNdtpMs == 0 {
 		args.PeriodNotConfDataNdtpMs = 60000

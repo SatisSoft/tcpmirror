@@ -28,6 +28,7 @@ var (
 	PeriodSendOldEgtsMs      int
 	WaitConfEgtsMs           int
 
+	MaxOldToSendNdtp        int
 	PeriodCheckOldNdtpMs    int
 	PeriodSendOnlyOldNdtpMs int
 	WaitConfNdtpMs          int

@@ -106,6 +106,7 @@ func initClientParams(args *util.Args) {
 	client.PeriodSendOldEgtsMs = args.PeriodSendOldEgtsMs
 	client.WaitConfEgtsMs = args.WaitConfEgtsMs
 
+	client.MaxOldToSendNdtp = args.MaxOldToSendNdtp
 	client.PeriodCheckOldNdtpMs = args.PeriodCheckOldNdtpMs
 	client.PeriodSendOnlyOldNdtpMs = args.PeriodSendOnlyOldNdtpMs
 	client.WaitConfNdtpMs = args.WaitConfNdtpMs

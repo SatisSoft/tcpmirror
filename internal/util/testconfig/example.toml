@@ -58,6 +58,9 @@ period_send_old_egts_ms = 30000
 # time to wait confirmations egts
 wait_conf_egts_ms = 30000
 
+# max number old packets to send before waiting confirmations
+max_old_to_send_ndtp = 1000
+
 # time for determining notconf data ndtp ms
 period_notconf_data_ndtp_ms = 60000
 
