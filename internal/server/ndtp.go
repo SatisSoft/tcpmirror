@@ -85,7 +85,7 @@ func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 	channels = append(channels, master.InputChannel())
 	return &ndtpServer{
 		conn:        conn,
-		logger:      logrus.WithFields(logrus.Fields{"type": "ndtp_server", "srsAddr": conn.RemoteAddr().String()}),
+		logger:      logrus.WithFields(logrus.Fields{"type": "ndtp_server", "srcAddr": conn.RemoteAddr().String()}),
 		pool:        pool,
 		exitChan:    exitChan,
 		Options:     options,
