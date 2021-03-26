@@ -182,8 +182,7 @@ OLDLOOP:
 					buf = c.processMessage(dbConn, msg, buf)
 					i++
 					if i > BatchOldEgts-1 {
-						c.logger.Infof("send old EGTS packets to EGTS server: %v packets", i)
-						c.logger.Debugf("send old EGTS packets to EGTS server: %v", buf)
+						c.logger.Debugf("send old EGTS packets to EGTS server: %v, %v", i, buf)
 						if err = c.send(buf); err != nil {
 							c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 							continue OLDLOOP
@@ -195,8 +194,7 @@ OLDLOOP:
 					}
 				}
 				if len(buf) > 0 {
-					c.logger.Infof("send old EGTS packets to EGTS server: %v packets", i)
-					c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", buf)
+					c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v, %v", i, buf)
 					err := c.send(buf)
 					if err == nil {
 						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
