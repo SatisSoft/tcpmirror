@@ -116,6 +116,7 @@ func (s *ndtpServer) receiveFromMaster() {
 }
 
 func (s *ndtpServer) serverLoop() {
+	s.logger.Info("start terminal")
 	var buf []byte
 	var b [defaultBufferSize]byte
 	for {

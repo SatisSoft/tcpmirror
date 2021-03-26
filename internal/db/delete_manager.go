@@ -51,7 +51,6 @@ func (m *DeleteManager) receiveLoop() {
 	for {
 		select {
 		case message := <-m.Chan:
-			m.logger.Infoln("DeleteManager", len(m.Chan))
 			err := m.handleMessage(message)
 			if err != nil {
 				m.logger.Errorf("can't delete message: %s", err)

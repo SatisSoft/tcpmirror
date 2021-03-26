@@ -122,7 +122,7 @@ func (c *Ndtp) authorization() error {
 	if !c.auth {
 		return errors.New("didn't receive auth packet during authorization")
 	}
-	c.logger.Traceln("authorization succeeded")
+	c.logger.Infoln("authorization succeeded")
 	return nil
 }
 

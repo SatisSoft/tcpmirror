@@ -119,7 +119,7 @@ func (c *NdtpMaster) authorization() error {
 	if !c.auth {
 		return errors.New("didn't receive auth packet during authorization")
 	}
-	c.logger.Traceln("authorization succeeded")
+	c.logger.Infoln("authorization succeeded")
 	return nil
 }
 
@@ -180,7 +180,6 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
 		}
-		c.logger.Infoln("send packet to server 1")
 		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
 		err = c.send2Server(newPacket)
 		if err != nil {
@@ -262,7 +261,6 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 		return nil
 	}
 	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
-	c.logger.Infoln("received packet from server")
 	util.PrintPacket(c.logger, "received packet from server ", b[:n])
 	buf = append(buf, b[:n]...)
 	buf, err = c.processPacket(buf)
