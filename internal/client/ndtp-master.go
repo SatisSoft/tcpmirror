@@ -30,7 +30,7 @@ type NdtpMaster struct {
 	*connection
 	confChan  chan *db.ConfMsg
 	OldInput  chan []byte
-	finishOld chan bool
+	finishOld chan int
 }
 
 // NewNdtpMaster creates new NdtpMaster client
@@ -51,7 +51,7 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 	c.pool = pool
 	c.confChan = confChan
 	c.OldInput = make(chan []byte, NdtpMasterOldChanSize)
-	c.finishOld = make(chan bool, 1)
+	c.finishOld = make(chan int, 1)
 	return c
 }
 
@@ -67,6 +67,7 @@ func (c *NdtpMaster) start() {
 		c.logger.Errorf("error while connecting to NDTP master server %d: %s", c.id, err)
 		c.reconnect()
 	} else {
+		c.logger = c.logger.WithFields(logrus.Fields{"dstAddr": conn.RemoteAddr().String()})
 		c.conn = conn
 		c.open = true
 		if err = c.authorization(); err != nil {
@@ -123,7 +124,7 @@ func (c *NdtpMaster) authorization() error {
 }
 
 func (c *NdtpMaster) clientLoop() {
-	ticker := time.NewTicker(time.Duration(PeriodSendOldNdtp) * time.Second)
+	ticker := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 	for {
 		if c.open {
 			select {
@@ -134,14 +135,14 @@ func (c *NdtpMaster) clientLoop() {
 				ticker.Stop()
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessage(message)
-				ticker = time.NewTicker(time.Duration(PeriodSendOldNdtp) * time.Second)
+				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 			case <-ticker.C:
 				ticker.Stop()
 				c.sendOldPackets()
-				ticker = time.NewTicker(time.Duration(PeriodSendOldNdtp) * time.Second)
+				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 			}
 		} else {
-			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 		}
 	}
 }
@@ -227,8 +228,8 @@ func (c *NdtpMaster) sendOldPackets() {
 	}
 
 	if len(c.OldInput) == 0 && num > 0 {
-		c.logger.Infof("finishOld1")
-		c.finishOld <- true
+		c.logger.Infof("finish send old")
+		c.finishOld <- WaitConfNdtpMs
 	}
 }
 
@@ -331,35 +332,35 @@ func (c *NdtpMaster) old() {
 			case <-c.exitChan:
 				c.closeConn()
 				return
-			case <-c.finishOld:
-				c.logger.Infof("get finishOld")
-				time.Sleep(time.Duration(PeriodCheckOldNdtp) * time.Second)
+			case sleepTimeMs := <-c.finishOld:
+				time.Sleep(time.Duration(sleepTimeMs) * time.Millisecond)
 				c.checkOld()
 			}
 		} else {
-			time.Sleep(time.Duration(TimeoutClose) * time.Second)
+			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 		}
 	}
 }
 
 func (c *NdtpMaster) checkOld() {
-	c.logger.Infoln("start checking old")
-	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
-	c.logger.Infof("receive old: %v, %v", err, len(res))
-
+	limit := 1200
+	maxToSend := 1200
+	c.logger.Infof("start checking old: maxToSend = %v; limit = %v", maxToSend, limit)
+	messages, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, limit, maxToSend, c.logger)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
-		c.logger.Infof("finishOld3")
-		c.finishOld <- true
+		c.finishOld <- PeriodCheckOldNdtpMs
 	} else {
-		if len(res) > 0 {
-			res = reverseSlice(res)
-			for _, mes := range res {
+		lenMessages := len(messages)
+		c.logger.Infof("receive old: %v, %v", err, lenMessages)
+		if lenMessages > 0 {
+			messages = reverseSlice(messages)
+			for _, mes := range messages {
 				c.OldInput <- mes
 			}
 		} else {
-			c.logger.Infof("finishOld2")
-			c.finishOld <- true
+			c.logger.Infof("finish check old")
+			c.finishOld <- PeriodCheckOldNdtpMs
 		}
 	}
 }
@@ -397,7 +398,6 @@ func (c *NdtpMaster) getNphID() (uint32, error) {
 func (c *NdtpMaster) connStatus() {
 	c.muRecon.Lock()
 	defer c.muRecon.Unlock()
-	//if s.servConn.closed || s.servConn.recon {
 	if !c.open || c.reconnecting {
 		return
 	}
@@ -424,6 +424,7 @@ func (c *NdtpMaster) reconnect() {
 				c.logger.Warningf("can't reconnect: %s", err)
 			} else {
 				c.logger.Printf("start authorization")
+				c.logger = c.logger.WithFields(logrus.Fields{"dstAddr": conn.RemoteAddr().String()})
 				c.conn = conn
 				c.open = true
 				err = c.authorization()
@@ -487,79 +488,3 @@ func (c *NdtpMaster) closeConn() {
 		}
 	}
 }
-
-// func (c *NdtpMaster) checkOld() {
-// 	n := rand.Intn(60)
-// 	time.Sleep(time.Duration(n) * time.Second)
-
-// 	c.logger.Infoln("checking old 1")
-
-// 	c.muCheckingOld.Lock()
-// 	if c.isCheckingOld {
-// 		c.logger.Traceln("checking old 3")
-// 		c.muCheckingOld.Unlock()
-// 		return
-// 	} else {
-// 		c.logger.Traceln("checking old 4")
-// 		c.isCheckingOld = true
-// 		c.muCheckingOld.Unlock()
-// 	}
-
-// 	for len(c.OldInput) > 0 {
-// 		c.logger.Infoln("checking old 2")
-// 		time.Sleep(5 * 60 * time.Second)
-// 	}
-// 	c.logger.Infoln("start checking old")
-// 	res, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, c.logger)
-// 	c.logger.Infof("receive old: %v, %v", err, len(res))
-
-// 	if err != nil {
-// 		c.logger.Warningf("can't get old NDTP packets: %s", err)
-// 	} else {
-// 		res = reverseSlice(res)
-// 		for _, mes := range res {
-// 			c.OldInput <- mes
-// 		}
-// 	}
-// 	time.Sleep(60 * time.Second)
-// 	c.logger.Infoln("checking old 5")
-// 	c.muCheckingOld.Lock()
-// 	c.isCheckingOld = false
-// 	c.muCheckingOld.Unlock()
-// }
-
-// func (c *NdtpMaster) resend(messages [][]byte) {
-// 	//var i int
-// 	messages = reverseSlice(messages)
-// 	for _, mes := range messages {
-// 		data := util.Deserialize(mes)
-// 		packet := data.Packet
-// 		nphID, err := c.getNphID()
-// 		if err != nil {
-// 			c.logger.Errorf("can't get NPH ID: %v", err)
-// 		}
-// 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
-// 		newPacket := ndtp.Change(packet, changes)
-// 		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
-// 		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, mes[:util.PacketStart], c.logger)
-// 		if err != nil {
-// 			c.logger.Errorf("can't write NDTP id: %s", err)
-// 			return
-// 		}
-// 		c.logger.Infoln("send old packet to server1")
-// 		util.PrintPacket(c.logger, "send old packet to server: ", newPacket)
-// 		err = c.send2Server(newPacket)
-// 		if err != nil {
-// 			c.logger.Warningf("can't send to NDTP server: %s", err)
-// 			c.connStatus()
-// 			return
-// 		}
-// 		time.Sleep(1 * time.Second)
-// 		// i++
-// 		// if i > 9 {
-// 		// 	i = 0
-// 		// 	time.Sleep(1 * time.Second)
-// 		// 	//time.Sleep(20 * time.Second)
-// 		// }
-// 	}
-// }

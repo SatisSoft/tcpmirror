@@ -2,7 +2,7 @@
 listen_address = "localhost:8888"
 
 # listen protocol
-listen_protocol = "EGTS"
+listen_protocol = "NDTP"
 
 # DB server address
 db_address = "localhost:8889"
@@ -10,8 +10,66 @@ db_address = "localhost:8889"
 # monitoring server address
 mon_address = "localhost:9000"
 
+# log level
+log_level = "trace"
+
+# test mode provides more detailed logs but reduces system performance
+test_mode = false
+
 # list of data consumers
 consumers_list = ["vis1", "vis2", "vis3"]
+
+# key expire sec
+key_ex = 20
+
+# timeout close sec
+timeout_close_sec = 5
+
+# timeout error reply sec
+timeout_error_reply_sec = 5
+
+# timeout reconnect sec
+timeout_reconnect_sec = 10
+
+# redis pool max idle connections
+redis_max_idle = 220
+
+# redis pool max active connections
+redis_max_active = 220
+
+# after this time data becomes old ms
+period_old_data_ms = 1000
+
+# time for determining notconf data egts ms
+period_notconf_data_egts_ms = 60000
+
+# period for check old data egts ms
+period_check_old_egts_ms = 30000
+
+# batch size to send old data egts
+batch_old_egts = 300
+
+# period to send one batch
+period_send_batch_old_egts_ms = 100
+
+# period to send old data before wait confirmations
+period_send_old_egts_ms = 30000
+
+# time to wait confirmations egts
+wait_conf_egts_ms = 30000
+
+# time for determining notconf data ndtp ms
+period_notconf_data_ndtp_ms = 60000
+
+# period for check old data ndtp ms
+period_check_old_ndtp_ms = 30000
+
+# period for send old data without realtime ndtp ms
+period_send_only_old_ndtp_ms = 30000
+
+#  time to wait confirmations ndtp
+wait_conf_ndtp_ms = 60000
+
 
 [vis1]
 # consumer's unique id

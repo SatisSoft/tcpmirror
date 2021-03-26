@@ -34,15 +34,13 @@ type ndtpServer struct {
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
 	pool := db.NewPool(options.DB)
-	t1 := time.Now().UnixNano()
-	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}), t1, "startNdtpServer")
+	defer util.CloseAndLog(pool, logrus.WithFields(logrus.Fields{"main": "closing pool"}), time.Now().UnixNano(), "startNdtpServer")
 	l, err := net.Listen("tcp", listen)
 	if err != nil {
 		logrus.Fatalf("error while listening: %s", err)
 		return
 	}
-	t2 := time.Now().UnixNano()
-	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}), t2, "startNdtpServer")
+	defer util.CloseAndLog(l, logrus.WithFields(logrus.Fields{"main": "closing listener"}), time.Now().UnixNano(), "startNdtpServer")
 	logrus.Printf("Start NDTP server")
 	for {
 		c, err := l.Accept()
@@ -67,6 +65,7 @@ func initNdtpServer(c net.Conn, pool *db.Pool, options *util.Options, channels [
 		s.logger.Errorf("error getting new message: %s", err)
 		return
 	}
+	s.logger = s.logger.WithFields(logrus.Fields{"terminalID": s.terminalID})
 	s.startClients()
 	go s.receiveFromMaster()
 	go s.removeExpired()
@@ -86,7 +85,7 @@ func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 	channels = append(channels, master.InputChannel())
 	return &ndtpServer{
 		conn:        conn,
-		logger:      logrus.WithField("type", "ndtp_server"),
+		logger:      logrus.WithFields(logrus.Fields{"type": "ndtp_server", "srsAddr": conn.RemoteAddr().String()}),
 		pool:        pool,
 		exitChan:    exitChan,
 		Options:     options,

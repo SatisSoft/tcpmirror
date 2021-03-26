@@ -26,8 +26,7 @@ func mockTerminal(t *testing.T, addr string, num int) {
 	if err != nil {
 		t.Error(err)
 	}
-	time1 := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, time1, "test")
+	defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "test")
 	err = sendAndReceive(t, conn, packetAuth, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -50,8 +49,7 @@ func mockTerminalWithControl(t *testing.T, addr string, num int) {
 	if err != nil {
 		t.Error(err)
 	}
-	time1 := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, time1, "test")
+	defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "test")
 	err = sendAndReceive(t, conn, packetAuth, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -101,8 +99,7 @@ func mockTerminalSecond(t *testing.T, addr string, num int) {
 	if err != nil {
 		t.Error(err)
 	}
-	time1 := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, time1, "test")
+	defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "test")
 	err = sendAndReceive(t, conn, packetAuthSecond, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -126,8 +123,7 @@ func mockTerminalGuaranteedDeliveryMaster(t *testing.T, addr string, num int, sl
 	if err != nil {
 		t.Error(err)
 	}
-	time1 := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, time1, "test")
+	defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "test")
 	err = sendAndReceive(t, conn, packetAuthSecond, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -157,8 +153,7 @@ func mockTerminalEgtsStop(t *testing.T, addr string, num int) {
 	if err != nil {
 		t.Error(err)
 	}
-	time1 := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, time1, "test")
+	defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "test")
 	err = sendAndReceive(t, conn, packetAuth, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -198,8 +193,7 @@ func mockTerminalAllOff(t *testing.T, addr string, num int) {
 	if err != nil {
 		t.Error(err)
 	}
-	time1 := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, time1, "test")
+	defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "test")
 	err = sendAndReceive(t, conn, packetAuth, logger)
 	if err != nil {
 		logger.Errorf("got error: %v", err)
@@ -223,8 +217,7 @@ func mockTerminals100(t *testing.T, addr string, num int, terminalID int) {
 	if err != nil {
 		t.Error(err)
 	}
-	time1 := time.Now().UnixNano()
-	defer util.CloseAndLog(conn, logger, time1, "test")
+	defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "test")
 	changes := map[string]int{ndtp.PeerAddress: terminalID}
 	newPacketAuth := ndtp.Change(packetAuth, changes)
 	err = sendAndReceive(t, conn, newPacketAuth, logger)
