@@ -198,7 +198,6 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 }
 
 func (c *NdtpMaster) sendOldPackets() {
-	c.logger.Infof("sendOldPackets %v", len(c.OldInput))
 	num := 0
 	for len(c.OldInput) > 0 && num < 10 {
 		oldPacket := <-c.OldInput
@@ -225,6 +224,8 @@ func (c *NdtpMaster) sendOldPackets() {
 		}
 		num++
 	}
+
+	c.logger.Infof("sent %v old packet", num)
 
 	if len(c.OldInput) == 0 && num > 0 {
 		c.logger.Infof("finish send old")
