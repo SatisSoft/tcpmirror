@@ -213,7 +213,7 @@ func (c *Ndtp) sendOldPackets() {
 		num++
 	}
 
-	c.logger.Infof("sent %v old packet", num)
+	c.logger.Debugf("sent %v old packet", num)
 
 	if len(c.OldInput) == 0 && num > 0 {
 		c.logger.Infof("finish send old")

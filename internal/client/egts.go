@@ -174,7 +174,7 @@ OLDLOOP:
 				continue
 			}
 			lenMessages := len(messages)
-			c.logger.Infof("get %d old packets", lenMessages)
+			c.logger.Infof("receive old: %d", lenMessages)
 			if lenMessages > 0 {
 				var buf []byte
 				var i int
