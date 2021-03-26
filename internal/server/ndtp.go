@@ -65,6 +65,7 @@ func initNdtpServer(c net.Conn, pool *db.Pool, options *util.Options, channels [
 		s.logger.Errorf("error getting new message: %s", err)
 		return
 	}
+	s.logger = s.logger.WithFields(logrus.Fields{"terminalID": s.terminalID})
 	s.startClients()
 	go s.receiveFromMaster()
 	go s.removeExpired()
@@ -84,7 +85,7 @@ func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 	channels = append(channels, master.InputChannel())
 	return &ndtpServer{
 		conn:        conn,
-		logger:      logrus.WithField("type", "ndtp_server"),
+		logger:      logrus.WithFields(logrus.Fields{"type": "ndtp_server", "srsAddr": conn.RemoteAddr().String()}),
 		pool:        pool,
 		exitChan:    exitChan,
 		Options:     options,

@@ -67,6 +67,7 @@ func (c *NdtpMaster) start() {
 		c.logger.Errorf("error while connecting to NDTP master server %d: %s", c.id, err)
 		c.reconnect()
 	} else {
+		c.logger = c.logger.WithFields(logrus.Fields{"dstAddr": conn.RemoteAddr().String()})
 		c.conn = conn
 		c.open = true
 		if err = c.authorization(); err != nil {
@@ -423,6 +424,7 @@ func (c *NdtpMaster) reconnect() {
 				c.logger.Warningf("can't reconnect: %s", err)
 			} else {
 				c.logger.Printf("start authorization")
+				c.logger = c.logger.WithFields(logrus.Fields{"dstAddr": conn.RemoteAddr().String()})
 				c.conn = conn
 				c.open = true
 				err = c.authorization()
