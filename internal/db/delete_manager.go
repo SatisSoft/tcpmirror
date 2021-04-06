@@ -50,16 +50,19 @@ func calcAll(systemIds []byte) uint64 {
 }
 
 func (m *DeleteManager) receiveLoop() {
+	n := 0
 	ticker := time.NewTicker(time.Duration(1) * time.Minute)
 	for {
 		select {
 		case message := <-m.Chan:
+			n++
 			err := m.handleMessage(message)
 			if err != nil {
 				m.logger.Errorf("can't delete message: %s", err)
 			}
 		case <-ticker.C:
-			m.logger.Infoln("DeleteManager", len(m.Chan))
+			m.logger.Infoln("DeleteManager", len(m.Chan), n)
+			n = 0
 		}
 	}
 }
