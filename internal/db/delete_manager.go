@@ -1,6 +1,8 @@
 package db
 
 import (
+	"time"
+
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
@@ -48,6 +50,7 @@ func calcAll(systemIds []byte) uint64 {
 }
 
 func (m *DeleteManager) receiveLoop() {
+	ticker := time.NewTicker(time.Duration(1) * time.Minute)
 	for {
 		select {
 		case message := <-m.Chan:
@@ -55,6 +58,8 @@ func (m *DeleteManager) receiveLoop() {
 			if err != nil {
 				m.logger.Errorf("can't delete message: %s", err)
 			}
+		case <-ticker.C:
+			m.logger.Infoln("DeleteManager", len(m.Chan))
 		}
 	}
 }
