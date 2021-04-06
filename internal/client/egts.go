@@ -95,6 +95,7 @@ func (c *Egts) clientLoop() {
 				buf = c.processMessage(dbConn, message, buf)
 				count++
 				if count == 10 {
+					c.logger.Infof("send EGTS packets to EGTS server: %v", count)
 					err := c.send(buf)
 					if err == nil {
 						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
@@ -104,6 +105,7 @@ func (c *Egts) clientLoop() {
 				}
 			case <-sendTicker.C:
 				if (count > 0) && (count < 10) {
+					c.logger.Infof("send EGTS packets to EGTS server: %v", count)
 					err := c.send(buf)
 					if err == nil {
 						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
@@ -182,7 +184,7 @@ OLDLOOP:
 					buf = c.processMessage(dbConn, msg, buf)
 					i++
 					if i > BatchOldEgts-1 {
-						c.logger.Infof("send old EGTS packets to EGTS server: %v, %v", i, buf)
+						c.logger.Infof("send old EGTS packets to EGTS server: %v", i)
 						if err = c.send(buf); err != nil {
 							c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 							continue OLDLOOP
@@ -194,7 +196,7 @@ OLDLOOP:
 					}
 				}
 				if len(buf) > 0 {
-					c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v, %v", i, buf)
+					c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", i)
 					err := c.send(buf)
 					if err == nil {
 						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
