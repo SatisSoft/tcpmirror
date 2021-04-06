@@ -148,7 +148,7 @@ func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte, logger *
 
 func allNotConfirmedNdtp(conn redis.Conn, terminalID int, offset int, limit int, logger *logrus.Entry) ([][]byte, error) {
 	max := util.Milliseconds() - PeriodNotConfDataNdtpMs
-	logger.Tracef("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
+	logger.Infof("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", offset, limit))
 }
 
