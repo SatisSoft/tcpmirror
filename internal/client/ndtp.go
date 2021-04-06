@@ -127,7 +127,9 @@ func (c *Ndtp) authorization() error {
 }
 
 func (c *Ndtp) clientLoop() {
-	ticker := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
+	i := 0
+	tickerSendOld := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
+	var tickerWaitAfterSendOld *time.Ticker
 	for {
 		if c.open {
 			select {
@@ -135,14 +137,24 @@ func (c *Ndtp) clientLoop() {
 				c.closeConn()
 				return
 			case message := <-c.Input:
-				ticker.Stop()
+				tickerSendOld.Stop()
 				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessage(message)
-				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
-			case <-ticker.C:
-				ticker.Stop()
+				if i < 10 {
+					c.sendOldPackets()
+					i++
+				} else {
+					tickerWaitAfterSendOld = time.NewTicker(time.Duration(30000) * time.Millisecond)
+				}
+				tickerSendOld = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
+			case <-tickerSendOld.C:
+				tickerSendOld.Stop()
 				c.sendOldPackets()
-				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
+				i = 0
+				tickerSendOld = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
+			case <-tickerWaitAfterSendOld.C:
+				tickerWaitAfterSendOld.Stop()
+				i = 0
 			}
 		} else {
 			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
@@ -182,7 +194,6 @@ func (c *Ndtp) handleMessage(message []byte) {
 		c.logger.Warningf("can't send to NDTP server: %v", err)
 		c.connStatus()
 	}
-	c.sendOldPackets()
 }
 
 func (c *Ndtp) sendOldPackets() {
