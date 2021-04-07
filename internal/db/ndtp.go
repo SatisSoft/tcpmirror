@@ -1,6 +1,7 @@
 package db
 
 import (
+	"log"
 	"strconv"
 	"time"
 
@@ -147,6 +148,9 @@ func write2Ndtp(c redis.Conn, terminalID int, time int64, sdata []byte, logger *
 }
 
 func allNotConfirmedNdtp(conn redis.Conn, terminalID int, offset int, limit int, logger *logrus.Entry) ([][]byte, error) {
+	zcard, _ := redis.Int(conn.Do("ZCARD", terminalID))
+	log.Println("zcard before received old ndtp:", zcard)
+
 	max := util.Milliseconds() - PeriodNotConfDataNdtpMs
 	logger.Debugf("allNotConfirmedNdtp terminalID: %v, max: %v", terminalID, max)
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, 0, max, "LIMIT", offset, limit))

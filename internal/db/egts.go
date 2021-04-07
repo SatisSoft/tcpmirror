@@ -1,6 +1,7 @@
 package db
 
 import (
+	"log"
 	"strconv"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -93,6 +94,9 @@ func GetEgtsID(conn redis.Conn, sysID byte) (req uint16, err error) {
 }
 
 func allNotConfirmedEGTS(conn redis.Conn, limit int, offset int) ([][]byte, error) {
+	zcard, _ := redis.Int(conn.Do("ZCARD", util.EgtsName))
+	log.Println("zcard before received old egts:", zcard)
+
 	max := util.Milliseconds() - PeriodNotConfDataEgtsMs
 	return redis.ByteSlices(conn.Do("ZRANGEBYSCORE", util.EgtsName, 0, max, "LIMIT", offset, limit))
 }
