@@ -1,8 +1,7 @@
 package db
 
 import (
-	"time"
-
+	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
 	"github.com/sirupsen/logrus"
@@ -19,6 +18,9 @@ type DeleteManager struct {
 	deleted  map[string]bool
 	logger   *logrus.Entry
 	all      uint64
+	*util.Options
+	monTable       string
+	defaultMonTags map[string]string
 }
 
 // ConfMsg is type of messages from client to delete manager
@@ -28,15 +30,18 @@ type ConfMsg struct {
 }
 
 // InitDeleteManager initializes delete manager
-func InitDeleteManager(db string, systemIds []byte, serverProtocol string) *DeleteManager {
+func InitDeleteManager(systemIds []byte, options *util.Options) *DeleteManager {
 	Manager := new(DeleteManager)
-	Manager.dbConn = Connect(db)
+	Manager.dbConn = Connect(options.DB)
 	Manager.Chan = make(chan *ConfMsg, DeleteChanSize)
 	Manager.logger = logrus.WithFields(logrus.Fields{"type": "delete_manager"})
 	Manager.logger.Tracef("deleteManager chan: %v", Manager.Chan)
 	Manager.all = calcAll(systemIds)
 	Manager.toDelete = make(map[string]uint64)
 	Manager.deleted = make(map[string]bool)
+	Manager.monTable = monitoring.ConfTable
+	Manager.defaultMonTags = map[string]string{"systemName": "delete_manager"}
+	Manager.Options = options
 	go Manager.receiveLoop()
 	return Manager
 }
@@ -50,19 +55,14 @@ func calcAll(systemIds []byte) uint64 {
 }
 
 func (m *DeleteManager) receiveLoop() {
-	n := 0
-	ticker := time.NewTicker(time.Duration(1) * time.Minute)
 	for {
 		select {
 		case message := <-m.Chan:
-			n++
+			monitoring.SendMetric(m.Options, m.monTable, m.defaultMonTags, monitoring.QueuedPkts, len(m.Chan))
 			err := m.handleMessage(message)
 			if err != nil {
 				m.logger.Errorf("can't delete message: %s", err)
 			}
-		case <-ticker.C:
-			m.logger.Infoln("DeleteManager", len(m.Chan), n)
-			n = 0
 		}
 	}
 }

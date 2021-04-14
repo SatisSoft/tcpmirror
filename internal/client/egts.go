@@ -23,7 +23,9 @@ type Egts struct {
 	*info
 	*egtsSession
 	*connection
-	confChan chan *db.ConfMsg
+	confChan       chan *db.ConfMsg
+	monTable       string
+	defaultMonTags map[string]string
 }
 
 type egtsSession struct {
@@ -39,12 +41,13 @@ func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) 
 	c.egtsSession = new(egtsSession)
 	c.connection = new(connection)
 	c.id = sys.ID
-	c.name = sys.Name
 	c.address = sys.Address
 	c.logger = logrus.WithFields(logrus.Fields{"type": "egts_client", "vis": sys.ID})
 	c.Options = options
 	c.Input = make(chan []byte, EgtsChanSize)
 	c.confChan = confChan
+	c.monTable = monitoring.VisTable
+	c.defaultMonTags = map[string]string{"systemName": sys.Name}
 	return c
 }
 
@@ -74,6 +77,9 @@ func (c *Egts) OutputChannel() chan []byte {
 }
 
 func (c *Egts) clientLoop() {
+	monTags := c.defaultMonTags
+	monTags["type"] = realTimeTypeMon
+
 	dbConn := db.Connect(c.DB)
 	defer c.closeDBConn(dbConn)
 	err := c.getID(dbConn)
@@ -88,27 +94,27 @@ func (c *Egts) clientLoop() {
 		if c.open {
 			select {
 			case message := <-c.Input:
-				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
+				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
 				if db.CheckOldData(dbConn, message[:util.PacketStart], c.logger) {
 					continue
 				}
 				buf = c.processMessage(dbConn, message, buf)
 				count++
 				if count == 10 {
-					c.logger.Infof("send EGTS packets to EGTS server: %v", count)
-					err := c.send(buf)
+					c.logger.Debugf("send EGTS packets to EGTS server: %v", count)
+					err := c.send(buf, monTags)
 					if err == nil {
-						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+						monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentPkts, count)
 					}
 					buf = []byte(nil)
 					count = 0
 				}
 			case <-sendTicker.C:
 				if (count > 0) && (count < 10) {
-					c.logger.Infof("send EGTS packets to EGTS server: %v", count)
-					err := c.send(buf)
+					c.logger.Debugf("send EGTS packets to EGTS server: %v", count)
+					err := c.send(buf, monTags)
 					if err == nil {
-						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, count)
+						monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentPkts, count)
 					}
 					buf = []byte(nil)
 					count = 0
@@ -157,6 +163,9 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 }
 
 func (c *Egts) old() {
+	monTags := c.defaultMonTags
+	monTags["type"] = oldTimeTypeMon
+
 	maxToSend := (PeriodSendOldEgtsMs / PeriodSendBatchOldEgtsMs) * BatchOldEgts
 	var limit int
 	if maxToSend < 10000 {
@@ -184,12 +193,12 @@ OLDLOOP:
 					buf = c.processMessage(dbConn, msg, buf)
 					i++
 					if i > BatchOldEgts-1 {
-						c.logger.Infof("send old EGTS packets to EGTS server: %v", i)
-						if err = c.send(buf); err != nil {
+						c.logger.Debugf("send old EGTS packets to EGTS server: %v", i)
+						if err = c.send(buf, monTags); err != nil {
 							c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
 							continue OLDLOOP
 						}
-						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
+						monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentPkts, i)
 						i = 0
 						buf = []byte(nil)
 						time.Sleep(time.Duration(PeriodSendBatchOldEgtsMs) * time.Millisecond)
@@ -197,9 +206,9 @@ OLDLOOP:
 				}
 				if len(buf) > 0 {
 					c.logger.Debugf("oldEGTS: send rest packets to EGTS server: %v", i)
-					err := c.send(buf)
+					err := c.send(buf, monTags)
 					if err == nil {
-						monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, i)
+						monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentPkts, i)
 					}
 				}
 				c.logger.Infoln("finish send old EGTS")
@@ -213,7 +222,7 @@ OLDLOOP:
 	}
 }
 
-func (c *Egts) send(buf []byte) (err error) {
+func (c *Egts) send(buf []byte, monTags map[string]string) (err error) {
 	if c.open {
 		util.PrintPacket(c.logger, "sending packet: ", buf)
 		if err = c.conn.SetWriteDeadline(time.Now().Add(writeTimeout)); err != nil {
@@ -223,18 +232,21 @@ func (c *Egts) send(buf []byte) (err error) {
 		if err != nil {
 			c.conStatus()
 		} else {
-			monitoring.SendMetric(c.Options, c.name, monitoring.SentBytes, n)
+			monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentBytes, n)
 		}
 	}
 	return err
 }
 
 func (c *Egts) replyHandler() {
+	monTags := c.defaultMonTags
+	monTags["type"] = replyTypeMon
+
 	dbConn := db.Connect(c.DB)
 	var buf []byte
 	for {
 		if c.open {
-			buf = c.waitReply(dbConn, buf)
+			buf = c.waitReply(dbConn, buf, monTags)
 			c.logger.Tracef("replyRestBuf: %v", buf)
 		} else {
 			buf = []byte(nil)
@@ -244,7 +256,7 @@ func (c *Egts) replyHandler() {
 	}
 }
 
-func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
+func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte, monTags map[string]string) []byte {
 	var b [defaultBufferSize]byte
 	if err := c.conn.SetReadDeadline(time.Now().Add(readTimeout)); err != nil {
 		c.logger.Warningf("can't SetReadDeadLine for egtsConn: %s", err)
@@ -256,7 +268,7 @@ func (c *Egts) waitReply(dbConn db.Conn, restBuf []byte) []byte {
 		time.Sleep(time.Duration(TimeoutErrorReplySec) * time.Second)
 		return []byte(nil)
 	}
-	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
+	monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdBytes, n)
 	util.PrintPacket(c.logger, "received packet: ", b[:n])
 	c.logger.Tracef("packetLen: %d", n)
 	restBuf = append(restBuf, b[:n]...)

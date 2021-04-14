@@ -12,9 +12,9 @@ import (
 const (
 	TerminalName = "terminal"
 
-	visTable = "vis"
-	attTable = "source"
-
+	VisTable             = "vis"
+	AttTable             = "source"
+	ConfTable            = "conf"
 	periodMonSystemConns = 10 * time.Second
 )
 

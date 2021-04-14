@@ -29,7 +29,8 @@ type ndtpServer struct {
 	channels    []chan []byte
 	packetNum   uint32
 	confChan    chan *db.ConfMsg
-	name        string
+	monTable    string
+	monTags     map[string]string
 }
 
 func startNdtpServer(listen string, options *util.Options, channels []chan []byte, systems []util.System, confChan chan *db.ConfMsg) {
@@ -93,7 +94,8 @@ func newNdtpServer(conn net.Conn, pool *db.Pool, options *util.Options, channels
 		masterOut:   master.OutputChannel(),
 		ndtpClients: append(clients, master),
 		channels:    channels,
-		name:        monitoring.TerminalName,
+		monTable:    monitoring.AttTable,
+		monTags:     map[string]string{"systemName": monitoring.TerminalName},
 	}, nil
 }
 
@@ -103,14 +105,14 @@ func (s *ndtpServer) receiveFromMaster() {
 		case <-s.exitChan:
 			return
 		case packet := <-s.masterOut:
-			monitoring.SendMetric(s.Options, s.name, monitoring.QueuedPkts, len(s.masterOut))
+			monitoring.SendMetric(s.Options, s.monTable, s.monTags, monitoring.QueuedPkts, len(s.masterOut))
 			s.logger.Tracef("received packet from master: %v", packet)
 			err := s.send2terminal(packet)
 			if err != nil {
 				close(s.exitChan)
 				return
 			}
-			monitoring.SendMetric(s.Options, s.name, monitoring.SentPkts, 1)
+			monitoring.SendMetric(s.Options, s.monTable, s.monTags, monitoring.SentPkts, 1)
 		}
 	}
 }
@@ -125,7 +127,7 @@ func (s *ndtpServer) serverLoop() {
 			s.logger.Warningf("can't set read dead line: %s", err)
 		}
 		n, err := s.conn.Read(b[:])
-		monitoring.SendMetric(s.Options, s.name, monitoring.RcvdBytes, n)
+		monitoring.SendMetric(s.Options, s.monTable, s.monTags, monitoring.RcvdBytes, n)
 		s.logger.Debugf("received %d from client", n)
 		util.PrintPacket(s.logger, "packet from client: ", b[:n])
 		//todo remove after testing
@@ -139,7 +141,7 @@ func (s *ndtpServer) serverLoop() {
 		s.logger.Debugf("len(buf) = %d", len(buf))
 		var numPacks uint
 		buf, numPacks = s.processBuf(buf)
-		monitoring.SendMetric(s.Options, s.name, monitoring.RcvdPkts, numPacks)
+		monitoring.SendMetric(s.Options, s.monTable, s.monTags, monitoring.RcvdPkts, numPacks)
 	}
 }
 
@@ -196,7 +198,7 @@ func (s *ndtpServer) waitFirstMessage() error {
 		s.logger.Warningf("can't set ReadDeadLine for client connection: %s", err)
 	}
 	n, err := s.conn.Read(b[:])
-	monitoring.SendMetric(s.Options, s.name, monitoring.RcvdBytes, n)
+	monitoring.SendMetric(s.Options, s.monTable, s.monTags, monitoring.RcvdBytes, n)
 	if err != nil {
 		s.logger.Warningf("can't get first message from client: %s", err)
 		return err
@@ -230,7 +232,7 @@ func (s *ndtpServer) handleFirstMessage(mes []byte) (err error) {
 		err = fmt.Errorf("setSessionID error: %s", err)
 		return
 	}
-	monitoring.SendMetric(s.Options, s.name, monitoring.RcvdPkts, 1)
+	monitoring.SendMetric(s.Options, s.monTable, s.monTags, monitoring.RcvdPkts, 1)
 	s.setIDClients()
 	ip := ip(s.conn)
 	packetData.ChangeAddress(ip)
@@ -259,7 +261,7 @@ func (s *ndtpServer) send2terminal(packet []byte) (err error) {
 	}
 	var n int
 	n, err = s.conn.Write(packet)
-	monitoring.SendMetric(s.Options, s.name, monitoring.SentBytes, n)
+	monitoring.SendMetric(s.Options, s.monTable, s.monTags, monitoring.SentBytes, n)
 	return
 }
 

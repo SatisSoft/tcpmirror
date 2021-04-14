@@ -28,9 +28,11 @@ type NdtpMaster struct {
 	*info
 	*ndtpSession
 	*connection
-	confChan  chan *db.ConfMsg
-	OldInput  chan []byte
-	finishOld chan int
+	confChan       chan *db.ConfMsg
+	OldInput       chan []byte
+	finishOld      chan int
+	monTable       string
+	defaultMonTags map[string]string
 }
 
 // NewNdtpMaster creates new NdtpMaster client
@@ -41,7 +43,6 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 	c.ndtpSession = new(ndtpSession)
 	c.connection = new(connection)
 	c.id = sys.ID
-	c.name = sys.Name
 	c.address = sys.Address
 	c.logger = logrus.WithFields(logrus.Fields{"type": "ndtp_master_client", "vis": sys.ID})
 	c.Options = options
@@ -52,15 +53,19 @@ func NewNdtpMaster(sys util.System, options *util.Options, pool *db.Pool, exitCh
 	c.confChan = confChan
 	c.OldInput = make(chan []byte, NdtpMasterOldChanSize)
 	c.finishOld = make(chan int, 1)
+	c.monTable = monitoring.VisTable
+	c.defaultMonTags = map[string]string{"systemName": sys.Name}
 	return c
 }
 
 func (c *NdtpMaster) start() {
 	c.logger = c.logger.WithFields(logrus.Fields{"terminalID": c.terminalID})
+
 	err := c.setNph()
 	if err != nil {
 		c.logger.Errorf("can't setNph: %v", err)
 	}
+
 	c.logger.Traceln("start")
 	conn, err := net.Dial("tcp", c.address)
 	if err != nil {
@@ -74,6 +79,7 @@ func (c *NdtpMaster) start() {
 			c.logger.Errorf("error authorization: %s", err)
 		}
 	}
+
 	if c.serverClosed() {
 		return
 	}
@@ -101,21 +107,27 @@ func (c *NdtpMaster) SetID(terminalID int) {
 func (c *NdtpMaster) authorization() error {
 	time.Sleep(100 * time.Millisecond)
 	c.logger.Traceln("start authorization")
+
 	err := c.sendFirstMessage()
 	if err != nil {
 		return err
 	}
+
 	var b [defaultBufferSize]byte
 	n, err := c.conn.Read(b[:])
 	c.logger.Tracef("received auth reply from server: %v; %v", err, b[:n])
 	if err != nil {
 		return err
 	}
-	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
+	monTags := c.defaultMonTags
+	monTags["type"] = authTypeMon
+	monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdBytes, n)
+
 	_, err = c.processPacket(b[:n])
 	if err != nil {
 		return err
 	}
+
 	if !c.auth {
 		return errors.New("didn't receive auth packet during authorization")
 	}
@@ -124,6 +136,9 @@ func (c *NdtpMaster) authorization() error {
 }
 
 func (c *NdtpMaster) clientLoop() {
+	monTags := c.defaultMonTags
+	monTags["type"] = realTimeTypeMon
+
 	ticker := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 	for {
 		if c.open {
@@ -133,8 +148,8 @@ func (c *NdtpMaster) clientLoop() {
 				return
 			case message := <-c.Input:
 				ticker.Stop()
-				monitoring.SendMetric(c.Options, c.name, monitoring.QueuedPkts, len(c.Input))
-				c.handleMessage(message)
+				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
+				c.handleMessageRealtime(message)
 				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 			case <-ticker.C:
 				ticker.Stop()
@@ -152,10 +167,13 @@ func (c *NdtpMaster) sendFirstMessage() error {
 	if err != nil {
 		return err
 	}
-	return c.send2Server(firstMessage)
+
+	monTags := c.defaultMonTags
+	monTags["type"] = authTypeMon
+	return c.send2Server(firstMessage, monTags)
 }
 
-func (c *NdtpMaster) handleMessage(message []byte) {
+func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 	data := util.Deserialize(message)
 	packet := data.Packet
 	service, err := ndtp.Service(data.Packet)
@@ -163,15 +181,20 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 		c.logger.Errorf("can't get service: %s", err)
 		return
 	}
+
+	monTags := c.defaultMonTags
+
 	if service == ndtp.NphSrvNavdata {
 		if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
 			return
 		}
+
 		nphID, err := c.getNphID()
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
 			return
 		}
+
 		changes := map[string]int{ndtp.NphReqID: int(nphID)}
 		newPacket := ndtp.Change(packet, changes)
 		util.PrintPacket(c.logger, "packet after changing: ", newPacket)
@@ -181,15 +204,19 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 			return
 		}
 		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
-		err = c.send2Server(newPacket)
+
+		monTags["type"] = realTimeTypeMon
+		err = c.send2Server(newPacket, monTags)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
 			c.connStatus()
 		}
+
 		c.sendOldPackets()
 	} else {
 		c.logger.Tracef("send control packet to server: %v", packet)
-		err := c.send2Server(packet)
+		monTags["type"] = controlTypeMon
+		err := c.send2Server(packet, monTags)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
 			c.connStatus()
@@ -198,6 +225,9 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 }
 
 func (c *NdtpMaster) sendOldPackets() {
+	monTags := c.defaultMonTags
+	monTags["type"] = oldTimeTypeMon
+
 	num := 0
 	for len(c.OldInput) > 0 && num < 10 {
 		oldPacket := <-c.OldInput
@@ -207,6 +237,7 @@ func (c *NdtpMaster) sendOldPackets() {
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
 		}
+
 		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
 		newPacket := ndtp.Change(packet, changes)
 		util.PrintPacket(c.logger, "old packet after changing: ", newPacket)
@@ -216,7 +247,8 @@ func (c *NdtpMaster) sendOldPackets() {
 			return
 		}
 		util.PrintPacket(c.logger, "send old packet to server: ", newPacket)
-		err = c.send2Server(newPacket)
+
+		err = c.send2Server(newPacket, monTags)
 		if err != nil {
 			c.logger.Warningf("can't send old to NDTP server: %s", err)
 			c.connStatus()
@@ -252,6 +284,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 	if err != nil {
 		c.logger.Warningf("can't SetReadDeadLine: %s", err)
 	}
+
 	var b [defaultBufferSize]byte
 	n, err := c.conn.Read(b[:])
 	if err != nil {
@@ -260,7 +293,11 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 		time.Sleep(5 * time.Second)
 		return nil
 	}
-	monitoring.SendMetric(c.Options, c.name, monitoring.RcvdBytes, n)
+
+	monTags := c.defaultMonTags
+	monTags["type"] = replyTypeMon
+	monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdBytes, n)
+
 	util.PrintPacket(c.logger, "received packet from server ", b[:n])
 	buf = append(buf, b[:n]...)
 	buf, err = c.processPacket(buf)
@@ -274,7 +311,8 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 }
 
 func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
-	//c.logger.Tracef("start process packet: %d, %d", len(buf), len(rest))
+	monTags := c.defaultMonTags
+
 	for len(buf) > 0 {
 		c.logger.Tracef("process buff: %v", buf)
 		var service, packetType uint16
@@ -285,22 +323,30 @@ func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
 		if err != nil {
 			return buf, err
 		}
-		if service == 1 && packetType == 0 {
+
+		if service == ndtp.NphSrvNavdata && packetType == 0 {
+			monTags["type"] = replyTypeMon
+			monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdPkts, 1)
+
 			err = c.handleResult(packet)
 			if err != nil {
 				c.logger.Warningf("can't handle result: %v; %v", err, packet)
 			}
-		} else if service == 0 && packetType == 0 {
+		} else if service == ndtp.NphSrvGenericControls && packetType == 0 {
 			if c.auth {
-				monitoring.SendMetric(c.Options, c.name, monitoring.RcvdPkts, 1)
+				monTags["type"] = controlTypeMon
+				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdPkts, 1)
 				c.send2Channel(c.Output, packet)
 			} else {
 				c.logger.Tracef("received auth reply")
-				monitoring.SendMetric(c.Options, c.name, monitoring.RcvdPkts, 1)
+				monTags["type"] = authTypeMon
+				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdPkts, 1)
 				c.auth = true
 			}
 			continue
 		} else {
+			monTags["type"] = undefTypeMon
+			monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdPkts, 1)
 			c.send2Channel(c.Output, packet)
 		}
 	}
@@ -313,6 +359,7 @@ func (c *NdtpMaster) handleResult(packet []byte) (err error) {
 	if err != nil {
 		return
 	}
+
 	res := packetData.Nph.Data.(uint32)
 	if res == ndtp.NphResultOk {
 		err = db.ConfirmNdtp(c.pool, c.terminalID, packetData.Nph.ReqID, c.id, c.logger, c.confChan)
@@ -348,6 +395,7 @@ func (c *NdtpMaster) checkOld() {
 		limit = 1000
 	}
 	c.logger.Infof("start checking old: maxToSend = %v; limit = %v", MaxOldToSendNdtp, limit)
+
 	messages, err := db.OldPacketsNdtp(c.pool, c.id, c.terminalID, limit, MaxOldToSendNdtp, c.logger)
 	if err != nil {
 		c.logger.Warningf("can't get old NDTP packets: %s", err)
@@ -367,24 +415,24 @@ func (c *NdtpMaster) checkOld() {
 	}
 }
 
-func (c *NdtpMaster) send2Server(packet []byte) error {
+func (c *NdtpMaster) send2Server(packet []byte, monTags map[string]string) error {
 	util.PrintPacket(c.logger, "send message to server: ", packet)
 	if c.open {
-		return c.send(packet)
+		return c.send(packet, monTags)
 	}
 	c.connStatus()
 	return errors.New("connection to server is closed")
 }
 
-func (c *NdtpMaster) send(packet []byte) error {
+func (c *NdtpMaster) send(packet []byte, monTags map[string]string) error {
 	err := c.conn.SetWriteDeadline(time.Now().Add(writeTimeout))
 	if err != nil {
 		return err
 	}
 	n, err := c.conn.Write(packet)
 	if err == nil {
-		monitoring.SendMetric(c.Options, c.name, monitoring.SentBytes, n)
-		monitoring.SendMetric(c.Options, c.name, monitoring.SentPkts, 1)
+		monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentBytes, n)
+		monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentPkts, 1)
 	}
 	return err
 }

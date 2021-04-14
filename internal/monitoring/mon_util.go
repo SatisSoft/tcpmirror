@@ -9,15 +9,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-func getTable(systemName string) string {
-	switch systemName {
-	case TerminalName:
-		return attTable
-	default:
-		return visTable
-	}
-}
-
 func splitAddrPort(address string) (addr string, port uint16, err error) {
 	addr, portStr, err := net.SplitHostPort(address)
 	if err != nil || portStr == "" || addr == "" {

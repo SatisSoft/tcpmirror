@@ -23,11 +23,36 @@ const (
 	unConfPkts = "unConfPkts"
 )
 
-func SendMetric(options *util.Options, systemName string, metricName string, value interface{}) {
+func SendMetric(options *util.Options,
+	table string,
+	tags map[string]string,
+	metricName string,
+	value interface{}) {
+
 	if !options.MonEnable {
 		return
 	}
-	options.MonСlient.WritePoint(formPoint(systemName, metricName, value))
+	options.MonСlient.WritePoint(formPoint(table, tags, metricName, value))
+}
+
+func formPoint(table string,
+	tags map[string]string,
+	metricName string,
+	value interface{}) *influx.Point {
+
+	defaultTags := influx.Tags{
+		"host":     host,
+		"instance": util.Instance,
+	}
+
+	for key, val := range defaultTags {
+		tags[key] = val
+	}
+
+	values := influx.Values{
+		metricName: value,
+	}
+	return influx.NewPoint(table, tags, values)
 }
 
 func monSystemConns(monClient *influx.Client) {
@@ -36,7 +61,7 @@ func monSystemConns(monClient *influx.Client) {
 		time.Sleep(periodMonSystemConns)
 		n, err := getSourceConns()
 		if err == nil {
-			monClient.WritePoint(formPoint(TerminalName, numConns, n))
+			monClient.WritePoint(formPoint(AttTable, nil, numConns, n))
 		}
 		sysConns := make(map[string]int, len(systems))
 		for _, sys := range systems {
@@ -47,7 +72,7 @@ func monSystemConns(monClient *influx.Client) {
 		}
 		if len(sysConns) > 0 {
 			for name, count := range sysConns {
-				monClient.WritePoint(formPoint(name, numConns, count))
+				monClient.WritePoint(formPoint(VisTable, map[string]string{"systemName": name}, numConns, count))
 			}
 		}
 	}
@@ -98,19 +123,4 @@ func getSystemConns(sys sysInfo) (n int, err error) {
 		}
 	}
 	return
-}
-
-func formPoint(systemName string, metricName string, value interface{}) *influx.Point {
-	table := getTable(systemName)
-	tags := influx.Tags{
-		"host":     host,
-		"instance": util.Instance,
-	}
-	if table == visTable {
-		tags["system"] = systemName
-	}
-	values := influx.Values{
-		metricName: value,
-	}
-	return influx.NewPoint(table, tags, values)
 }

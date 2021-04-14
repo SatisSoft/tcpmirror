@@ -15,6 +15,12 @@ const (
 	readTimeout       = 180 * time.Second
 	recsAtPacketEgts  = 3
 	numPcktsToSend    = 10
+	realTimeTypeMon   = "realtime"
+	oldTimeTypeMon    = "old"
+	replyTypeMon      = "reply"
+	authTypeMon       = "auth"
+	controlTypeMon    = "control"
+	undefTypeMon      = "undefined"
 )
 
 var (
@@ -53,7 +59,6 @@ type info struct {
 	address string
 	logger  *logrus.Entry
 	*util.Options
-	name string
 }
 
 // Start client
