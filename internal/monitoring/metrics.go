@@ -36,16 +36,16 @@ func SendMetric(options *util.Options,
 }
 
 func formPoint(table string,
-	tags map[string]string,
+	addedTags map[string]string,
 	metricName string,
 	value interface{}) *influx.Point {
 
-	defaultTags := influx.Tags{
+	tags := influx.Tags{
 		"host":     host,
 		"instance": util.Instance,
 	}
 
-	for key, val := range defaultTags {
+	for key, val := range addedTags {
 		tags[key] = val
 	}
 
