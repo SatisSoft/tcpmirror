@@ -1,6 +1,7 @@
 package monitoring
 
 import (
+	"log"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -32,6 +33,7 @@ func SendMetric(options *util.Options,
 	if !options.MonEnable {
 		return
 	}
+	log.Println("monitoring", table, tags, metricName, value)
 	options.MonСlient.WritePoint(formPoint(table, tags, metricName, value))
 }
 

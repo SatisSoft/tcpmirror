@@ -1,6 +1,8 @@
 package db
 
 import (
+	"log"
+
 	"github.com/ashirko/tcpmirror/internal/monitoring"
 	"github.com/ashirko/tcpmirror/internal/util"
 	"github.com/gomodule/redigo/redis"
@@ -58,6 +60,7 @@ func (m *DeleteManager) receiveLoop() {
 	for {
 		select {
 		case message := <-m.Chan:
+			log.Println("DeleteManager", len(m.Chan))
 			monitoring.SendMetric(m.Options, m.monTable, m.defaultMonTags, monitoring.QueuedPkts, len(m.Chan))
 			err := m.handleMessage(message)
 			if err != nil {
