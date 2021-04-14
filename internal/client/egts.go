@@ -77,7 +77,7 @@ func (c *Egts) OutputChannel() chan []byte {
 }
 
 func (c *Egts) clientLoop() {
-	monTags := c.defaultMonTags
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = realTimeTypeMon
 
 	dbConn := db.Connect(c.DB)
@@ -163,7 +163,7 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 }
 
 func (c *Egts) old() {
-	monTags := c.defaultMonTags
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = oldTimeTypeMon
 
 	maxToSend := (PeriodSendOldEgtsMs / PeriodSendBatchOldEgtsMs) * BatchOldEgts
@@ -239,7 +239,7 @@ func (c *Egts) send(buf []byte, monTags map[string]string) (err error) {
 }
 
 func (c *Egts) replyHandler() {
-	monTags := c.defaultMonTags
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = replyTypeMon
 
 	dbConn := db.Connect(c.DB)

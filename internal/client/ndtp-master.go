@@ -119,7 +119,7 @@ func (c *NdtpMaster) authorization() error {
 	if err != nil {
 		return err
 	}
-	monTags := c.defaultMonTags
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = authTypeMon
 	monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdBytes, n)
 
@@ -136,7 +136,7 @@ func (c *NdtpMaster) authorization() error {
 }
 
 func (c *NdtpMaster) clientLoop() {
-	monTags := c.defaultMonTags
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = realTimeTypeMon
 
 	ticker := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
@@ -168,7 +168,7 @@ func (c *NdtpMaster) sendFirstMessage() error {
 		return err
 	}
 
-	monTags := c.defaultMonTags
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = authTypeMon
 	return c.send2Server(firstMessage, monTags)
 }
@@ -182,8 +182,8 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 		return
 	}
 
-	monTags := c.defaultMonTags
-
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	
 	if service == ndtp.NphSrvNavdata {
 		if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
 			return
@@ -225,7 +225,7 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 }
 
 func (c *NdtpMaster) sendOldPackets() {
-	monTags := c.defaultMonTags
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = oldTimeTypeMon
 
 	num := 0
@@ -294,7 +294,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 		return nil
 	}
 
-	monTags := c.defaultMonTags
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = replyTypeMon
 	monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdBytes, n)
 
@@ -311,7 +311,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 }
 
 func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
-	monTags := c.defaultMonTags
+	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 
 	for len(buf) > 0 {
 		c.logger.Tracef("process buff: %v", buf)
