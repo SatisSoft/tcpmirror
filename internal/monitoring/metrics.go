@@ -1,7 +1,6 @@
 package monitoring
 
 import (
-	"log"
 	"time"
 
 	"github.com/ashirko/tcpmirror/internal/util"
@@ -33,7 +32,6 @@ func SendMetric(options *util.Options,
 	if !options.MonEnable {
 		return
 	}
-	log.Println("monitoring", table, tags, metricName, value)
 	options.MonСlient.WritePoint(formPoint(table, tags, metricName, value))
 }
 
@@ -63,7 +61,7 @@ func monSystemConns(monClient *influx.Client) {
 		time.Sleep(periodMonSystemConns)
 		n, err := getSourceConns()
 		if err == nil {
-			monClient.WritePoint(formPoint(AttTable, nil, numConns, n))
+			monClient.WritePoint(formPoint(AttTable, map[string]string{"systemName": TerminalName}, numConns, n))
 		}
 		sysConns := make(map[string]int, len(systems))
 		for _, sys := range systems {
