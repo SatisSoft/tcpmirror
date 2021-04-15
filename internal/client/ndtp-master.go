@@ -144,10 +144,13 @@ func (c *NdtpMaster) clientLoop() {
 		select {
 		case message := <-c.Input:
 			if c.open {
+
 				ticker.Stop()
 				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessageRealtime(message)
 				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
+			} else {
+				c.logger.Println("skip msg")
 			}
 		case <-ticker.C:
 			if c.open {
