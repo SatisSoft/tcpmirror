@@ -13,7 +13,7 @@ import (
 )
 
 // NdtpMasterChanSize defines size of NdtpMaster client input chanel buffer
-const NdtpMasterInputChanSize = 10
+const NdtpMasterInputChanSize = 100
 const NdtpMasterOutputChanSize = 200
 const NdtpMasterOldChanSize = 10000
 
