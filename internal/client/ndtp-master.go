@@ -141,25 +141,49 @@ func (c *NdtpMaster) clientLoop() {
 
 	ticker := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 	for {
-		if c.open {
-			select {
-			case <-c.exitChan:
-				c.closeConn()
-				return
-			case message := <-c.Input:
+		select {
+		case message := <-c.Input:
+			if c.open {
 				ticker.Stop()
 				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessageRealtime(message)
 				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
-			case <-ticker.C:
+			}
+		case <-ticker.C:
+			if c.open {
 				ticker.Stop()
 				c.sendOldPackets()
 				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
+			} else {
+				ticker.Stop()
+				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 			}
-		} else {
-			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
+		case <-c.exitChan:
+			ticker.Stop()
+			c.closeConn()
+			return
 		}
 	}
+	// for {
+	// 	if c.open {
+	// 		select {
+	// 		case <-c.exitChan:
+	// 			c.closeConn()
+	// 			return
+	// 		case message := <-c.Input:
+	// 			ticker.Stop()
+	// 			monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
+	// 			c.handleMessageRealtime(message)
+	// 			ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
+	// 		case <-ticker.C:
+	// 			ticker.Stop()
+	// 			c.sendOldPackets()
+	// 			ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
+	// 		}
+	// 	} else {
+	// 		time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
+	// 	}
+	// }
 }
 
 func (c *NdtpMaster) sendFirstMessage() error {
@@ -183,12 +207,8 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 	}
 
 	monTags := util.GetDefaultMonTags(c.defaultMonTags)
-	
-	if service == ndtp.NphSrvNavdata {
-		if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
-			return
-		}
 
+	if service == ndtp.NphSrvNavdata {
 		nphID, err := c.getNphID()
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
