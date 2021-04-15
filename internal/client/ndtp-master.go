@@ -503,6 +503,9 @@ func (c *NdtpMaster) reconnect() {
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
+					for len(c.Input) > 0 {
+						<-c.Input
+					}
 					go c.chanReconStatus()
 					return
 				}

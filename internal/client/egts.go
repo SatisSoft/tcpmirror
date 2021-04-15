@@ -397,6 +397,9 @@ func (c *Egts) reconnect() {
 				c.conn = cE
 				c.open = true
 				c.logger.Println("reconnected")
+				for len(c.Input) > 0 {
+					<-c.Input
+				}
 				go c.updateRecStatus()
 				return
 			}
