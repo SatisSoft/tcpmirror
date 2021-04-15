@@ -94,6 +94,7 @@ func (c *Egts) clientLoop() {
 		select {
 		case message := <-c.Input:
 			if c.open {
+				c.logger.Println("egts clientLoop message open")
 				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
 				buf = c.processMessage(dbConn, message, buf)
 				count++
@@ -107,6 +108,7 @@ func (c *Egts) clientLoop() {
 					count = 0
 				}
 			} else {
+				c.logger.Println("egts clientLoop message close")
 				buf = []byte(nil)
 				count = 0
 			}
