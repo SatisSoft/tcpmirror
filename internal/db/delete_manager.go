@@ -84,6 +84,7 @@ func (m *DeleteManager) handleExisted(msg string, message *ConfMsg, val uint64) 
 	val |= (1 << message.sysID)
 	m.logger.Tracef("handleExisted 1: %v", val)
 	if val == m.all {
+		m.logger.Tracef("val: %v,m.all: %v, val: %v, message.sysID: %v", val, m.all, message.sysID)
 		return m.delete(msg, message)
 	}
 	if err = m.markSysConfirmed(message); err != nil {
