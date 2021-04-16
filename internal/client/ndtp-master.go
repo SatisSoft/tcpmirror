@@ -141,52 +141,25 @@ func (c *NdtpMaster) clientLoop() {
 
 	ticker := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 	for {
-		select {
-		case message := <-c.Input:
-			if c.open {
-				c.logger.Println("ndtp clientLoop message open")
+		if c.open {
+			select {
+			case <-c.exitChan:
+				c.closeConn()
+				return
+			case message := <-c.Input:
 				ticker.Stop()
 				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessageRealtime(message)
 				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
-			} else {
-				c.logger.Println("ndtp clientLoop message close")
-			}
-		case <-ticker.C:
-			if c.open {
+			case <-ticker.C:
 				ticker.Stop()
 				c.sendOldPackets()
 				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
-			} else {
-				ticker.Stop()
-				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 			}
-		case <-c.exitChan:
-			ticker.Stop()
-			c.closeConn()
-			return
+		} else {
+			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 		}
 	}
-	// for {
-	// 	if c.open {
-	// 		select {
-	// 		case <-c.exitChan:
-	// 			c.closeConn()
-	// 			return
-	// 		case message := <-c.Input:
-	// 			ticker.Stop()
-	// 			monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
-	// 			c.handleMessageRealtime(message)
-	// 			ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
-	// 		case <-ticker.C:
-	// 			ticker.Stop()
-	// 			c.sendOldPackets()
-	// 			ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
-	// 		}
-	// 	} else {
-	// 		time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
-	// 	}
-	// }
 }
 
 func (c *NdtpMaster) sendFirstMessage() error {
@@ -212,6 +185,9 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 
 	if service == ndtp.NphSrvNavdata {
+		if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
+			return
+		}
 		nphID, err := c.getNphID()
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
@@ -503,9 +479,6 @@ func (c *NdtpMaster) reconnect() {
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
-					for len(c.Input) > 0 {
-						<-c.Input
-					}
 					go c.chanReconStatus()
 					return
 				}

@@ -38,10 +38,10 @@ redis_max_idle = 220
 redis_max_active = 220
 
 # after this time data becomes old ms
-period_old_data_ms = 1000
+period_old_data_ms = 55000
 
 # time for determining notconf data egts ms
-period_notconf_data_egts_ms = 5000
+period_notconf_data_egts_ms = 60000
 
 # period for check old data egts ms
 period_check_old_egts_ms = 30000
@@ -62,7 +62,7 @@ wait_conf_egts_ms = 30000
 max_old_to_send_ndtp = 1000
 
 # time for determining notconf data ndtp ms
-period_notconf_data_ndtp_ms = 5000
+period_notconf_data_ndtp_ms = 60000
 
 # period for check old data ndtp ms
 period_check_old_ndtp_ms = 30000

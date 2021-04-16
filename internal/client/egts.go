@@ -91,11 +91,13 @@ func (c *Egts) clientLoop() {
 	sendTicker := time.NewTicker(100 * time.Millisecond)
 	defer sendTicker.Stop()
 	for {
-		select {
-		case message := <-c.Input:
-			if c.open {
-				c.logger.Println("egts clientLoop message open")
+		if c.open {
+			select {
+			case message := <-c.Input:
 				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
+				if db.CheckOldData(dbConn, message[:util.PacketStart], c.logger) {
+					continue
+				}
 				buf = c.processMessage(dbConn, message, buf)
 				count++
 				if count == 10 {
@@ -107,13 +109,7 @@ func (c *Egts) clientLoop() {
 					buf = []byte(nil)
 					count = 0
 				}
-			} else {
-				c.logger.Println("egts clientLoop message close")
-				buf = []byte(nil)
-				count = 0
-			}
-		case <-sendTicker.C:
-			if c.open {
+			case <-sendTicker.C:
 				if (count > 0) && (count < 10) {
 					c.logger.Debugf("send EGTS packets to EGTS server: %v", count)
 					err := c.send(buf, monTags)
@@ -123,49 +119,13 @@ func (c *Egts) clientLoop() {
 					buf = []byte(nil)
 					count = 0
 				}
-			} else {
-				buf = []byte(nil)
-				count = 0
 			}
+		} else {
+			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
+			buf = []byte(nil)
+			count = 0
 		}
 	}
-
-	// for {
-	// 	if c.open {
-	// 		select {
-	// 		case message := <-c.Input:
-	// 			monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
-	// 			if db.CheckOldData(dbConn, message[:util.PacketStart], c.logger) {
-	// 				continue
-	// 			}
-	// 			buf = c.processMessage(dbConn, message, buf)
-	// 			count++
-	// 			if count == 10 {
-	// 				c.logger.Debugf("send EGTS packets to EGTS server: %v", count)
-	// 				err := c.send(buf, monTags)
-	// 				if err == nil {
-	// 					monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentPkts, count)
-	// 				}
-	// 				buf = []byte(nil)
-	// 				count = 0
-	// 			}
-	// 		case <-sendTicker.C:
-	// 			if (count > 0) && (count < 10) {
-	// 				c.logger.Debugf("send EGTS packets to EGTS server: %v", count)
-	// 				err := c.send(buf, monTags)
-	// 				if err == nil {
-	// 					monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentPkts, count)
-	// 				}
-	// 				buf = []byte(nil)
-	// 				count = 0
-	// 			}
-	// 		}
-	// 	} else {
-	// 		time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
-	// 		buf = []byte(nil)
-	// 		count = 0
-	// 	}
-	// }
 }
 
 func (c *Egts) processMessage(dbConn db.Conn, message []byte, buf []byte) []byte {
