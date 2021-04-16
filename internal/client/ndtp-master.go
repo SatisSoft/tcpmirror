@@ -147,6 +147,7 @@ func (c *NdtpMaster) clientLoop() {
 				c.closeConn()
 				return
 			case message := <-c.Input:
+				c.logger.Println("len(c.Input)", len(c.Input))
 				ticker.Stop()
 				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessageRealtime(message)
