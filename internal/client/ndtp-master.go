@@ -205,6 +205,7 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
 
 		monTags["type"] = realTimeTypeMon
+		c.logger.Println("send packet realtime")
 		err = c.send2Server(newPacket, monTags)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
