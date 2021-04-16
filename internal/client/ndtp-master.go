@@ -147,7 +147,6 @@ func (c *NdtpMaster) clientLoop() {
 				c.closeConn()
 				return
 			case message := <-c.Input:
-				c.logger.Println("len(c.Input)", len(c.Input))
 				ticker.Stop()
 				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
 				c.handleMessageRealtime(message)
@@ -186,9 +185,9 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 	monTags := util.GetDefaultMonTags(c.defaultMonTags)
 
 	if service == ndtp.NphSrvNavdata {
-		if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
-			return
-		}
+		// if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
+		// 	return
+		// }
 		nphID, err := c.getNphID()
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
