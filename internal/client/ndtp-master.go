@@ -283,7 +283,6 @@ func (c *NdtpMaster) sendOldPackets() {
 			c.finishOld <- PeriodCheckOldNdtpMs
 		}
 	}
-
 }
 
 func (c *NdtpMaster) replyHandler() {
