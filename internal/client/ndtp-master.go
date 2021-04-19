@@ -2,7 +2,6 @@ package client
 
 import (
 	"errors"
-	"log"
 	"net"
 	"time"
 
@@ -228,45 +227,63 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 }
 
 func (c *NdtpMaster) sendOldPackets() {
-	log.Println("sendOldPackets %v", len(c.OldInput))
 	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = oldTimeTypeMon
 
-	num := 0
-	for len(c.OldInput) > 0 && num < 10 {
-		log.Println("start send old ndtp")
+	numOld := len(c.OldInput)
+	numToSend := 0
+	oldPacksToSend := [][]byte{}
+
+	for numOld > 0 && numToSend < 10 {
 		oldPacket := <-c.OldInput
-		data := util.Deserialize(oldPacket)
-		packet := data.Packet
-		nphID, err := c.getNphID()
-		if err != nil {
-			c.logger.Errorf("can't get NPH ID: %v", err)
-		}
-
-		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
-		newPacket := ndtp.Change(packet, changes)
-		util.PrintPacket(c.logger, "old packet after changing: ", newPacket)
-		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, oldPacket[:util.PacketStart], c.logger)
-		if err != nil {
-			c.logger.Errorf("can't write NDTP id: %s", err)
-			return
-		}
-		util.PrintPacket(c.logger, "send old packet to server: ", newPacket)
-
-		err = c.send2Server(newPacket, monTags)
-		if err != nil {
-			c.logger.Warningf("can't send old to NDTP server: %s", err)
-			c.connStatus()
-		}
-		num++
+		oldPacksToSend = append(oldPacksToSend, oldPacket)
+		numToSend++
 	}
 
-	c.logger.Infof("sent %v old packet", num)
+	c.logger.Infof("to send %v old packets", numToSend)
 
-	if len(c.OldInput) == 0 && num > 0 {
-		c.logger.Infof("finish send old")
-		c.finishOld <- WaitConfNdtpMs
+	if numToSend > 0 {
+		numSent := 0
+		if c.open {
+			for _, oldPacket := range oldPacksToSend {
+				data := util.Deserialize(oldPacket)
+				packet := data.Packet
+				nphID, err := c.getNphID()
+				if err != nil {
+					c.logger.Errorf("can't get NPH ID: %v", err)
+				}
+
+				changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
+				newPacket := ndtp.Change(packet, changes)
+				util.PrintPacket(c.logger, "old packet after changing: ", newPacket)
+				err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, oldPacket[:util.PacketStart], c.logger)
+				if err != nil {
+					c.logger.Errorf("can't write NDTP id: %s", err)
+					return
+				}
+				util.PrintPacket(c.logger, "send old packet to server: ", newPacket)
+
+				err = c.send2Server(newPacket, monTags)
+				if err != nil {
+					c.logger.Warningf("can't send old to NDTP server: %s", err)
+					c.connStatus()
+				} else {
+					numSent++
+				}
+			}
+			c.logger.Infof("sent %v old packet", numSent)
+			if len(c.OldInput) == 0 && numSent > 0 {
+				c.logger.Infof("finish send old")
+				c.finishOld <- WaitConfNdtpMs
+			}
+
+		} else {
+			clearChannel(c.OldInput)
+			c.logger.Infoln("clear old channel")
+			c.finishOld <- PeriodCheckOldNdtpMs
+		}
 	}
+
 }
 
 func (c *NdtpMaster) replyHandler() {
