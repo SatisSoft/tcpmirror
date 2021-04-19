@@ -157,8 +157,6 @@ func (c *NdtpMaster) clientLoop() {
 				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 			}
 		} else {
-			clearChannel(c.Input)
-			c.logger.Infoln("input channel was cleared")
 			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 		}
 	}
@@ -211,17 +209,17 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 		err = c.send2Server(newPacket, monTags)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
-			c.connStatus()
+			//c.connStatus()
+		} else {
+			c.sendOldPackets()
 		}
-
-		c.sendOldPackets()
 	} else {
 		c.logger.Tracef("send control packet to server: %v", packet)
 		monTags["type"] = controlTypeMon
 		err := c.send2Server(packet, monTags)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
-			c.connStatus()
+			//c.connStatus()
 		}
 	}
 }
@@ -266,7 +264,7 @@ func (c *NdtpMaster) sendOldPackets() {
 				err = c.send2Server(newPacket, monTags)
 				if err != nil {
 					c.logger.Warningf("can't send old to NDTP server: %s", err)
-					c.connStatus()
+					//c.connStatus()
 				} else {
 					numSent++
 				}
@@ -278,8 +276,6 @@ func (c *NdtpMaster) sendOldPackets() {
 			}
 
 		} else {
-			clearChannel(c.OldInput)
-			c.logger.Infoln("clear old channel")
 			c.finishOld <- PeriodCheckOldNdtpMs
 		}
 	}
@@ -481,7 +477,7 @@ func (c *NdtpMaster) connStatus() {
 	}
 	c.open = false
 	c.auth = false
-	c.reconnect()
+	go c.reconnect()
 }
 
 func (c *NdtpMaster) reconnect() {
@@ -495,6 +491,11 @@ func (c *NdtpMaster) reconnect() {
 			if err != nil {
 				c.logger.Warningf("can't reconnect: %s", err)
 			} else {
+				clearChannel(c.Input)
+				c.logger.Infoln("input channel was cleared")
+				clearChannel(c.OldInput)
+				c.logger.Infoln("input channel was cleared")
+
 				c.logger.Printf("start authorization")
 				c.logger = c.logger.WithFields(logrus.Fields{"srcAddr": conn.LocalAddr().String()})
 				c.conn = conn
