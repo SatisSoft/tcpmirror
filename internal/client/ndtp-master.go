@@ -228,11 +228,10 @@ func (c *NdtpMaster) sendOldPackets() {
 	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = oldTimeTypeMon
 
-	numOld := len(c.OldInput)
 	numToSend := 0
 	oldPacksToSend := [][]byte{}
 
-	for numOld > 0 && numToSend < 10 {
+	for len(c.OldInput) > 0 && numToSend < 10 {
 		oldPacket := <-c.OldInput
 		oldPacksToSend = append(oldPacksToSend, oldPacket)
 		numToSend++
@@ -494,7 +493,7 @@ func (c *NdtpMaster) reconnect() {
 				clearChannel(c.Input)
 				c.logger.Infoln("input channel was cleared")
 				clearChannel(c.OldInput)
-				c.logger.Infoln("input channel was cleared")
+				c.logger.Infoln("old input channel was cleared")
 
 				c.logger.Printf("start authorization")
 				c.logger = c.logger.WithFields(logrus.Fields{"srcAddr": conn.LocalAddr().String()})
