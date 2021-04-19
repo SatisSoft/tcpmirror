@@ -2,6 +2,7 @@ package client
 
 import (
 	"errors"
+	"log"
 	"net"
 	"time"
 
@@ -157,6 +158,8 @@ func (c *NdtpMaster) clientLoop() {
 				ticker = time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
 			}
 		} else {
+			clearChannel(c.Input)
+			c.logger.Infoln("input channel was cleared")
 			time.Sleep(time.Duration(TimeoutCloseSec) * time.Second)
 		}
 	}
@@ -225,11 +228,13 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 }
 
 func (c *NdtpMaster) sendOldPackets() {
+	log.Println("sendOldPackets %v", len(c.OldInput))
 	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = oldTimeTypeMon
 
 	num := 0
 	for len(c.OldInput) > 0 && num < 10 {
+		log.Println("start send old ndtp")
 		oldPacket := <-c.OldInput
 		data := util.Deserialize(oldPacket)
 		packet := data.Packet
@@ -403,7 +408,8 @@ func (c *NdtpMaster) checkOld() {
 	} else {
 		lenMessages := len(messages)
 		c.logger.Infof("receive old: %v, %v", err, lenMessages)
-		if lenMessages > 0 {
+		if lenMessages > 0 && c.open {
+			c.logger.Infof("send old to channel")
 			messages = reverseSlice(messages)
 			for _, mes := range messages {
 				c.OldInput <- mes
@@ -480,10 +486,6 @@ func (c *NdtpMaster) reconnect() {
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
-					clearChannel(c.Input)
-					c.logger.Infoln("input channel was cleared")
-					clearChannel(c.OldInput)
-					c.logger.Infoln("old input channel was cleared")
 					go c.chanReconStatus()
 					return
 				}
