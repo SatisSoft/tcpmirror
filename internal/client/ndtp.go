@@ -122,7 +122,7 @@ func (c *Ndtp) authorization() error {
 	if err != nil {
 		return err
 	}
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = authTypeMon
 	monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdBytes, n)
 	_, err = c.processPacket(b[:n])
@@ -138,7 +138,7 @@ func (c *Ndtp) authorization() error {
 }
 
 func (c *Ndtp) clientLoop() {
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = realTimeTypeMon
 
 	ticker := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
@@ -170,15 +170,15 @@ func (c *Ndtp) sendFirstMessage() error {
 		return err
 	}
 
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = authTypeMon
 	return c.send2Server(firstMessage, monTags)
 }
 
 func (c *Ndtp) handleMessageRealtime(message []byte) {
-	if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
-		return
-	}
+	// if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
+	// 	return
+	// }
 
 	data := util.Deserialize(message)
 	packet := data.Packet
@@ -197,7 +197,7 @@ func (c *Ndtp) handleMessageRealtime(message []byte) {
 		return
 	}
 
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = realTimeTypeMon
 	err = c.send2Server(newPacket, monTags)
 	if err != nil {
@@ -209,7 +209,7 @@ func (c *Ndtp) handleMessageRealtime(message []byte) {
 }
 
 func (c *Ndtp) sendOldPackets() {
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = oldTimeTypeMon
 
 	num := 0
@@ -278,7 +278,7 @@ func (c *Ndtp) waitServerMessage(buf []byte) []byte {
 		return nil
 	}
 
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = replyTypeMon
 	monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdBytes, n)
 
@@ -295,7 +295,7 @@ func (c *Ndtp) waitServerMessage(buf []byte) []byte {
 }
 
 func (c *Ndtp) processPacket(buf []byte) ([]byte, error) {
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	var err error
 
 	for len(buf) > 0 {

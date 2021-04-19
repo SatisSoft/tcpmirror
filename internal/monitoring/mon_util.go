@@ -43,3 +43,11 @@ func getHost() (hostName string) {
 	}
 	return
 }
+
+func GetDefaultMonTags(defTags map[string]string) (monTags map[string]string) {
+	monTags = make(map[string]string)
+	for k, v := range defTags {
+		monTags[k] = v
+	}
+	return
+}

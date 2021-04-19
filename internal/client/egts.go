@@ -77,7 +77,7 @@ func (c *Egts) OutputChannel() chan []byte {
 }
 
 func (c *Egts) clientLoop() {
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = realTimeTypeMon
 
 	dbConn := db.Connect(c.DB)
@@ -163,7 +163,7 @@ func (c *Egts) ids(conn db.Conn) (uint16, uint16, error) {
 }
 
 func (c *Egts) old() {
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = oldTimeTypeMon
 
 	maxToSend := (PeriodSendOldEgtsMs / PeriodSendBatchOldEgtsMs) * BatchOldEgts
@@ -239,7 +239,7 @@ func (c *Egts) send(buf []byte, monTags map[string]string) (err error) {
 }
 
 func (c *Egts) replyHandler() {
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = replyTypeMon
 
 	dbConn := db.Connect(c.DB)
@@ -357,9 +357,8 @@ func (c *Egts) reconnect() {
 				c.conn = cE
 				c.open = true
 				c.logger.Println("reconnected")
-				for len(c.Input) > 0 {
-					<-c.Input
-				}
+				clearChannel(c.Input)
+				c.logger.Infoln("input channel was cleared")
 				go c.updateRecStatus()
 				return
 			}

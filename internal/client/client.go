@@ -65,3 +65,9 @@ type info struct {
 func Start(client Client) {
 	client.start()
 }
+
+func clearChannel(channel chan []byte) {
+	for len(channel) > 0 {
+		<-channel
+	}
+}

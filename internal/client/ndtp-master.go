@@ -119,7 +119,7 @@ func (c *NdtpMaster) authorization() error {
 	if err != nil {
 		return err
 	}
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = authTypeMon
 	monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdBytes, n)
 
@@ -136,7 +136,7 @@ func (c *NdtpMaster) authorization() error {
 }
 
 func (c *NdtpMaster) clientLoop() {
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = realTimeTypeMon
 
 	ticker := time.NewTicker(time.Duration(PeriodSendOnlyOldNdtpMs) * time.Millisecond)
@@ -168,7 +168,7 @@ func (c *NdtpMaster) sendFirstMessage() error {
 		return err
 	}
 
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = authTypeMon
 	return c.send2Server(firstMessage, monTags)
 }
@@ -182,7 +182,7 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 		return
 	}
 
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 
 	if service == ndtp.NphSrvNavdata {
 		// if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
@@ -225,7 +225,7 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 }
 
 func (c *NdtpMaster) sendOldPackets() {
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = oldTimeTypeMon
 
 	num := 0
@@ -294,7 +294,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 		return nil
 	}
 
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = replyTypeMon
 	monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.RcvdBytes, n)
 
@@ -311,7 +311,7 @@ func (c *NdtpMaster) waitServerMessage(buf []byte) []byte {
 }
 
 func (c *NdtpMaster) processPacket(buf []byte) ([]byte, error) {
-	monTags := util.GetDefaultMonTags(c.defaultMonTags)
+	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 
 	for len(buf) > 0 {
 		c.logger.Tracef("process buff: %v", buf)
@@ -480,9 +480,10 @@ func (c *NdtpMaster) reconnect() {
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
-					for len(c.Input) > 0 {
-						<-c.Input
-					}
+					clearChannel(c.Input)
+					c.logger.Infoln("input channel was cleared")
+					clearChannel(c.OldInput)
+					c.logger.Infoln("old input channel was cleared")
 					go c.chanReconStatus()
 					return
 				}
