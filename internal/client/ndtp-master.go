@@ -185,9 +185,6 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 
 	if service == ndtp.NphSrvNavdata {
-		// if db.IsOldData(c.pool, message[:util.PacketStart], c.logger) {
-		// 	return
-		// }
 		nphID, err := c.getNphID()
 		if err != nil {
 			c.logger.Errorf("can't get NPH ID: %v", err)
@@ -205,7 +202,6 @@ func (c *NdtpMaster) handleMessageRealtime(message []byte) {
 		util.PrintPacket(c.logger, "send packet to server: ", newPacket)
 
 		monTags["type"] = realTimeTypeMon
-		c.logger.Println("send packet realtime")
 		err = c.send2Server(newPacket, monTags)
 		if err != nil {
 			c.logger.Warningf("can't send to NDTP server: %s", err)
@@ -237,7 +233,7 @@ func (c *NdtpMaster) sendOldPackets() {
 		numToSend++
 	}
 
-	c.logger.Infof("to send %v old packets", numToSend)
+	//c.logger.Infof("to send %v old packets", numToSend)
 
 	if numToSend > 0 {
 		numSent := 0

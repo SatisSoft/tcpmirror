@@ -58,7 +58,7 @@ func NewNdtp(sys util.System, options *util.Options, pool *db.Pool, exitChan cha
 	c.OldInput = make(chan []byte, NdtpOldChanSize)
 	c.finishOld = make(chan int, 1)
 	c.monTable = monitoring.VisTable
-	c.defaultMonTags = map[string]string{"systemName": sys.Name}
+	c.defaultMonTags = map[string]string{"systemName": sys.Name, "protocol": "ndtp"}
 	return c
 }
 

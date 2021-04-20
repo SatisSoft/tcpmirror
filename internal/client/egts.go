@@ -47,7 +47,7 @@ func NewEgts(sys util.System, options *util.Options, confChan chan *db.ConfMsg) 
 	c.Input = make(chan []byte, EgtsChanSize)
 	c.confChan = confChan
 	c.monTable = monitoring.VisTable
-	c.defaultMonTags = map[string]string{"systemName": sys.Name}
+	c.defaultMonTags = map[string]string{"systemName": sys.Name, "protocol": "egts"}
 	return c
 }
 
