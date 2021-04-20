@@ -69,7 +69,6 @@ func wantConfig() *Args {
 		TimeoutReconnectSec:  10,
 		RedisMaxIdle:         220,
 		RedisMaxActive:       220,
-		PeriodOldDataMs:      1000,
 
 		PeriodNotConfDataEgtsMs:  2000,
 		PeriodCheckOldEgtsMs:     30000,

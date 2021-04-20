@@ -26,7 +26,6 @@ const (
 	timeoutReconnectSec  = "timeout_reconnect_sec"
 	redisMaxIdle         = "redis_max_idle"
 	redisMaxActive       = "redis_max_active"
-	periodOldDataMs      = "period_old_data_ms"
 
 	periodNotConfDataEgtsMs  = "period_notconf_data_egts_ms"
 	periodCheckOldEgtsMs     = "period_check_old_egts_ms"
@@ -68,7 +67,6 @@ type Args struct {
 	TimeoutReconnectSec  int
 	RedisMaxIdle         int
 	RedisMaxActive       int
-	PeriodOldDataMs      int64
 
 	PeriodNotConfDataEgtsMs  int64
 	PeriodCheckOldEgtsMs     int
@@ -150,10 +148,6 @@ func parseConfig(conf string) (args *Args, err error) {
 	args.RedisMaxActive = viper.GetInt(redisMaxActive)
 	if args.RedisMaxActive == 0 {
 		args.RedisMaxActive = 220
-	}
-	args.PeriodOldDataMs = viper.GetInt64(periodOldDataMs)
-	if args.PeriodOldDataMs == 0 {
-		args.PeriodOldDataMs = 1000 //55000
 	}
 
 	// egts args

@@ -90,7 +90,6 @@ func initDBParams(args *util.Args) {
 	db.KeyEx = args.KeyEx
 	db.RedisMaxIdle = args.RedisMaxIdle
 	db.RedisMaxActive = args.RedisMaxActive
-	db.PeriodOldDataMs = args.PeriodOldDataMs
 	db.PeriodNotConfDataEgtsMs = args.PeriodNotConfDataEgtsMs
 	db.PeriodNotConfDataNdtpMs = args.PeriodNotConfDataNdtpMs
 }
