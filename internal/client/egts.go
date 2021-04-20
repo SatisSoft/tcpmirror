@@ -95,9 +95,6 @@ func (c *Egts) clientLoop() {
 			select {
 			case message := <-c.Input:
 				monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.QueuedPkts, len(c.Input))
-				// if db.CheckOldData(dbConn, message[:util.PacketStart], c.logger) {
-				// 	continue
-				// }
 				buf = c.processMessage(dbConn, message, buf)
 				count++
 				if count == 10 {

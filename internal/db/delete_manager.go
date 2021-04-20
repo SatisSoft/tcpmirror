@@ -58,6 +58,7 @@ func (m *DeleteManager) receiveLoop() {
 	for {
 		select {
 		case message := <-m.Chan:
+			monitoring.SendMetric(m.Options, m.monTable, m.defaultMonTags, monitoring.RcvdConf, 1)
 			monitoring.SendMetric(m.Options, m.monTable, m.defaultMonTags, monitoring.QueuedPkts, len(m.Chan))
 			err := m.handleMessage(message)
 			if err != nil {

@@ -18,6 +18,7 @@ const (
 	RcvdRecs   = "rcvdRecs"
 	QueuedPkts = "queuedPkts"
 	QueuedRecs = "queuedRecs"
+	RcvdConf   = "rcvdConf"
 
 	numConns   = "numConns"
 	unConfPkts = "unConfPkts"
