@@ -108,6 +108,7 @@ func findPacket(conn redis.Conn, key []byte) (pack []byte, err error) {
 	}
 	terminalID := util.TerminalID(key)
 	time := binary.LittleEndian.Uint64(val[systemBytes:])
+	logrus.Tracef("ZRANGEBYSCORE %v %v", terminalID, time)
 	packets, err := redis.ByteSlices(conn.Do("ZRANGEBYSCORE", terminalID, time, time))
 	if err != nil {
 		return nil, err
