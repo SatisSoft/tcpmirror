@@ -61,6 +61,35 @@ func NewSessionID(pool *Pool, terminalID int, logger *logrus.Entry) (int, error)
 	return id, err
 }
 
+// // IsOldData checks if message is old and should not be sending again
+// func IsOldData(pool *Pool, meta []byte, logger *logrus.Entry) bool {
+// 	c := pool.Get()
+// 	defer util.CloseAndLog(c, logger, time.Now().UnixNano(), "IsOldData")
+// 	return CheckOldData(c, meta, logger)
+// }
+
+// // CheckOldData checks if message is old and should not be sending again
+// func CheckOldData(conn redis.Conn, meta []byte, logger *logrus.Entry) bool {
+// 	val, err := redis.Bytes(conn.Do("GET", meta))
+// 	logger.Tracef("isOldData err: %v; key: %v; val: %v", err, meta, val)
+// 	if err == redis.ErrNil {
+// 		logger.Tracef("isOldData detected empty result: %v;", val)
+// 		return true
+// 	}
+// 	if len(val) < systemBytes {
+// 		_ = fmt.Errorf("got short result: %v", val)
+// 		return true
+// 	}
+// 	time := binary.LittleEndian.Uint64(val[systemBytes:])
+// 	min := uint64(util.Milliseconds() - PeriodOldDataMs)
+// 	logger.Tracef("isOldData key: %v; time: %d; now: %d", meta, time, min)
+// 	if time < min {
+// 		logger.Tracef("isOldData detected old time: %d, val: %v", time, val)
+// 		return true
+// 	}
+// 	return false
+// }
+
 func writeZeroConfirmation(c redis.Conn, time uint64, key []byte) error {
 	val := make([]byte, 12)
 	binary.LittleEndian.PutUint64(val[4:], time)
