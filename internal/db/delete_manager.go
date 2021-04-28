@@ -8,7 +8,7 @@ import (
 )
 
 // DeleteChanSize is a size of delete channel
-const DeleteChanSize = 6100000
+const DeleteChanSize = 100000
 
 // DeleteManager describes goroutine which manages deleting records from DB
 type DeleteManager struct {
