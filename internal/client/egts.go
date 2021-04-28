@@ -192,7 +192,7 @@ OLDLOOP:
 					if i > BatchOldEgts-1 {
 						c.logger.Debugf("send old EGTS packets to EGTS server: %v", i)
 						if err = c.send(buf, monTags); err != nil {
-							c.logger.Infof("can't send packet to EGTS server: %v; %v", err, buf)
+							c.logger.Warningf("can't send packet to EGTS server: %v; %v", err, buf)
 							continue OLDLOOP
 						}
 						monitoring.SendMetric(c.Options, c.monTable, monTags, monitoring.SentPkts, i)
@@ -355,7 +355,7 @@ func (c *Egts) reconnect() {
 				c.open = true
 				c.logger.Println("reconnected")
 				clearChannel(c.Input)
-				c.logger.Infoln("input channel was cleared")
+				c.logger.Println("input channel was cleared")
 				go c.updateRecStatus()
 				return
 			}

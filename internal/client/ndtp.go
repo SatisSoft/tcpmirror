@@ -202,49 +202,63 @@ func (c *Ndtp) handleMessageRealtime(message []byte) {
 	err = c.send2Server(newPacket, monTags)
 	if err != nil {
 		c.logger.Warningf("can't send to NDTP server: %v", err)
-		c.connStatus()
+		//c.connStatus()
+	} else {
+		c.sendOldPackets()
 	}
-
-	c.sendOldPackets()
 }
 
 func (c *Ndtp) sendOldPackets() {
 	monTags := monitoring.GetDefaultMonTags(c.defaultMonTags)
 	monTags["type"] = oldTimeTypeMon
 
-	num := 0
-	for len(c.OldInput) > 0 && num < 10 {
+	numToSend := 0
+	oldPacksToSend := [][]byte{}
+
+	for len(c.OldInput) > 0 && numToSend < 10 {
 		oldPacket := <-c.OldInput
-		data := util.Deserialize(oldPacket)
-		packet := data.Packet
-		nphID, err := c.getNphID()
-		if err != nil {
-			c.logger.Errorf("can't get NPH ID: %v", err)
-		}
-
-		changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
-		newPacket := ndtp.Change(packet, changes)
-		util.PrintPacket(c.logger, "old packet after changing: ", newPacket)
-		err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, oldPacket[:util.PacketStart], c.logger)
-		if err != nil {
-			c.logger.Errorf("can't write NDTP id: %s", err)
-			return
-		}
-		util.PrintPacket(c.logger, "send old packet to server: ", newPacket)
-
-		err = c.send2Server(newPacket, monTags)
-		if err != nil {
-			c.logger.Warningf("can't send old to NDTP server: %s", err)
-			c.connStatus()
-		}
-		num++
+		oldPacksToSend = append(oldPacksToSend, oldPacket)
+		numToSend++
 	}
 
-	c.logger.Infof("sent %v old packet", num)
+	if numToSend > 0 {
+		numSent := 0
+		if c.open {
+			for _, oldPacket := range oldPacksToSend {
+				data := util.Deserialize(oldPacket)
+				packet := data.Packet
+				nphID, err := c.getNphID()
+				if err != nil {
+					c.logger.Errorf("can't get NPH ID: %v", err)
+				}
 
-	if len(c.OldInput) == 0 && num > 0 {
-		c.logger.Infof("finish send old")
-		c.finishOld <- WaitConfNdtpMs
+				changes := map[string]int{ndtp.NphReqID: int(nphID), ndtp.PacketType: 100}
+				newPacket := ndtp.Change(packet, changes)
+				util.PrintPacket(c.logger, "old packet after changing: ", newPacket)
+				err = db.WriteNDTPid(c.pool, c.id, c.terminalID, nphID, oldPacket[:util.PacketStart], c.logger)
+				if err != nil {
+					c.logger.Errorf("can't write NDTP id: %s", err)
+					return
+				}
+				util.PrintPacket(c.logger, "send old packet to server: ", newPacket)
+
+				err = c.send2Server(newPacket, monTags)
+				if err != nil {
+					c.logger.Warningf("can't send old to NDTP server: %s", err)
+					//c.connStatus()
+				} else {
+					numSent++
+				}
+			}
+			c.logger.Infof("sent %v old packet", numSent)
+			if len(c.OldInput) == 0 && numSent > 0 {
+				c.logger.Infof("finish send old")
+				c.finishOld <- WaitConfNdtpMs
+			}
+
+		} else {
+			c.finishOld <- PeriodCheckOldNdtpMs
+		}
 	}
 }
 
@@ -454,6 +468,11 @@ func (c *Ndtp) reconnect() {
 			if err != nil {
 				c.logger.Warningf("can't reconnect: %s", err)
 			} else {
+				clearChannel(c.Input)
+				c.logger.Infoln("input channel was cleared")
+				clearChannel(c.OldInput)
+				c.logger.Infoln("old input channel was cleared")
+
 				c.logger.Printf("start authorization")
 				c.logger = c.logger.WithFields(logrus.Fields{"srcAddr": conn.LocalAddr().String()})
 				c.conn = conn
@@ -461,9 +480,6 @@ func (c *Ndtp) reconnect() {
 				err = c.authorization()
 				if err == nil {
 					c.logger.Printf("reconnected")
-					for len(c.Input) > 0 {
-						<-c.Input
-					}
 					go c.chanReconStatus()
 					return
 				}
