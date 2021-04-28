@@ -87,7 +87,7 @@ func ConfirmNdtp(pool *Pool, terminalID int, nphID uint32, sysID byte, logger *l
 	defer util.CloseAndLog(conn, logger, time.Now().UnixNano(), "ConfirmNdtp")
 	key := "ndtp:" + strconv.Itoa(int(sysID)) + ":" + strconv.Itoa(terminalID) + ":" + strconv.Itoa(int(nphID))
 	res, err := redis.Bytes(conn.Do("GET", key))
-	//logger.Printf("key: %v; res: %v; err: %v", key, res, err)
+	logger.Printf("key: %v; res: %v; err: %v", key, res, err)
 	if err != nil {
 		return err
 	}
