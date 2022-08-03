@@ -385,14 +385,15 @@ func (c *NdtpMaster) reconnect() {
 			} else {
 				c.logger.Printf("start authorization")
 				c.conn = conn
-				c.open = true
 				err = c.authorization()
 				if err == nil {
+					c.open = true
 					c.logger.Printf("reconnected")
 					go c.chanReconStatus()
 					return
 				}
 				c.logger.Warningf("failed sending first message again to NDTP server: %s", err)
+				conn.Close()
 			}
 		}
 		time.Sleep(1 * time.Minute)
