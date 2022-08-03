@@ -176,7 +176,7 @@ func (c *Ndtp) replyHandler() {
 		if c.serverClosed() {
 			return
 		}
-		if c.open {
+		if c.auth {
 			buf = c.waitServerMessage(buf)
 		} else {
 			time.Sleep(1 * time.Second)
@@ -258,7 +258,7 @@ func (c *Ndtp) old() {
 	c.checkOld()
 	defer ticker.Stop()
 	for {
-		if c.open {
+		if c.auth {
 			select {
 			case <-c.exitChan:
 				return
@@ -381,9 +381,9 @@ func (c *Ndtp) reconnect() {
 			} else {
 				c.logger.Printf("start authorization")
 				c.conn = conn
+				c.open = true
 				err = c.authorization()
 				if err == nil {
-					c.open = true
 					c.logger.Printf("reconnected")
 					go c.chanReconStatus()
 					return
