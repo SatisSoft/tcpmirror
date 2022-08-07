@@ -162,10 +162,12 @@ func (c *NdtpMaster) handleMessage(message []byte) {
 			c.logger.Errorf("can't write NDTP id: %s", err)
 			return
 		}
-		err = c.send2Server(newPacket)
-		if err != nil {
-			c.logger.Warningf("can't send to NDTP server: %s", err)
-			c.connStatus()
+		if c.auth {
+			err = c.send2Server(newPacket)
+			if err != nil {
+				c.logger.Warningf("can't send to NDTP server: %s", err)
+				c.connStatus()
+			}
 		}
 	} else {
 		c.logger.Tracef("send control packet to server: %v", packet)
@@ -278,7 +280,9 @@ func (c *NdtpMaster) old() {
 			case <-c.exitChan:
 				return
 			case <-ticker.C:
-				c.checkOld()
+				if c.auth {
+					c.checkOld()
+				}
 			}
 		} else {
 			time.Sleep(time.Duration(TimeoutClose) * time.Second)
