@@ -11,5 +11,5 @@ require (
 	github.com/gomodule/redigo v2.0.0+incompatible
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/viper v1.4.0
-	golang.org/x/sys v0.0.0-20200323222414-85ca7c5b95cd // indirect
+	golang.org/x/sys v0.1.0 // indirect
 )
